@@ -1145,7 +1145,7 @@ input {
 .admin-bracket-match footer button { font-size: 10px; }
 
 .tournament-module-nav,
-.competition-tabs { display: flex; overflow-x: auto; border-bottom: 1px solid var(--color-line); white-space: nowrap; }
+.competition-tabs { display: flex; flex-wrap: wrap; overflow: visible; border-bottom: 1px solid var(--color-line); white-space: normal; }
 .tournament-module-nav { gap: 32px; margin: 0 0 18px; }
 .tournament-module-nav a { position: relative; padding: 14px 2px 13px; color: var(--color-ink); font-size: 18px; font-weight: 700; }
 .competition-tabs { gap: 28px; margin: 0 0 24px; }

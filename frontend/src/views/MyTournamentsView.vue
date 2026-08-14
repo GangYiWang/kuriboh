@@ -36,7 +36,7 @@ onMounted(loadCurrent)
 
 <template>
   <div class="page-shell content-list-page my-tournaments-page">
-    <header class="page-heading split-heading tournament-area-heading"><div><p class="section-kicker">TOURNAMENT CENTER</p><h1>比赛中心</h1><p>查看参加过的赛事，或继续管理自己发布的比赛。</p></div><RouterLink class="button primary" to="/tournaments/new">发布比赛</RouterLink></header>
+    <header class="page-heading split-heading tournament-area-heading"><div><p class="section-kicker">TOURNAMENT CENTER</p><h1>赛事中心</h1><p>查看参加过的赛事，或继续管理自己发布的比赛。</p></div><RouterLink class="button primary" to="/tournaments/new">发布比赛</RouterLink></header>
     <TournamentAreaNav show-competition-tabs />
     <FormMessage v-if="error" :message="error" />
 
