@@ -7,6 +7,8 @@ export type PlayoffRoundStatus = 'DRAFT' | 'PUBLISHED' | 'COMPLETED'
 
 export interface Tournament {
   id: string
+  code: string | null
+  created_by_id: string
   name: string
   description: string
   planned_start_at: string | null

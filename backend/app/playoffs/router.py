@@ -4,8 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import CurrentPrincipal, require_roles
-from app.auth.roles import Role
+from app.auth.dependencies import CurrentPrincipal, get_current_principal
 from app.db.session import get_db
 from app.playoffs.schemas import (
     ForfeitRequest,
@@ -16,11 +15,11 @@ from app.playoffs.schemas import (
     PlayoffSubmitResultRequest,
 )
 from app.playoffs.service import PlayoffService
+from app.tournaments.ownership import require_match_owner, require_tournament_owner
 
 router = APIRouter(tags=["playoffs"])
 admin_router = APIRouter(prefix="/admin", tags=["admin-playoffs"])
-Player = Annotated[CurrentPrincipal, Depends(require_roles(Role.PLAYER))]
-Admin = Annotated[CurrentPrincipal, Depends(require_roles(Role.TOURNAMENT_ADMIN))]
+Authenticated = Annotated[CurrentPrincipal, Depends(get_current_principal)]
 
 
 @router.get("/tournaments/{tournament_id}/playoffs", response_model=PlayoffOverviewResponse)
@@ -34,7 +33,7 @@ def playoff_overview(
 @router.get("/tournaments/{tournament_id}/playoffs/matches/me", response_model=list[MyPlayoffMatchResponse])
 def my_playoff_matches(
     tournament_id: UUID,
-    principal: Player,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> list[MyPlayoffMatchResponse]:
     return PlayoffService(db).my_matches(tournament_id, principal.user_id)
@@ -44,7 +43,7 @@ def my_playoff_matches(
 def submit_playoff_result(
     match_id: UUID,
     request: PlayoffSubmitResultRequest,
-    principal: Player,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> MyPlayoffMatchResponse:
     return PlayoffService(db).submit_result(match_id, principal.user_id, request.result)
@@ -53,18 +52,20 @@ def submit_playoff_result(
 @admin_router.get("/tournaments/{tournament_id}/playoffs", response_model=PlayoffOverviewResponse)
 def admin_playoff_overview(
     tournament_id: UUID,
-    _: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> PlayoffOverviewResponse:
+    require_tournament_owner(db, tournament_id, principal.user_id)
     return PlayoffService(db).overview(tournament_id, admin=True)
 
 
 @admin_router.post("/tournaments/{tournament_id}/playoffs/generate", response_model=PlayoffRoundResponse)
 def generate_playoff_stage(
     tournament_id: UUID,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> PlayoffRoundResponse:
+    require_tournament_owner(db, tournament_id, principal.user_id)
     return PlayoffService(db).generate_preview(tournament_id, principal.user_id)
 
 
@@ -75,9 +76,10 @@ def generate_playoff_stage(
 def publish_playoff_stage(
     tournament_id: UUID,
     round_id: UUID,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> PlayoffRoundResponse:
+    require_tournament_owner(db, tournament_id, principal.user_id)
     return PlayoffService(db).publish_round(tournament_id, round_id, principal.user_id)
 
 
@@ -85,7 +87,8 @@ def publish_playoff_stage(
 def forfeit_playoff_match(
     match_id: UUID,
     request: ForfeitRequest,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> PlayoffMatchResponse:
+    require_match_owner(db, match_id, principal.user_id)
     return PlayoffService(db).forfeit(match_id, request.loser_id, request.reason, principal.user_id)

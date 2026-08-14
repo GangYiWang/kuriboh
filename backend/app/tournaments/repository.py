@@ -21,6 +21,16 @@ class TournamentRepository:
             statement = statement.with_for_update()
         return self.db.scalar(statement)
 
+    def get_by_code(self, code: str) -> Tournament | None:
+        return self.db.scalar(
+            select(Tournament)
+            .where(
+                Tournament.code == code.strip().upper(),
+                Tournament.status != TournamentStatus.DRAFT.value,
+            )
+            .options(selectinload(Tournament.banlist_version))
+        )
+
     def list_public(
         self,
         *,
@@ -52,6 +62,21 @@ class TournamentRepository:
         )
         items = list(self.db.scalars(statement.offset(offset).limit(limit)))
         total = self.db.scalar(select(func.count()).select_from(Tournament)) or 0
+        return items, total
+
+    def list_created_by(self, user_id: UUID, *, offset: int, limit: int) -> tuple[list[Tournament], int]:
+        filters = [
+            Tournament.created_by_id == user_id,
+            Tournament.status != TournamentStatus.DRAFT.value,
+        ]
+        statement = (
+            select(Tournament)
+            .where(*filters)
+            .options(selectinload(Tournament.banlist_version))
+            .order_by(Tournament.created_at.desc())
+        )
+        items = list(self.db.scalars(statement.offset(offset).limit(limit)))
+        total = self.db.scalar(select(func.count()).select_from(Tournament).where(*filters)) or 0
         return items, total
 
     def registration_counts(self, tournament_id: UUID) -> tuple[int, int]:

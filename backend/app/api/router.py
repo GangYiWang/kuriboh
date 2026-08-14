@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.routes import admin_health, health
 from app.auth.router import router as auth_router
 from app.audit.router import router as audit_router
+from app.audit.router import organizer_router as organizer_audit_router
 from app.content.router import admin_router as admin_content_router
 from app.content.router import router as content_router
 from app.deck_submissions.router import admin_router as admin_deck_router
@@ -22,6 +23,7 @@ api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(admin_health.router, prefix="/admin", tags=["admin"])
 api_router.include_router(audit_router)
+api_router.include_router(organizer_audit_router)
 api_router.include_router(auth_router)
 api_router.include_router(content_router)
 api_router.include_router(admin_content_router)

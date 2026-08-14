@@ -42,6 +42,7 @@ class Tournament(TimestampMixin, Base):
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    code: Mapped[str | None] = mapped_column(String(6), unique=True, index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     planned_start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

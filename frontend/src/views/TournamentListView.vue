@@ -1,14 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { apiGet } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
 import type { Tournament, TournamentListResponse } from '@/types/tournament'
 import { tournamentStatusText } from '@/types/tournament'
 
 const tournaments = ref<Tournament[]>([])
+const authStore = useAuthStore()
+const router = useRouter()
 const loading = ref(true)
 const error = ref('')
 const search = ref('')
+const code = ref('')
+const codeSearchOpen = ref(false)
+const codeBusy = ref(false)
+const codeError = ref('')
 
 const filtered = computed(() => {
   const term = search.value.trim().toLowerCase()
@@ -17,6 +25,30 @@ const filtered = computed(() => {
 
 function formatDate(value: string | null) {
   return value ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '待定'
+}
+
+async function findByCode() {
+  const normalized = code.value.trim().toUpperCase()
+  if (!/^[A-Z0-9]{6}$/.test(normalized)) {
+    codeError.value = '请输入 6 位大写字母或数字组成的比赛码'
+    return
+  }
+  codeBusy.value = true
+  codeError.value = ''
+  try {
+    const item = await apiGet<Tournament>(`/tournaments/code/${normalized}`)
+    await router.push(`/tournaments/${item.id}`)
+  } catch (caught) {
+    codeError.value = caught instanceof Error ? caught.message : '未找到该比赛'
+  } finally {
+    codeBusy.value = false
+  }
+}
+
+async function publish() {
+  await router.push(authStore.isAuthenticated
+    ? '/tournaments/new'
+    : { path: '/login', query: { redirect: '/tournaments/new' } })
 }
 
 onMounted(async () => {
@@ -38,9 +70,11 @@ onMounted(async () => {
         <h1>赛事中心</h1>
         <p>统一查看报名中、进行中与往期的栗子杯赛事。</p>
       </div>
-      <label class="list-search"><span class="visually-hidden">搜索赛事</span><input v-model="search" type="search" placeholder="搜索赛事名称" /></label>
+      <div class="tournament-center-actions"><button class="button secondary" type="button" :aria-expanded="codeSearchOpen" @click="codeSearchOpen = !codeSearchOpen">按比赛码查找</button><button class="button primary" type="button" @click="publish">发布比赛</button></div>
     </header>
-    <nav class="center-tabs" aria-label="赛事中心内容"><RouterLink to="/tournaments">赛事</RouterLink><RouterLink to="/reports">周报</RouterLink></nav>
+    <nav class="center-tabs" aria-label="赛事中心内容"><RouterLink to="/tournaments">全部赛事</RouterLink><RouterLink to="/my-tournaments">我参加的</RouterLink><RouterLink :to="{ path: '/my-tournaments', query: { tab: 'created' } }">我发布的</RouterLink><RouterLink to="/reports">周报</RouterLink></nav>
+    <form v-if="codeSearchOpen" class="tournament-code-search" @submit.prevent="findByCode"><label><span>比赛码</span><input v-model="code" maxlength="6" autocomplete="off" placeholder="例如 FU6Q8W" @input="code = code.toUpperCase()" /></label><button class="button primary" type="submit" :disabled="codeBusy">{{ codeBusy ? '查找中…' : '查找比赛' }}</button><p v-if="codeError" class="form-message">{{ codeError }}</p></form>
+    <label class="list-search tournament-list-search"><span class="visually-hidden">搜索赛事</span><input v-model="search" type="search" placeholder="搜索赛事名称" /></label>
     <p v-if="loading" class="empty-state">正在加载赛事…</p>
     <p v-else-if="error" class="form-message">{{ error }}</p>
     <div v-else-if="filtered.length" class="tournament-list">

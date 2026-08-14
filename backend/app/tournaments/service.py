@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+import secrets
 from uuid import UUID
 
 from sqlalchemy import or_, select, update
@@ -29,6 +30,7 @@ from app.swiss.models import RankingSnapshot, SwissRound, SwissRoundStatus
 
 
 CORE_FIELDS = {"max_players", "swiss_rounds", "playoff_size", "banlist_version_id"}
+TOURNAMENT_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
 def tournament_response(
@@ -38,6 +40,8 @@ def tournament_response(
 ) -> TournamentResponse:
     return TournamentResponse(
         id=tournament.id,
+        code=tournament.code,
+        created_by_id=tournament.created_by_id,
         name=tournament.name,
         description=tournament.description,
         planned_start_at=tournament.planned_start_at,
@@ -68,6 +72,33 @@ class TournamentService:
         if tournament is None:
             raise AppError("TOURNAMENT_NOT_FOUND", "赛事不存在", status_code=404)
         return tournament
+
+    def require_owner(
+        self,
+        tournament_id: UUID,
+        user_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> Tournament:
+        tournament = self.require(tournament_id, for_update=for_update)
+        if tournament.created_by_id != user_id:
+            raise AppError("TOURNAMENT_OWNER_REQUIRED", "只有赛事创建者可以管理该赛事", status_code=403)
+        return tournament
+
+    def get_by_code(self, code: str) -> Tournament:
+        tournament = self.repository.get_by_code(code)
+        if tournament is None:
+            raise AppError("TOURNAMENT_NOT_FOUND", "未找到该比赛码对应的赛事", status_code=404)
+        return tournament
+
+    def created_tournaments(
+        self,
+        user_id: UUID,
+        *,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[Tournament], int]:
+        return self.repository.list_created_by(user_id, offset=offset, limit=limit)
 
     def my_tournaments(self, user_id: UUID) -> MyTournamentListResponse:
         registrations = self.repository.registrations_for_user(user_id)
@@ -141,6 +172,33 @@ class TournamentService:
         self.db.commit()
         return self.require(tournament.id)
 
+    def create_and_publish(self, request: TournamentCreateRequest, user_id: UUID) -> Tournament:
+        self._validate_publish_request(request)
+        if self.db.get(BanlistVersion, request.banlist_version_id) is None:
+            raise AppError("BANLIST_NOT_FOUND", "禁卡表版本不存在", status_code=404)
+        self._validate_sizes(request.max_players, request.playoff_size)
+        tournament = Tournament(
+            **request.model_dump(),
+            code=self._generate_code(),
+            status=TournamentStatus.REGISTRATION.value,
+            published_at=datetime.now(UTC),
+            created_by_id=user_id,
+        )
+        self.db.add(tournament)
+        self.db.flush()
+        add_audit_log(
+            self.db,
+            operator_id=user_id,
+            tournament_id=tournament.id,
+            action_type="TOURNAMENT_CREATED_AND_PUBLISHED",
+            target_type="tournament",
+            target_id=tournament.id,
+            before=None,
+            after={"status": TournamentStatus.REGISTRATION.value, "code": tournament.code},
+        )
+        self.db.commit()
+        return self.require(tournament.id)
+
     def update(self, tournament: Tournament, request: TournamentUpdateRequest) -> Tournament:
         supplied = request.model_fields_set
         if TournamentStatus(tournament.status) in {
@@ -187,6 +245,8 @@ class TournamentService:
         if missing:
             raise AppError("INCOMPLETE_TOURNAMENT", "发布前请补全赛事核心配置", details={"missing": missing})
         self._validate_sizes(tournament.max_players, tournament.playoff_size)
+        if tournament.code is None:
+            tournament.code = self._generate_code()
         tournament.status = TournamentStatus.REGISTRATION.value
         tournament.published_at = datetime.now(UTC)
         add_audit_log(
@@ -325,3 +385,30 @@ class TournamentService:
     def _validate_sizes(max_players: int | None, playoff_size: int | None) -> None:
         if max_players is not None and playoff_size is not None and playoff_size > max_players:
             raise AppError("INVALID_PLAYOFF_SIZE", "淘汰赛晋级人数不能超过最大参赛人数")
+
+    @staticmethod
+    def _validate_publish_request(request: TournamentCreateRequest) -> None:
+        missing = [
+            label
+            for field, label in (
+                ("planned_start_at", "预计比赛开始时间"),
+                ("max_players", "最大参赛人数"),
+                ("swiss_rounds", "瑞士轮轮数"),
+                ("playoff_size", "淘汰赛晋级人数"),
+                ("banlist_version_id", "禁卡表版本"),
+            )
+            if getattr(request, field) is None
+        ]
+        if missing:
+            raise AppError(
+                "INCOMPLETE_TOURNAMENT",
+                "发布前请补全赛事核心配置",
+                details={"missing": missing},
+            )
+
+    def _generate_code(self) -> str:
+        for _ in range(32):
+            code = "".join(secrets.choice(TOURNAMENT_CODE_ALPHABET) for _ in range(6))
+            if self.db.scalar(select(Tournament.id).where(Tournament.code == code)) is None:
+                return code
+        raise AppError("TOURNAMENT_CODE_UNAVAILABLE", "暂时无法生成比赛码，请稍后重试", status_code=503)

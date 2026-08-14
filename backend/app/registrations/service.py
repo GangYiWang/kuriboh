@@ -118,7 +118,7 @@ class RegistrationService:
             "approve": (MessageType.REGISTRATION_APPROVED, "报名审核通过", f"你报名的“{tournament.name}”已审核通过。"),
             "restore": (MessageType.REGISTRATION_APPROVED, "报名已恢复", f"你在“{tournament.name}”的参赛资格已恢复。"),
             "reject": (MessageType.REGISTRATION_REJECTED, "报名审核未通过", f"你报名的“{tournament.name}”未通过审核。"),
-            "cancel": (MessageType.REGISTRATION_CANCELED, "报名已被取消", f"你在“{tournament.name}”的报名已由管理员取消。"),
+            "cancel": (MessageType.REGISTRATION_CANCELED, "报名已被取消", f"你在“{tournament.name}”的报名已由赛事主办方取消。"),
         }[action]
         add_automatic_message(
             self.db,

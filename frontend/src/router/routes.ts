@@ -15,8 +15,8 @@ import AdminBanlistsView from '@/views/AdminBanlistsView.vue'
 import AdminAnnouncementsView from '@/views/AdminAnnouncementsView.vue'
 import TournamentListView from '@/views/TournamentListView.vue'
 import TournamentDetailView from '@/views/TournamentDetailView.vue'
-import AdminTournamentsView from '@/views/AdminTournamentsView.vue'
 import AdminTournamentDetailView from '@/views/AdminTournamentDetailView.vue'
+import TournamentCreateView from '@/views/TournamentCreateView.vue'
 import ReportListView from '@/views/ReportListView.vue'
 import ReportDetailView from '@/views/ReportDetailView.vue'
 import MessagesView from '@/views/MessagesView.vue'
@@ -49,6 +49,8 @@ export const routes: RouteRecordRaw[] = [
   { path: '/announcements', name: 'announcements', component: AnnouncementListView, meta: { title: '平台公告' } },
   { path: '/announcements/:id', name: 'announcement-detail', component: AnnouncementDetailView, meta: { title: '公告详情' } },
   { path: '/tournaments', name: 'tournaments', component: TournamentListView, meta: { title: '赛事中心' } },
+  { path: '/tournaments/new', name: 'tournament-create', component: TournamentCreateView, meta: { title: '发布比赛', requiresAuth: true } },
+  { path: '/tournaments/:id/manage/:section(settings|registrations|matches|playoffs|decks-report|notifications|audit)', name: 'tournament-manage', component: AdminTournamentDetailView, meta: { title: '赛事管理', requiresAuth: true } },
   { path: '/tournaments/:id', name: 'tournament-detail', component: TournamentDetailView, meta: { title: '赛事详情' } },
   { path: '/tournaments/:id/matches', redirect: (to) => `/tournaments/${String(to.params.id)}` },
   { path: '/tournaments/:id/results', redirect: (to) => `/tournaments/${String(to.params.id)}` },
@@ -59,8 +61,8 @@ export const routes: RouteRecordRaw[] = [
   { path: '/admin/announcements', name: 'admin-announcements', component: AdminAnnouncementsView, meta: { title: '公告管理', requiresAdmin: true } },
   { path: '/admin/messages', name: 'admin-messages', component: AdminMessagesView, meta: { title: '平台通知', requiresAdmin: true } },
   { path: '/admin/audit', name: 'admin-audit', component: AdminAuditView, meta: { title: '操作审计', requiresAdmin: true } },
-  { path: '/admin/tournaments', name: 'admin-tournaments', component: AdminTournamentsView, meta: { title: '赛事管理', requiresAdmin: true } },
-  { path: '/admin/tournaments/:id/:section(settings|registrations|matches|playoffs|decks-report|notifications|audit)', name: 'admin-tournament-detail', component: AdminTournamentDetailView, meta: { title: '单届赛事管理', requiresAdmin: true } },
+  { path: '/admin/tournaments', redirect: '/my-tournaments?tab=created', meta: { requiresAdmin: true } },
+  { path: '/admin/tournaments/:id/:section(settings|registrations|matches|playoffs|decks-report|notifications|audit)', redirect: (to) => `/tournaments/${String(to.params.id)}/manage/${String(to.params.section)}`, meta: { requiresAdmin: true } },
   ...placeholders.map((route) => ({
     path: route.path,
     name: route.name,

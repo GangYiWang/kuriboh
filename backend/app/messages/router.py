@@ -15,6 +15,7 @@ from app.messages.schemas import (
     UnreadCountResponse,
 )
 from app.messages.service import MessageService
+from app.tournaments.ownership import require_tournament_owner
 
 
 router = APIRouter(tags=["messages"])
@@ -53,9 +54,10 @@ def read_all_messages(principal: Authenticated, db: Annotated[Session, Depends(g
 def send_tournament_notice(
     tournament_id: UUID,
     request: MessageSendRequest,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ):
+    require_tournament_owner(db, tournament_id, principal.user_id)
     return MessageService(db).send_tournament_notice(
         tournament_id,
         title=request.title,

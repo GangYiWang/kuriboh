@@ -45,7 +45,7 @@ async function apply() {
       nickname_matches_game: true,
       accepts_rules: true,
     }, authStore.token)
-    message.value = '报名已提交，等待管理员审核。'
+    message.value = '报名已提交，等待赛事主办方审核。'
     await load()
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '报名提交失败'
@@ -89,6 +89,7 @@ onMounted(async () => {
         <RouterLink class="back-link" to="/tournaments">← 返回赛事中心</RouterLink>
         <span :class="['status-badge', `status-${tournament.status.toLowerCase()}`]">{{ tournamentStatusText[tournament.status] }}</span>
         <h1>{{ tournament.name }}</h1>
+        <RouterLink v-if="authStore.user?.id === tournament.created_by_id" class="button secondary" :to="`/tournaments/${tournament.id}/manage/settings`">管理比赛</RouterLink>
       </div>
     </header>
     <div class="page-shell tournament-detail-layout">
@@ -98,10 +99,10 @@ onMounted(async () => {
           <h2>赛事信息</h2>
           <dl class="info-grid">
             <div><dt>预计开赛时间</dt><dd>{{ formatDate(tournament.planned_start_at) }}</dd></div>
+            <div><dt>比赛码</dt><dd class="tournament-code">{{ tournament.code ?? '—' }}</dd></div>
             <div><dt>报名情况</dt><dd>{{ tournament.approved_count }} / {{ tournament.max_players }} 人</dd></div>
             <div><dt>瑞士轮轮数</dt><dd>{{ tournament.swiss_rounds }} 轮</dd></div>
             <div><dt>淘汰赛晋级</dt><dd>Top {{ tournament.playoff_size }}</dd></div>
-            <div><dt>比赛局制</dt><dd>BO1</dd></div>
             <div><dt>禁卡表版本</dt><dd><RouterLink v-if="tournament.banlist_version_id" class="link-tone" :to="`/banlists/${tournament.banlist_version_id}`">{{ tournament.banlist_version }} ↗</RouterLink></dd></div>
           </dl>
           <section class="tournament-description" aria-labelledby="tournament-description-title">
@@ -113,16 +114,16 @@ onMounted(async () => {
           v-if="tournament.status === 'SWISS'"
           :tournament-id="tournament.id"
           :token="authStore.token"
-          :is-player="authStore.user?.role === 'PLAYER'"
+          :is-player="authStore.isAuthenticated"
         />
         <PlayoffBracket
           v-if="['ELIMINATION', 'ENDED'].includes(tournament.status)"
           :tournament-id="tournament.id"
           :token="authStore.token"
-          :is-player="authStore.user?.role === 'PLAYER'"
+          :is-player="authStore.isAuthenticated"
         />
         <DeckSubmissionPanel
-          v-if="tournament.status === 'ENDED' && authStore.user?.role === 'PLAYER' && authStore.token"
+          v-if="tournament.status === 'ENDED' && authStore.isAuthenticated && authStore.token"
           :tournament-id="tournament.id"
           :token="authStore.token"
         />
@@ -139,12 +140,11 @@ onMounted(async () => {
             <p>当前报名状态：<strong>{{ registrationStatusText[registration.status] }}</strong></p>
             <button v-if="['PENDING', 'APPROVED'].includes(registration.status)" class="button secondary full" type="button" :disabled="busy" @click="cancelRegistration">取消报名</button>
             <button v-else-if="canReapply" class="button primary full" type="button" :disabled="busy || remaining === 0" @click="apply">重新报名</button>
-            <small v-else>管理员拒绝或取消的报名只能由管理员恢复。</small>
+            <small v-else>主办方拒绝或取消的报名只能由主办方恢复。</small>
           </template>
-          <template v-else-if="authStore.user?.role === 'PLAYER'">
+          <template v-else-if="authStore.isAuthenticated">
             <button class="button primary full" type="button" :disabled="busy || remaining === 0" @click="apply">确认报名</button>
           </template>
-          <p v-else-if="authStore.isAuthenticated">赛事管理员账号不能提交选手报名。</p>
           <RouterLink v-else class="button primary full" :to="{ path: '/login', query: { redirect: route.fullPath } }">登录后报名</RouterLink>
         </template>
         <template v-else>

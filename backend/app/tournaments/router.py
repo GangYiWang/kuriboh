@@ -25,9 +25,8 @@ from app.tournaments.service import TournamentService, tournament_response
 
 router = APIRouter(tags=["tournaments"])
 admin_router = APIRouter(prefix="/admin", tags=["admin-tournaments"])
-Player = Annotated[CurrentPrincipal, Depends(require_roles(Role.PLAYER))]
-Admin = Annotated[CurrentPrincipal, Depends(require_roles(Role.TOURNAMENT_ADMIN))]
 Authenticated = Annotated[CurrentPrincipal, Depends(get_current_principal)]
+PlatformAdmin = Annotated[CurrentPrincipal, Depends(require_roles(Role.TOURNAMENT_ADMIN))]
 
 
 def serialize_tournament(repository: TournamentRepository, item) -> TournamentResponse:
@@ -53,6 +52,24 @@ def list_tournaments(
     return TournamentListResponse(items=[serialize_tournament(repository, item) for item in items], total=total)
 
 
+@router.post("/tournaments", response_model=TournamentResponse, status_code=status.HTTP_201_CREATED)
+def publish_new_tournament(
+    request: TournamentCreateRequest,
+    principal: Authenticated,
+    db: Annotated[Session, Depends(get_db)],
+) -> TournamentResponse:
+    service = TournamentService(db)
+    item = service.create_and_publish(request, principal.user_id)
+    return serialize_tournament(service.repository, item)
+
+
+@router.get("/tournaments/code/{code}", response_model=TournamentResponse)
+def get_tournament_by_code(code: str, db: Annotated[Session, Depends(get_db)]) -> TournamentResponse:
+    service = TournamentService(db)
+    item = service.get_by_code(code)
+    return serialize_tournament(service.repository, item)
+
+
 @router.get("/tournaments/{tournament_id}", response_model=TournamentResponse)
 def get_tournament(tournament_id: UUID, db: Annotated[Session, Depends(get_db)]) -> TournamentResponse:
     service = TournamentService(db)
@@ -70,6 +87,21 @@ def my_tournaments(
     return TournamentService(db).my_tournaments(principal.user_id)
 
 
+@router.get("/me/created-tournaments", response_model=TournamentListResponse)
+def my_created_tournaments(
+    principal: Authenticated,
+    db: Annotated[Session, Depends(get_db)],
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> TournamentListResponse:
+    service = TournamentService(db)
+    items, total = service.created_tournaments(principal.user_id, offset=offset, limit=limit)
+    return TournamentListResponse(
+        items=[serialize_tournament(service.repository, item) for item in items],
+        total=total,
+    )
+
+
 @router.post(
     "/tournaments/{tournament_id}/registrations",
     response_model=RegistrationResponse,
@@ -78,7 +110,7 @@ def my_tournaments(
 def apply_registration(
     tournament_id: UUID,
     _: RegistrationApplyRequest,
-    principal: Player,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> RegistrationResponse:
     return registration_response(RegistrationService(db).apply(tournament_id, principal.user_id))
@@ -87,7 +119,7 @@ def apply_registration(
 @router.get("/tournaments/{tournament_id}/registrations/me", response_model=RegistrationResponse)
 def my_registration(
     tournament_id: UUID,
-    principal: Player,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> RegistrationResponse:
     item = RegistrationRepository(db).for_user(tournament_id, principal.user_id)
@@ -99,7 +131,7 @@ def my_registration(
 @router.post("/tournaments/{tournament_id}/registrations/cancel", response_model=RegistrationResponse)
 def cancel_my_registration(
     tournament_id: UUID,
-    principal: Player,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> RegistrationResponse:
     return registration_response(RegistrationService(db).cancel_by_player(tournament_id, principal.user_id))
@@ -107,20 +139,20 @@ def cancel_my_registration(
 
 @admin_router.get("/tournaments", response_model=TournamentListResponse)
 def admin_list_tournaments(
-    _: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> TournamentListResponse:
     repository = TournamentRepository(db)
-    items, total = repository.list_admin(offset=offset, limit=limit)
+    items, total = repository.list_created_by(principal.user_id, offset=offset, limit=limit)
     return TournamentListResponse(items=[serialize_tournament(repository, item) for item in items], total=total)
 
 
 @admin_router.post("/tournaments", response_model=TournamentResponse, status_code=status.HTTP_201_CREATED)
 def create_tournament(
     request: TournamentCreateRequest,
-    principal: Admin,
+    principal: PlatformAdmin,
     db: Annotated[Session, Depends(get_db)],
 ) -> TournamentResponse:
     service = TournamentService(db)
@@ -131,52 +163,55 @@ def create_tournament(
 @admin_router.get("/tournaments/{tournament_id}", response_model=TournamentResponse)
 def admin_get_tournament(
     tournament_id: UUID,
-    _: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> TournamentResponse:
     service = TournamentService(db)
-    return serialize_tournament(service.repository, service.require(tournament_id))
+    return serialize_tournament(service.repository, service.require_owner(tournament_id, principal.user_id))
 
 
 @admin_router.patch("/tournaments/{tournament_id}", response_model=TournamentResponse)
 def update_tournament(
     tournament_id: UUID,
     request: TournamentUpdateRequest,
-    _: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> TournamentResponse:
     service = TournamentService(db)
-    item = service.update(service.require(tournament_id, for_update=True), request)
+    item = service.update(service.require_owner(tournament_id, principal.user_id, for_update=True), request)
     return serialize_tournament(service.repository, item)
 
 
 @admin_router.post("/tournaments/{tournament_id}/publish", response_model=TournamentResponse)
 def publish_tournament(
     tournament_id: UUID,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> TournamentResponse:
     service = TournamentService(db)
+    service.require_owner(tournament_id, principal.user_id)
     return serialize_tournament(service.repository, service.publish(tournament_id, principal.user_id))
 
 
 @admin_router.post("/tournaments/{tournament_id}/start", response_model=TournamentResponse)
 def start_tournament(
     tournament_id: UUID,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> TournamentResponse:
     service = TournamentService(db)
+    service.require_owner(tournament_id, principal.user_id)
     return serialize_tournament(service.repository, service.start(tournament_id, principal.user_id))
 
 
 @admin_router.post("/tournaments/{tournament_id}/end", response_model=TournamentResponse)
 def end_tournament(
     tournament_id: UUID,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> TournamentResponse:
     service = TournamentService(db)
+    service.require_owner(tournament_id, principal.user_id)
     return serialize_tournament(service.repository, service.end(tournament_id, principal.user_id))
 
 
@@ -186,10 +221,10 @@ def end_tournament(
 )
 def admin_list_registrations(
     tournament_id: UUID,
-    _: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> RegistrationListResponse:
-    TournamentService(db).require(tournament_id)
+    TournamentService(db).require_owner(tournament_id, principal.user_id)
     items, total = RegistrationRepository(db).list_for_tournament(tournament_id)
     return RegistrationListResponse(items=[registration_response(item) for item in items], total=total)
 
@@ -202,11 +237,12 @@ def review_registration(
     tournament_id: UUID,
     registration_id: UUID,
     action: str,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> RegistrationResponse:
     if action not in {"approve", "reject", "cancel", "restore"}:
         raise AppError("INVALID_REVIEW_ACTION", "不支持的审核操作", status_code=404)
+    TournamentService(db).require_owner(tournament_id, principal.user_id)
     item = RegistrationService(db).review(tournament_id, registration_id, action, principal.user_id)
     return registration_response(item)
 
@@ -217,9 +253,9 @@ def review_registration(
 )
 def admin_list_participants(
     tournament_id: UUID,
-    _: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> list[ParticipantResponse]:
     service = TournamentService(db)
-    service.require(tournament_id)
+    service.require_owner(tournament_id, principal.user_id)
     return [ParticipantResponse.model_validate(item) for item in service.repository.participants(tournament_id)]

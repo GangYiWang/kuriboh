@@ -4,8 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import CurrentPrincipal, require_roles
-from app.auth.roles import Role
+from app.auth.dependencies import CurrentPrincipal, get_current_principal
 from app.db.session import get_db
 from app.swiss.schemas import (
     GenerateRoundRequest,
@@ -19,11 +18,11 @@ from app.swiss.schemas import (
     WithdrawResponse,
 )
 from app.swiss.service import SwissService
+from app.tournaments.ownership import require_match_owner, require_tournament_owner
 
 router = APIRouter(tags=["swiss"])
 admin_router = APIRouter(prefix="/admin", tags=["admin-swiss"])
-Player = Annotated[CurrentPrincipal, Depends(require_roles(Role.PLAYER))]
-Admin = Annotated[CurrentPrincipal, Depends(require_roles(Role.TOURNAMENT_ADMIN))]
+Authenticated = Annotated[CurrentPrincipal, Depends(get_current_principal)]
 
 
 @router.get("/tournaments/{tournament_id}/swiss", response_model=SwissOverviewResponse)
@@ -45,7 +44,7 @@ def published_rounds(
 @router.get("/tournaments/{tournament_id}/matches/me", response_model=list[MyMatchResponse])
 def my_matches(
     tournament_id: UUID,
-    principal: Player,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> list[MyMatchResponse]:
     return SwissService(db).my_matches(tournament_id, principal.user_id)
@@ -55,7 +54,7 @@ def my_matches(
 def submit_match_result(
     match_id: UUID,
     request: SubmitResultRequest,
-    principal: Player,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> MyMatchResponse:
     return SwissService(db).submit_result(match_id, principal.user_id, request.result)
@@ -64,9 +63,10 @@ def submit_match_result(
 @admin_router.get("/tournaments/{tournament_id}/swiss/rounds", response_model=list[RoundResponse])
 def admin_rounds(
     tournament_id: UUID,
-    _: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> list[RoundResponse]:
+    require_tournament_owner(db, tournament_id, principal.user_id)
     return SwissService(db).admin_rounds(tournament_id)
 
 
@@ -74,9 +74,10 @@ def admin_rounds(
 def generate_round(
     tournament_id: UUID,
     request: GenerateRoundRequest,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> RoundResponse:
+    require_tournament_owner(db, tournament_id, principal.user_id)
     return SwissService(db).generate_preview(
         tournament_id,
         principal.user_id,
@@ -89,9 +90,10 @@ def generate_round(
 def regenerate_round(
     tournament_id: UUID,
     request: GenerateRoundRequest,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> RoundResponse:
+    require_tournament_owner(db, tournament_id, principal.user_id)
     return SwissService(db).generate_preview(
         tournament_id,
         principal.user_id,
@@ -108,9 +110,10 @@ def swap_round_players(
     tournament_id: UUID,
     round_id: UUID,
     request: SwapPlayersRequest,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> RoundResponse:
+    require_tournament_owner(db, tournament_id, principal.user_id)
     return SwissService(db).swap_players(
         tournament_id,
         round_id,
@@ -127,9 +130,10 @@ def swap_round_players(
 def publish_round(
     tournament_id: UUID,
     round_id: UUID,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> RoundResponse:
+    require_tournament_owner(db, tournament_id, principal.user_id)
     return SwissService(db).publish_round(tournament_id, round_id, principal.user_id)
 
 
@@ -137,9 +141,10 @@ def publish_round(
 def resolve_match(
     match_id: UUID,
     request: ResolveMatchRequest,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> MatchResponse:
+    require_match_owner(db, match_id, principal.user_id)
     return SwissService(db).resolve_match(match_id, request.winner_id, principal.user_id)
 
 
@@ -150,7 +155,8 @@ def resolve_match(
 def withdraw_participant(
     tournament_id: UUID,
     participant_id: UUID,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> WithdrawResponse:
+    require_tournament_owner(db, tournament_id, principal.user_id)
     return SwissService(db).withdraw(tournament_id, participant_id, principal.user_id)

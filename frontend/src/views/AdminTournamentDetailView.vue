@@ -96,7 +96,7 @@ async function load() {
 
 async function loadAuditLogs() {
   auditLogs.value = await apiGet<AuditLogListResponse>(
-    `/admin/audit-logs?tournament_id=${tournamentId.value}&limit=100`, undefined, authStore.token,
+    `/tournaments/${tournamentId.value}/audit-logs?limit=100`, undefined, authStore.token,
   )
 }
 
@@ -253,7 +253,7 @@ async function resolveMatch(match: SwissMatch, winnerId: string) {
   error.value = ''
   try {
     await apiPost(`/admin/matches/${match.id}/resolve`, { winner_id: winnerId }, authStore.token)
-    message.value = '赛果已由管理员确认。'
+    message.value = '赛果已由赛事主办方确认。'
     await loadSwiss()
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '赛果裁定失败'
@@ -363,7 +363,7 @@ async function publishWeeklyReport() {
 function requestPlayoffForfeit(match: PlayoffMatch, loserId: string) {
   const reason = forfeitReason.value.trim()
   if (!reason) {
-    error.value = '管理员判负必须填写原因。'
+    error.value = '主办方判负必须填写原因。'
     return
   }
   const loserNickname = loserId === match.player_a_id ? match.player_a_nickname : match.player_b_nickname
@@ -387,10 +387,10 @@ async function confirmPlayoffForfeit() {
       reason: pending.reason,
     }, authStore.token)
     pendingPlayoffForfeit.value = null
-    message.value = '管理员判负已生效并写入审计记录。'
+    message.value = '主办方判负已生效并写入审计记录。'
     await loadPlayoffs()
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : '管理员判负失败'
+    error.value = caught instanceof Error ? caught.message : '主办方判负失败'
   } finally { busy.value = false }
 }
 
@@ -411,13 +411,13 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       <RouterLink class="button secondary" :to="`/tournaments/${tournament.id}`">查看公开页面</RouterLink>
     </header>
     <nav class="admin-subnav" aria-label="赛事管理导航">
-      <RouterLink :to="`/admin/tournaments/${tournamentId}/settings`">赛事设置</RouterLink>
-      <RouterLink :to="`/admin/tournaments/${tournamentId}/registrations`">报名管理</RouterLink>
-      <RouterLink :to="`/admin/tournaments/${tournamentId}/matches`">对局与排名</RouterLink>
-      <RouterLink :to="`/admin/tournaments/${tournamentId}/playoffs`">淘汰赛</RouterLink>
-      <RouterLink :to="`/admin/tournaments/${tournamentId}/decks-report`">卡组与周报</RouterLink>
-      <RouterLink :to="`/admin/tournaments/${tournamentId}/notifications`">赛事通知</RouterLink>
-      <RouterLink :to="`/admin/tournaments/${tournamentId}/audit`">操作日志</RouterLink>
+      <RouterLink :to="`/tournaments/${tournamentId}/manage/settings`">赛事设置</RouterLink>
+      <RouterLink :to="`/tournaments/${tournamentId}/manage/registrations`">报名管理</RouterLink>
+      <RouterLink :to="`/tournaments/${tournamentId}/manage/matches`">对局与排名</RouterLink>
+      <RouterLink :to="`/tournaments/${tournamentId}/manage/playoffs`">淘汰赛</RouterLink>
+      <RouterLink :to="`/tournaments/${tournamentId}/manage/decks-report`">卡组与周报</RouterLink>
+      <RouterLink :to="`/tournaments/${tournamentId}/manage/notifications`">赛事通知</RouterLink>
+      <RouterLink :to="`/tournaments/${tournamentId}/manage/audit`">操作日志</RouterLink>
     </nav>
     <FormMessage v-if="message" type="success" :message="message" />
     <FormMessage v-if="error" :message="error" />
@@ -511,11 +511,11 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
             <button v-if="tournament.status === 'ELIMINATION' && playoff?.awaiting_tournament_end" class="button primary" type="button" :disabled="busy" @click="endTournament">结束赛事并锁定结果</button>
           </div>
         </div>
-        <div v-if="playoff?.champion_nickname" class="champion-strip"><span>CHAMPION</span><strong>{{ playoff.champion_nickname }}</strong><small>{{ playoff.awaiting_tournament_end ? '决赛已完成，等待管理员手动结束赛事。' : '赛事已结束，全部结果已永久锁定。' }}</small></div>
-        <label v-if="latestPlayoffRound?.status !== 'DRAFT'" class="forfeit-reason"><span>管理员判负原因</span><input v-model.trim="forfeitReason" maxlength="500" placeholder="填写选手无法继续参赛的原因" /></label>
+        <div v-if="playoff?.champion_nickname" class="champion-strip"><span>CHAMPION</span><strong>{{ playoff.champion_nickname }}</strong><small>{{ playoff.awaiting_tournament_end ? '决赛已完成，等待主办方手动结束赛事。' : '赛事已结束，全部结果已永久锁定。' }}</small></div>
+        <label v-if="latestPlayoffRound?.status !== 'DRAFT'" class="forfeit-reason"><span>主办方判负原因</span><input v-model.trim="forfeitReason" maxlength="500" placeholder="填写选手无法继续参赛的原因" /></label>
         <section v-if="pendingPlayoffForfeit" class="forfeit-confirmation" role="dialog" aria-labelledby="forfeit-confirmation-title">
           <div>
-            <strong id="forfeit-confirmation-title">确认管理员裁定</strong>
+            <strong id="forfeit-confirmation-title">确认主办方裁定</strong>
             <p>将判“{{ pendingPlayoffForfeit.loserNickname }}”负、“{{ pendingPlayoffForfeit.winnerNickname }}”胜，并覆盖双方当前提交的赛果。</p>
             <small>判负原因：{{ pendingPlayoffForfeit.reason }}</small>
           </div>

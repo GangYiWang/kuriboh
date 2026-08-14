@@ -42,7 +42,7 @@ class PlayoffService:
         if latest and latest.status != PlayoffRoundStatus.COMPLETED.value:
             raise AppError("PLAYOFF_STAGE_INCOMPLETE", "当前淘汰阶段尚未完成", status_code=409)
         if latest and latest.bracket_size == 2:
-            raise AppError("PLAYOFF_FINISHED", "决赛已经完成，等待管理员结束赛事", status_code=409)
+            raise AppError("PLAYOFF_FINISHED", "决赛已经完成，等待赛事主办方结束赛事", status_code=409)
 
         if latest is None:
             round_item, matches = self._generate_first_round(tournament)

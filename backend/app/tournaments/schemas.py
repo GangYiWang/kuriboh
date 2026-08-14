@@ -40,6 +40,8 @@ class TournamentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    code: str | None
+    created_by_id: UUID
     name: str
     description: str
     planned_start_at: datetime | None

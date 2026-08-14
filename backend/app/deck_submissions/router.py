@@ -4,29 +4,28 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import CurrentPrincipal, require_roles
-from app.auth.roles import Role
+from app.auth.dependencies import CurrentPrincipal, get_current_principal
 from app.db.session import get_db
 from app.core.config import get_settings
 from app.deck_submissions.schemas import DeckReturnRequest, DeckSubmissionListResponse, DeckSubmissionResponse
 from app.deck_submissions.service import DeckSubmissionService, deck_response
+from app.tournaments.ownership import require_deck_submission_owner, require_tournament_owner
 
 
 router = APIRouter(tags=["deck-submissions"])
 admin_router = APIRouter(prefix="/admin", tags=["admin-deck-submissions"])
-Player = Annotated[CurrentPrincipal, Depends(require_roles(Role.PLAYER))]
-Admin = Annotated[CurrentPrincipal, Depends(require_roles(Role.TOURNAMENT_ADMIN))]
+Authenticated = Annotated[CurrentPrincipal, Depends(get_current_principal)]
 
 
 @router.get("/tournaments/{tournament_id}/deck-submission/me", response_model=DeckSubmissionResponse)
-def my_deck_submission(tournament_id: UUID, principal: Player, db: Annotated[Session, Depends(get_db)]):
+def my_deck_submission(tournament_id: UUID, principal: Authenticated, db: Annotated[Session, Depends(get_db)]):
     return deck_response(DeckSubmissionService(db).my_submission(tournament_id, principal.user_id))
 
 
 @router.post("/tournaments/{tournament_id}/deck-submission", response_model=DeckSubmissionResponse)
 async def upload_deck_submission(
     tournament_id: UUID,
-    principal: Player,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
     image: Annotated[UploadFile, File()],
 ):
@@ -35,12 +34,14 @@ async def upload_deck_submission(
 
 
 @admin_router.get("/tournaments/{tournament_id}/deck-submissions", response_model=DeckSubmissionListResponse)
-def admin_deck_submissions(tournament_id: UUID, _: Admin, db: Annotated[Session, Depends(get_db)]):
+def admin_deck_submissions(tournament_id: UUID, principal: Authenticated, db: Annotated[Session, Depends(get_db)]):
+    require_tournament_owner(db, tournament_id, principal.user_id)
     return DeckSubmissionService(db).list_for_admin(tournament_id)
 
 
 @admin_router.post("/deck-submissions/{submission_id}/approve", response_model=DeckSubmissionResponse)
-def approve_deck_submission(submission_id: UUID, principal: Admin, db: Annotated[Session, Depends(get_db)]):
+def approve_deck_submission(submission_id: UUID, principal: Authenticated, db: Annotated[Session, Depends(get_db)]):
+    require_deck_submission_owner(db, submission_id, principal.user_id)
     return deck_response(DeckSubmissionService(db).review(submission_id, "approve", None, principal.user_id))
 
 
@@ -48,7 +49,8 @@ def approve_deck_submission(submission_id: UUID, principal: Admin, db: Annotated
 def return_deck_submission(
     submission_id: UUID,
     request: DeckReturnRequest,
-    principal: Admin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ):
+    require_deck_submission_owner(db, submission_id, principal.user_id)
     return deck_response(DeckSubmissionService(db).review(submission_id, "return", request.reason, principal.user_id))
