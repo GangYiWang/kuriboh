@@ -951,7 +951,7 @@ input {
 
 .empty-state { padding: 42px 0; color: var(--color-muted); font-size: 13px; }
 .list-search input { width: min(310px, 100%); min-height: 42px; padding: 9px 12px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-sm); background: var(--color-surface); }
-.tournament-center-heading { padding-bottom: 22px; border-bottom: 0; }
+.tournament-area-heading { padding-bottom: 22px; border-bottom: 0; }
 .tournament-filter-bar { display: flex; align-items: center; justify-content: flex-start; gap: 12px; margin-bottom: 18px; }
 .tournament-search-panel { max-width: 700px; display: grid; grid-template-columns: minmax(220px, 360px) auto auto; align-items: end; gap: 12px; margin: 0 0 18px; padding: 18px; border: 1px solid var(--color-line-strong); background: var(--color-surface); }
 .tournament-search-panel label { display: grid; gap: 7px; color: var(--color-muted); font-size: 11px; }
@@ -1144,12 +1144,15 @@ input {
 .admin-bracket-match footer .row-actions { gap: 5px; }
 .admin-bracket-match footer button { font-size: 10px; }
 
-.center-tabs { display: flex; gap: 24px; margin: -14px 0 30px; border-bottom: 1px solid var(--color-line); }
-.center-tabs a { padding: 11px 2px; color: var(--color-muted); font-size: 13px; }
-.center-tabs a.router-link-active { border-bottom: 2px solid var(--color-brand); color: var(--color-brand); font-weight: 700; }
-.tournament-center-tabs { margin: 0 0 24px; }
-.my-center-tabs a.router-link-active { border-bottom-color: transparent; color: var(--color-muted); font-weight: 400; }
-.my-center-tabs a.tab-selected { border-bottom: 2px solid var(--color-brand); color: var(--color-brand); font-weight: 700; }
+.tournament-module-nav,
+.competition-tabs { display: flex; overflow-x: auto; border-bottom: 1px solid var(--color-line); white-space: nowrap; }
+.tournament-module-nav { gap: 32px; margin: 0 0 18px; }
+.tournament-module-nav a { position: relative; padding: 14px 2px 13px; color: var(--color-ink); font-size: 18px; font-weight: 700; }
+.competition-tabs { gap: 28px; margin: 0 0 24px; }
+.competition-tabs a { position: relative; padding: 9px 2px 12px; color: var(--color-ink); font-size: 16px; font-weight: 600; }
+.tournament-module-nav a.module-selected::after,
+.competition-tabs a.tab-selected::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: var(--color-brand); content: ''; }
+.competition-tabs a.tab-selected { font-weight: 700; }
 .section-title-row, .report-admin-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 .deck-upload-panel { margin-top: 36px; }
 .deck-preview { width: 100%; max-height: 520px; display: block; margin: 18px 0; border: 1px solid var(--color-line); object-fit: contain; background: var(--color-surface); }

@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 
 import { apiGet } from '@/api/client'
 import FormMessage from '@/components/FormMessage.vue'
+import TournamentAreaNav from '@/components/TournamentAreaNav.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { MyTournament, MyTournamentListResponse, Tournament, TournamentListResponse } from '@/types/tournament'
 import { registrationStatusText, tournamentStatusText } from '@/types/tournament'
@@ -35,8 +36,8 @@ onMounted(loadCurrent)
 
 <template>
   <div class="page-shell content-list-page my-tournaments-page">
-    <header class="page-heading split-heading"><div><p class="section-kicker">MY TOURNAMENTS</p><h1>我的赛事</h1><p>查看参加过的赛事，或继续管理自己发布的比赛。</p></div><RouterLink class="button primary" to="/tournaments/new">发布比赛</RouterLink></header>
-    <nav class="center-tabs my-center-tabs" aria-label="我的赛事分类"><RouterLink :class="{ 'tab-selected': tab === 'joined' }" to="/my-tournaments">我参加的</RouterLink><RouterLink :class="{ 'tab-selected': tab === 'created' }" :to="{ path: '/my-tournaments', query: { tab: 'created' } }">我发布的</RouterLink></nav>
+    <header class="page-heading split-heading tournament-area-heading"><div><p class="section-kicker">TOURNAMENT CENTER</p><h1>比赛中心</h1><p>查看参加过的赛事，或继续管理自己发布的比赛。</p></div><RouterLink class="button primary" to="/tournaments/new">发布比赛</RouterLink></header>
+    <TournamentAreaNav show-competition-tabs />
     <FormMessage v-if="error" :message="error" />
 
     <template v-if="tab === 'joined'">

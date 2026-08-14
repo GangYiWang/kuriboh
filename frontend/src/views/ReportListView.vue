@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 
 import { apiGet } from '@/api/client'
+import TournamentAreaNav from '@/components/TournamentAreaNav.vue'
 import type { WeeklyReport, WeeklyReportList } from '@/types/report'
 
 const reports = ref<WeeklyReport[]>([])
@@ -21,8 +22,8 @@ onMounted(async () => {
 
 <template>
   <div class="page-shell content-list-page">
-    <header class="page-heading"><p class="section-kicker">TOURNAMENT ARCHIVE</p><h1>赛事周报</h1><p>按发布时间查看已完成赛事的最终排名、淘汰赛结果与四强卡组。</p></header>
-    <nav class="center-tabs" aria-label="赛事中心内容"><RouterLink to="/tournaments">赛事</RouterLink><RouterLink to="/reports">周报</RouterLink></nav>
+    <header class="page-heading tournament-area-heading"><p class="section-kicker">TOURNAMENT ARCHIVE</p><h1>赛事周报</h1><p>按发布时间查看已完成赛事的最终排名、淘汰赛结果与四强卡组。</p></header>
+    <TournamentAreaNav />
     <p v-if="loading" class="empty-state">正在加载周报…</p>
     <p v-else-if="error" class="form-message">{{ error }}</p>
     <div v-else-if="reports.length" class="report-list">
