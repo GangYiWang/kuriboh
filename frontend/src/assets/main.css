@@ -1118,7 +1118,7 @@ input {
 .swap-panel { display: grid; grid-template-columns: 160px 1fr 1fr auto; align-items: center; gap: 12px; padding: 16px; border: 1px solid var(--color-line); background: var(--color-surface); }
 .swap-panel strong { font-size: 12px; }
 .admin-match-list { margin-top: 18px; border-top: 1px solid var(--color-line-strong); }
-.admin-match-row { min-height: 76px; display: grid; grid-template-columns: 80px minmax(180px, 1.4fr) minmax(150px, 1fr) 100px auto; align-items: center; gap: 16px; border-bottom: 1px solid var(--color-line); }
+.admin-match-row { min-height: 61px; display: grid; grid-template-columns: 80px minmax(180px, 1.4fr) minmax(150px, 1fr) 100px auto; align-items: center; gap: 16px; border-bottom: 1px solid var(--color-line); }
 .admin-match-row.admin-match-row-preview { grid-template-columns: 80px minmax(180px, 1fr); }
 .admin-match-row .match-table-no { font-size: 15px; letter-spacing: .04em; white-space: nowrap; }
 .admin-match-players { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; }
@@ -1422,7 +1422,7 @@ input {
   .match-versus strong:first-child, .match-versus strong:last-child { text-align: center; }
   .result-actions { align-items: stretch; flex-direction: column; }
   .swap-panel { grid-template-columns: 1fr; }
-  .admin-match-row { grid-template-columns: 68px minmax(0, 1fr); gap: 10px; padding: 14px 0; }
+  .admin-match-row { grid-template-columns: 68px minmax(0, 1fr); gap: 10px; padding: 11px 0; }
   .admin-match-row.admin-match-row-preview { grid-template-columns: 68px minmax(0, 1fr); }
   .admin-match-players { grid-template-columns: 1fr; gap: 8px; }
   .admin-match-row > .status-badge, .admin-match-row > .row-actions { grid-column: 2; }
