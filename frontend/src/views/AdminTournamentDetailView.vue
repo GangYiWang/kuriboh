@@ -48,6 +48,7 @@ const message = ref('')
 const busy = ref(false)
 const bulkApprovalOpen = ref(false)
 const startTournamentOpen = ref(false)
+const publishSwissRoundOpen = ref(false)
 const tournamentId = computed(() => String(route.params.id))
 const section = computed(() => String(route.params.section || 'settings'))
 const coreLocked = computed(() => tournament.value ? ['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.value.status) : false)
@@ -269,14 +270,28 @@ async function swissAction(action: 'generate' | 'regenerate') {
   } finally { busy.value = false }
 }
 
+function requestSwissRoundPublish() {
+  if (!latestRound.value || latestRound.value.status !== 'DRAFT') return
+  error.value = ''
+  publishSwissRoundOpen.value = true
+}
+
+function cancelSwissRoundPublish() {
+  if (!busy.value) publishSwissRoundOpen.value = false
+}
+
 async function publishSwissRound() {
-  if (!latestRound.value || !window.confirm(`发布第 ${latestRound.value.round_no} 轮后对阵不可修改，是否继续？`)) return
+  if (!latestRound.value || latestRound.value.status !== 'DRAFT') {
+    publishSwissRoundOpen.value = false
+    return
+  }
   busy.value = true
   error.value = ''
   try {
     await apiPost(`/admin/tournaments/${tournamentId.value}/swiss/rounds/${latestRound.value.id}/publish`, {}, authStore.token)
     message.value = `第 ${latestRound.value.round_no} 轮已正式发布。`
     await loadSwiss()
+    publishSwissRoundOpen.value = false
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '轮次发布失败'
   } finally { busy.value = false }
@@ -491,6 +506,16 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       @cancel="cancelTournamentStart"
       @confirm="startTournament"
     />
+    <ConfirmFormDialog
+      v-if="publishSwissRoundOpen && latestRound"
+      :title="`正式发布第 ${latestRound.round_no} 轮`"
+      description="发布后本轮对阵不可修改，选手将可以查看对手并提交赛果。"
+      confirm-text="确认正式发布"
+      :busy="busy"
+      :error="error"
+      @cancel="cancelSwissRoundPublish"
+      @confirm="publishSwissRound"
+    />
 
     <form v-if="tournament && section === 'settings'" class="content-form tournament-settings" @submit.prevent="saveSettings">
       <div class="settings-heading"><div><h2>赛事设置</h2><p v-if="coreLocked" class="form-hint">赛事已经开始，容量、轮数、Top N 和禁卡表版本已锁定。</p></div><span :class="['status-badge', `status-${tournament.status.toLowerCase()}`]">{{ tournamentStatusText[tournament.status] }}</span></div>
@@ -539,7 +564,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
             <button v-if="!latestRound || latestRound.status === 'COMPLETED'" class="button primary" type="button" :disabled="busy || (swissOverview?.completed_rounds ?? 0) >= (tournament.swiss_rounds ?? 0)" @click="swissAction('generate')">生成下一轮</button>
             <template v-if="latestRound?.status === 'DRAFT'">
               <button class="button secondary" type="button" :disabled="busy" @click="swissAction('regenerate')">重新生成</button>
-              <button class="button primary" type="button" :disabled="busy" @click="publishSwissRound">正式发布</button>
+              <button class="button primary" type="button" :disabled="busy" @click="requestSwissRoundPublish">正式发布</button>
             </template>
           </div>
         </div>
