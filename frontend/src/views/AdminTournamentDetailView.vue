@@ -587,11 +587,12 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
           <article v-for="match in filteredMatches" :key="match.id" :class="['admin-match-row', { 'admin-match-row-preview': latestRound.status === 'DRAFT' }]">
             <span class="match-table-no">第 {{ match.table_no }} 桌</span>
             <div class="admin-match-players">
-              <span class="admin-match-player"><strong>{{ match.player_a_nickname }}</strong><em>（{{ swissRecord(match.player_a_id) }}）</em></span>
-              <span class="admin-match-player"><strong>{{ match.player_b_nickname || '轮空' }}</strong><em v-if="match.player_b_id">（{{ swissRecord(match.player_b_id) }}）</em></span>
+              <span class="admin-match-player"><strong>{{ match.player_a_nickname }}</strong><em v-if="latestRound.status === 'DRAFT'">（{{ swissRecord(match.player_a_id) }}）</em></span>
+              <span class="admin-match-player"><strong>{{ match.player_b_nickname || '轮空' }}</strong><em v-if="latestRound.status === 'DRAFT' && match.player_b_id">（{{ swissRecord(match.player_b_id) }}）</em></span>
               <small v-if="match.warnings.length">{{ match.warnings.join(' · ') }}</small>
             </div>
-            <div v-if="latestRound.status !== 'DRAFT'" class="submission-state"><span>A：{{ match.player_a_result === 'WIN' ? '胜' : match.player_a_result === 'LOSS' ? '负' : '未提交' }}</span><span v-if="match.player_b_id">B：{{ match.player_b_result === 'WIN' ? '胜' : match.player_b_result === 'LOSS' ? '负' : '未提交' }}</span></div>
+            <div v-if="latestRound.status !== 'DRAFT' && match.player_b_id" class="submission-state"><span>A：{{ match.player_a_result === 'WIN' ? '胜' : match.player_a_result === 'LOSS' ? '负' : '未提交' }}</span><span>B：{{ match.player_b_result === 'WIN' ? '胜' : match.player_b_result === 'LOSS' ? '负' : '未提交' }}</span></div>
+            <span v-else-if="latestRound.status !== 'DRAFT'" class="bye-auto-win">轮空自动获胜</span>
             <span v-if="latestRound.status !== 'DRAFT'" :class="['status-badge', `match-${match.status.toLowerCase()}`]">{{ matchStatusText[match.status] }}</span>
             <div v-if="latestRound.status !== 'DRAFT' && match.player_b_id && !match.result_locked" class="row-actions"><button type="button" @click="resolveMatch(match, match.player_a_id)">判 A 胜</button><button type="button" @click="resolveMatch(match, match.player_b_id)">判 B 胜</button></div>
           </article>

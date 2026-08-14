@@ -1127,6 +1127,7 @@ input {
 .admin-match-player em { color: var(--color-muted); font: 700 12px/1 var(--font-number); font-style: normal; white-space: nowrap; }
 .admin-match-players small { grid-column: 1 / -1; color: var(--color-warning); }
 .submission-state { display: flex; gap: 14px; color: var(--color-muted); font-size: 11px; }
+.bye-auto-win { color: var(--color-success); font-size: 11px; }
 .swiss-admin-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .7fr); gap: 42px; margin-top: 42px; }
 .withdrawal-panel { padding-left: 28px; border-left: 1px solid var(--color-line-strong); }
 .withdrawal-panel h2 { margin-top: 0; }
