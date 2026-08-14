@@ -73,6 +73,10 @@ export interface RegistrationListResponse {
   total: number
 }
 
+export interface RegistrationBulkApproveResponse {
+  approved_count: number
+}
+
 export interface Participant {
   id: string
   user_id: string

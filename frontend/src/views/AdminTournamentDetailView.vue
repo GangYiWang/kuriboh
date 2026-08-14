@@ -11,7 +11,7 @@ import type { DeckSubmission, DeckSubmissionList, WeeklyReport } from '@/types/r
 import { deckStatusText } from '@/types/report'
 import type { AuditLogListResponse, MessageSendResponse } from '@/types/message'
 import type {
-  Participant, PlayoffMatch, PlayoffOverview, Registration, RegistrationListResponse, SwissMatch, SwissOverview, SwissRound, Tournament,
+  Participant, PlayoffMatch, PlayoffOverview, Registration, RegistrationBulkApproveResponse, RegistrationListResponse, SwissMatch, SwissOverview, SwissRound, Tournament,
 } from '@/types/tournament'
 import { matchStatusText, registrationStatusText, swissRoundStatusText, tournamentStatusText } from '@/types/tournament'
 
@@ -200,6 +200,22 @@ async function review(item: Registration, action: 'approve' | 'reject' | 'cancel
     await Promise.all([loadRegistrations(), loadTournamentSummary()])
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '审核操作失败'
+  } finally { busy.value = false }
+}
+
+async function approvePendingRegistrations() {
+  const pendingCount = tournament.value?.pending_count ?? 0
+  if (!pendingCount || !window.confirm(`确认一次通过全部 ${pendingCount} 名待审核选手？`)) return
+  busy.value = true
+  error.value = ''
+  try {
+    const result = await apiPost<RegistrationBulkApproveResponse>(
+      `/admin/tournaments/${tournamentId.value}/registrations/approve-pending`, {}, authStore.token,
+    )
+    message.value = `已批量通过 ${result.approved_count} 名待审核选手。`
+    await Promise.all([loadRegistrations(), loadTournamentSummary()])
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '批量审核失败'
   } finally { busy.value = false }
 }
 
@@ -441,7 +457,13 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
     </form>
 
     <section v-if="tournament && section === 'registrations'" class="registration-management">
-      <div class="settings-heading"><div><h2>报名管理</h2><p>只展示昵称、状态与必要操作；审核通过人数不会超过 {{ tournament.max_players }} 人。</p></div><span>待审核 {{ tournament.pending_count }}</span></div>
+      <div class="settings-heading">
+        <div><h2>报名管理</h2><p>只展示昵称、状态与必要操作；审核通过人数不会超过 {{ tournament.max_players }} 人。</p></div>
+        <div class="registration-heading-actions">
+          <button class="button primary small" type="button" :disabled="busy || tournament.pending_count === 0" @click="approvePendingRegistrations">批量通过</button>
+          <span>待审核 {{ tournament.pending_count }}</span>
+        </div>
+      </div>
       <p v-if="!registrations.length" class="empty-state">暂无报名记录。</p>
       <article v-for="item in registrations" :key="item.id" class="registration-row">
         <strong>{{ item.nickname }}</strong>

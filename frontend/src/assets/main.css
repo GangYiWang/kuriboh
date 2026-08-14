@@ -1034,6 +1034,7 @@ input {
 .settings-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 .settings-heading h2 { margin: 0 0 7px; }
 .settings-heading p { margin: 0; color: var(--color-muted); font-size: 12px; }
+.registration-heading-actions { display: flex; align-items: center; gap: 18px; white-space: nowrap; }
 .registration-management { margin-top: 34px; }
 .registration-row { min-height: 66px; display: grid; grid-template-columns: minmax(160px, 1fr) 100px auto; align-items: center; gap: 20px; border-bottom: 1px solid var(--color-line); }
 .registration-row:first-of-type { border-top: 1px solid var(--color-line-strong); }

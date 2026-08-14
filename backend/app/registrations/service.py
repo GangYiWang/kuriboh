@@ -134,6 +134,52 @@ class RegistrationService:
         self.db.commit()
         return self.repository.get(registration.id)  # type: ignore[return-value]
 
+    def approve_pending(self, tournament_id: UUID, operator_id: UUID) -> int:
+        tournament = self._lock_registration_tournament(tournament_id)
+        registrations = self.repository.pending_for_tournament(tournament_id, for_update=True)
+        if not registrations:
+            return 0
+        if tournament.max_players is None:
+            raise AppError("INCOMPLETE_TOURNAMENT", "赛事容量尚未配置", status_code=409)
+
+        approved = self.repository.count_by_status(tournament_id, RegistrationStatus.APPROVED)
+        remaining = tournament.max_players - approved
+        if len(registrations) > remaining:
+            raise AppError(
+                "INSUFFICIENT_TOURNAMENT_CAPACITY",
+                f"剩余名额仅有 {remaining} 个，无法批量通过 {len(registrations)} 名待审核选手",
+                status_code=409,
+            )
+
+        reviewed_at = datetime.now(UTC)
+        for registration in registrations:
+            registration.status = RegistrationStatus.APPROVED.value
+            registration.reviewed_by_id = operator_id
+            registration.reviewed_at = reviewed_at
+            add_audit_log(
+                self.db,
+                operator_id=operator_id,
+                tournament_id=tournament_id,
+                action_type="REGISTRATION_APPROVE",
+                target_type="registration",
+                target_id=registration.id,
+                before={"status": RegistrationStatus.PENDING.value},
+                after={"status": RegistrationStatus.APPROVED.value, "user_id": str(registration.user_id)},
+            )
+            add_automatic_message(
+                self.db,
+                recipient_id=registration.user_id,
+                message_type=MessageType.REGISTRATION_APPROVED,
+                title="报名审核通过",
+                body=f"你报名的“{tournament.name}”已审核通过。",
+                action_url=f"/tournaments/{tournament_id}",
+                related_type="registration",
+                related_id=registration.id,
+                dedupe_key=f"registration:{registration.id}:approve",
+            )
+        self.db.commit()
+        return len(registrations)
+
     def _lock_registration_tournament(self, tournament_id: UUID):
         tournament = self.tournaments.get(tournament_id, for_update=True)
         if tournament is None:

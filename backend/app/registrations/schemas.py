@@ -34,3 +34,7 @@ class RegistrationResponse(BaseModel):
 class RegistrationListResponse(BaseModel):
     items: list[RegistrationResponse]
     total: int
+
+
+class RegistrationBulkApproveResponse(BaseModel):
+    approved_count: int

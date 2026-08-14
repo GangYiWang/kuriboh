@@ -9,7 +9,12 @@ from app.auth.roles import Role
 from app.core.errors import AppError
 from app.db.session import get_db
 from app.registrations.repository import RegistrationRepository
-from app.registrations.schemas import RegistrationApplyRequest, RegistrationListResponse, RegistrationResponse
+from app.registrations.schemas import (
+    RegistrationApplyRequest,
+    RegistrationBulkApproveResponse,
+    RegistrationListResponse,
+    RegistrationResponse,
+)
 from app.registrations.service import RegistrationService, registration_response
 from app.tournaments.models import TournamentStatus
 from app.tournaments.repository import TournamentRepository
@@ -227,6 +232,20 @@ def admin_list_registrations(
     TournamentService(db).require_owner(tournament_id, principal.user_id)
     items, total = RegistrationRepository(db).list_for_tournament(tournament_id)
     return RegistrationListResponse(items=[registration_response(item) for item in items], total=total)
+
+
+@admin_router.post(
+    "/tournaments/{tournament_id}/registrations/approve-pending",
+    response_model=RegistrationBulkApproveResponse,
+)
+def approve_pending_registrations(
+    tournament_id: UUID,
+    principal: Authenticated,
+    db: Annotated[Session, Depends(get_db)],
+) -> RegistrationBulkApproveResponse:
+    TournamentService(db).require_owner(tournament_id, principal.user_id)
+    approved_count = RegistrationService(db).approve_pending(tournament_id, principal.user_id)
+    return RegistrationBulkApproveResponse(approved_count=approved_count)
 
 
 @admin_router.post(

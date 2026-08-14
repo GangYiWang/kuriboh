@@ -53,6 +53,19 @@ class RegistrationRepository:
         ) or 0
         return items, total
 
+    def pending_for_tournament(self, tournament_id: UUID, *, for_update: bool = False) -> list[Registration]:
+        statement = (
+            select(Registration)
+            .where(
+                Registration.tournament_id == tournament_id,
+                Registration.status == RegistrationStatus.PENDING.value,
+            )
+            .order_by(Registration.created_at.asc())
+        )
+        if for_update:
+            statement = statement.with_for_update()
+        return list(self.db.scalars(statement))
+
     def count_by_status(self, tournament_id: UUID, status: RegistrationStatus) -> int:
         return int(self.db.scalar(
             select(func.count()).select_from(Registration).where(
