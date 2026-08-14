@@ -29,15 +29,22 @@ class RegistrationRepository:
         return self.db.scalar(statement)
 
     def list_for_tournament(self, tournament_id: UUID) -> tuple[list[Registration], int]:
+        admin_visible = (
+            (Registration.status != RegistrationStatus.CANCELED.value)
+            | Registration.reviewed_by_id.is_not(None)
+        )
         statement = (
             select(Registration)
-            .where(Registration.tournament_id == tournament_id)
+            .where(Registration.tournament_id == tournament_id, admin_visible)
             .options(joinedload(Registration.user))
             .order_by(Registration.created_at.asc())
         )
         items = list(self.db.scalars(statement))
         total = self.db.scalar(
-            select(func.count()).select_from(Registration).where(Registration.tournament_id == tournament_id)
+            select(func.count()).select_from(Registration).where(
+                Registration.tournament_id == tournament_id,
+                admin_visible,
+            )
         ) or 0
         return items, total
 

@@ -178,10 +178,41 @@ def test_cancel_reject_and_restore_transitions(client, make_user, session_factor
     canceled = client.post(
         f"/api/tournaments/{tournament_id}/registrations/cancel", headers=auth(player_token)
     )
+    admin_list = client.get(
+        f"/api/admin/tournaments/{tournament_id}/registrations", headers=auth(admin_token)
+    )
+    reapplied = client.post(
+        f"/api/tournaments/{tournament_id}/registrations",
+        headers=auth(player_token),
+        json={"nickname_matches_game": True, "accepts_rules": True},
+    )
+    admin_canceled = client.post(
+        f"/api/admin/tournaments/{tournament_id}/registrations/{registration_id}/cancel",
+        headers=auth(admin_token),
+    )
+    blocked_reapply = client.post(
+        f"/api/tournaments/{tournament_id}/registrations",
+        headers=auth(player_token),
+        json={"nickname_matches_game": True, "accepts_rules": True},
+    )
+    admin_list_after_cancel = client.get(
+        f"/api/admin/tournaments/{tournament_id}/registrations", headers=auth(admin_token)
+    )
 
     assert rejected.json()["status"] == "REJECTED"
     assert restored.json()["status"] == "APPROVED"
     assert canceled.json()["status"] == "CANCELED"
+    assert admin_list.status_code == 200
+    assert all(item["id"] != registration_id for item in admin_list.json()["items"])
+    assert admin_list.json()["total"] == 0
+    assert reapplied.status_code == 201
+    assert reapplied.json()["id"] == registration_id
+    assert reapplied.json()["status"] == "PENDING"
+    assert admin_canceled.json()["status"] == "CANCELED"
+    assert blocked_reapply.status_code == 409
+    assert blocked_reapply.json()["code"] == "REGISTRATION_EXISTS"
+    assert admin_list_after_cancel.json()["total"] == 1
+    assert admin_list_after_cancel.json()["items"][0]["id"] == registration_id
 
 
 def test_start_blocks_pending_snapshots_approved_and_locks_core_config(client, make_user, session_factory) -> None:

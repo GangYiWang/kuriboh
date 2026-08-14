@@ -37,13 +37,19 @@ class RegistrationService:
 
     def apply(self, tournament_id: UUID, user_id: UUID) -> Registration:
         tournament = self._lock_registration_tournament(tournament_id)
-        if self.repository.for_user(tournament_id, user_id) is not None:
+        registration = self.repository.for_user(tournament_id, user_id, for_update=True)
+        if registration is not None:
+            if (
+                registration.status == RegistrationStatus.CANCELED.value
+                and registration.reviewed_by_id is None
+            ):
+                self._require_capacity(tournament.id, tournament.max_players)
+                registration.status = RegistrationStatus.PENDING.value
+                registration.reviewed_at = None
+                self.db.commit()
+                return self.repository.get(registration.id)  # type: ignore[return-value]
             raise AppError("REGISTRATION_EXISTS", "你已经提交过该赛事报名", status_code=409)
-        approved = self.repository.count_by_status(tournament_id, RegistrationStatus.APPROVED)
-        if tournament.max_players is None:
-            raise AppError("INCOMPLETE_TOURNAMENT", "赛事容量尚未配置", status_code=409)
-        if approved >= tournament.max_players:
-            raise AppError("TOURNAMENT_FULL", "赛事名额已满", status_code=409)
+        self._require_capacity(tournament.id, tournament.max_players)
         registration = Registration(
             tournament_id=tournament_id,
             user_id=user_id,

@@ -15,13 +15,13 @@ const route = useRoute()
 const authStore = useAuthStore()
 const tournament = ref<Tournament | null>(null)
 const registration = ref<Registration | null>(null)
-const accepted = ref(false)
 const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
 const message = ref('')
 const tournamentId = computed(() => String(route.params.id))
 const remaining = computed(() => Math.max(0, (tournament.value?.max_players ?? 0) - (tournament.value?.approved_count ?? 0)))
+const canReapply = computed(() => registration.value?.status === 'CANCELED' && !registration.value.reviewed_by_id)
 
 function formatDate(value: string | null) {
   return value ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(value)) : '待定'
@@ -42,8 +42,8 @@ async function apply() {
   message.value = ''
   try {
     registration.value = await apiPost<Registration>(`/tournaments/${tournamentId.value}/registrations`, {
-      nickname_matches_game: accepted.value,
-      accepts_rules: accepted.value,
+      nickname_matches_game: true,
+      accepts_rules: true,
     }, authStore.token)
     message.value = '报名已提交，等待管理员审核。'
     await load()
@@ -89,7 +89,6 @@ onMounted(async () => {
         <RouterLink class="back-link" to="/tournaments">← 返回赛事中心</RouterLink>
         <span :class="['status-badge', `status-${tournament.status.toLowerCase()}`]">{{ tournamentStatusText[tournament.status] }}</span>
         <h1>{{ tournament.name }}</h1>
-        <p>{{ tournament.description || '暂无赛事说明。' }}</p>
       </div>
     </header>
     <div class="page-shell tournament-detail-layout">
@@ -105,12 +104,10 @@ onMounted(async () => {
             <div><dt>比赛局制</dt><dd>BO1</dd></div>
             <div><dt>禁卡表版本</dt><dd><RouterLink v-if="tournament.banlist_version_id" class="link-tone" :to="`/banlists/${tournament.banlist_version_id}`">{{ tournament.banlist_version }} ↗</RouterLink></dd></div>
           </dl>
-        </section>
-        <section class="info-section">
-          <p class="section-kicker">RULE SUMMARY</p>
-          <h2>比赛说明</h2>
-          <p class="long-copy">固定采用瑞士轮加单淘汰赛。预计时间只作提示，赛事由管理员手动开始；开始后不会自动生成第 1 轮。</p>
-          <div class="rule-notes"><span>无平局</span><span>BO1</span><span>开赛后关闭报名</span></div>
+          <section class="tournament-description" aria-labelledby="tournament-description-title">
+            <h3 id="tournament-description-title">赛事说明</h3>
+            <p class="long-copy">{{ tournament.description || '暂无赛事说明。' }}</p>
+          </section>
         </section>
         <SwissLivePanel
           v-if="tournament.status === 'SWISS'"
@@ -141,12 +138,11 @@ onMounted(async () => {
           <template v-if="registration">
             <p>当前报名状态：<strong>{{ registrationStatusText[registration.status] }}</strong></p>
             <button v-if="['PENDING', 'APPROVED'].includes(registration.status)" class="button secondary full" type="button" :disabled="busy" @click="cancelRegistration">取消报名</button>
-            <small>已拒绝或取消的报名只能由管理员恢复。</small>
+            <button v-else-if="canReapply" class="button primary full" type="button" :disabled="busy || remaining === 0" @click="apply">重新报名</button>
+            <small v-else>管理员拒绝或取消的报名只能由管理员恢复。</small>
           </template>
           <template v-else-if="authStore.user?.role === 'PLAYER'">
-            <label class="check-row"><input v-model="accepted" type="checkbox" /><span>我确认 Master Duel 游戏内昵称与网站昵称一致，并同意赛事规则</span></label>
-            <button class="button primary full" type="button" :disabled="busy || !accepted || remaining === 0" @click="apply">确认报名</button>
-            <small>当前登录账号：{{ authStore.user?.nickname }}</small>
+            <button class="button primary full" type="button" :disabled="busy || remaining === 0" @click="apply">确认报名</button>
           </template>
           <p v-else-if="authStore.isAuthenticated">赛事管理员账号不能提交选手报名。</p>
           <RouterLink v-else class="button primary full" :to="{ path: '/login', query: { redirect: route.fullPath } }">登录后报名</RouterLink>

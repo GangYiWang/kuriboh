@@ -983,10 +983,11 @@ input {
 .info-grid div:nth-child(odd) { margin-right: 28px; }
 .info-grid dt { color: var(--color-muted); font-size: 11px; }
 .info-grid dd { margin: 0; font-size: 13px; font-weight: 600; }
+.tournament-description { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--color-line-strong); }
+.tournament-description h3 { margin: 0 0 12px; font-size: 17px; }
+.tournament-description .long-copy { margin: 0; }
 .link-tone { color: var(--color-brand); }
 .long-copy { color: var(--color-muted); line-height: 1.9; }
-.rule-notes { display: flex; gap: 8px; margin-top: 20px; }
-.rule-notes span { padding: 7px 10px; border: 1px solid var(--color-line); font-size: 11px; }
 .signup-box { position: sticky; top: 92px; align-self: start; padding: 26px; border: 1px solid var(--color-line-strong); background: var(--color-surface); }
 .signup-box h2 { margin: 8px 0 22px; }
 .signup-box > p:not(.section-kicker) { color: var(--color-muted); font-size: 12px; line-height: 1.7; }
@@ -994,8 +995,6 @@ input {
 .capacity-copy { display: flex; justify-content: space-between; font-size: 12px; }
 .capacity-track { height: 5px; margin: 12px 0 24px; overflow: hidden; background: var(--color-line); }
 .capacity-track i { display: block; height: 100%; background: var(--color-brand); }
-.check-row { display: flex; align-items: flex-start; gap: 9px; margin: 18px 0; color: var(--color-muted); font-size: 11px; line-height: 1.6; }
-.check-row input { margin-top: 3px; accent-color: var(--color-brand); }
 
 .tournament-form { margin-top: 32px; padding: 25px; border: 1px solid var(--color-line); background: var(--color-surface); }
 .tournament-form-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
@@ -1349,7 +1348,6 @@ input {
   .signup-box { margin-top: 38px; padding: 22px 18px; }
   .info-grid { grid-template-columns: 1fr; }
   .info-grid div:nth-child(odd) { margin-right: 0; }
-  .rule-notes { flex-wrap: wrap; }
   .form-field-grid { grid-template-columns: 1fr; }
   .tournament-form { padding: 22px 18px; }
   .tournament-form-heading { align-items: stretch; flex-direction: column; gap: 14px; }
