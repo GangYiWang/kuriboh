@@ -64,17 +64,20 @@ onMounted(async () => {
 
 <template>
   <div class="page-shell content-list-page">
-    <header class="page-heading split-heading">
+    <header class="page-heading split-heading tournament-center-heading">
       <div>
         <p class="section-kicker">TOURNAMENT CENTER</p>
         <h1>赛事中心</h1>
         <p>统一查看报名中、进行中与往期的栗子杯赛事。</p>
       </div>
-      <div class="tournament-center-actions"><button class="button secondary" type="button" :aria-expanded="codeSearchOpen" @click="codeSearchOpen = !codeSearchOpen">按比赛码查找</button><button class="button primary" type="button" @click="publish">发布比赛</button></div>
+      <button class="button primary" type="button" @click="publish">发布比赛</button>
     </header>
-    <nav class="center-tabs" aria-label="赛事中心内容"><RouterLink to="/tournaments">全部赛事</RouterLink><RouterLink to="/my-tournaments">我参加的</RouterLink><RouterLink :to="{ path: '/my-tournaments', query: { tab: 'created' } }">我发布的</RouterLink><RouterLink to="/reports">周报</RouterLink></nav>
+    <nav class="center-tabs tournament-center-tabs" aria-label="赛事中心内容"><RouterLink to="/tournaments">全部赛事</RouterLink><RouterLink to="/my-tournaments">我参加的</RouterLink><RouterLink :to="{ path: '/my-tournaments', query: { tab: 'created' } }">我发布的</RouterLink><RouterLink to="/reports">周报</RouterLink></nav>
+    <div class="tournament-filter-bar">
+      <button class="button secondary" type="button" :aria-expanded="codeSearchOpen" @click="codeSearchOpen = !codeSearchOpen">按比赛码查找</button>
+      <label class="list-search tournament-list-search"><span class="visually-hidden">搜索赛事</span><input v-model="search" type="search" placeholder="按赛事名称搜索" /></label>
+    </div>
     <form v-if="codeSearchOpen" class="tournament-code-search" @submit.prevent="findByCode"><label><span>比赛码</span><input v-model="code" maxlength="6" autocomplete="off" placeholder="例如 FU6Q8W" @input="code = code.toUpperCase()" /></label><button class="button primary" type="submit" :disabled="codeBusy">{{ codeBusy ? '查找中…' : '查找比赛' }}</button><p v-if="codeError" class="form-message">{{ codeError }}</p></form>
-    <label class="list-search tournament-list-search"><span class="visually-hidden">搜索赛事</span><input v-model="search" type="search" placeholder="搜索赛事名称" /></label>
     <p v-if="loading" class="empty-state">正在加载赛事…</p>
     <p v-else-if="error" class="form-message">{{ error }}</p>
     <div v-else-if="filtered.length" class="tournament-list">
