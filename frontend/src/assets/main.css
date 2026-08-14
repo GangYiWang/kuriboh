@@ -1122,7 +1122,7 @@ input {
 .admin-match-row.admin-match-row-preview { grid-template-columns: 80px minmax(180px, 1fr); }
 .admin-match-row .match-table-no { font-size: 15px; letter-spacing: .04em; white-space: nowrap; }
 .admin-match-players { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; }
-.admin-match-player { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; color: var(--color-ink); font-size: 15px; }
+.admin-match-player { display: flex; min-width: 0; align-items: center; gap: 3px; color: var(--color-ink); font-size: 15px; }
 .admin-match-player strong { overflow: hidden; font-size: inherit; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .admin-match-player em { color: var(--color-muted); font: 700 12px/1 var(--font-number); font-style: normal; white-space: nowrap; }
 .admin-match-players small { grid-column: 1 / -1; color: var(--color-warning); }

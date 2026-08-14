@@ -562,8 +562,8 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
           <article v-for="match in filteredMatches" :key="match.id" :class="['admin-match-row', { 'admin-match-row-preview': latestRound.status === 'DRAFT' }]">
             <span class="match-table-no">第 {{ match.table_no }} 桌</span>
             <div class="admin-match-players">
-              <span class="admin-match-player"><strong>{{ match.player_a_nickname }}</strong><em>{{ swissRecord(match.player_a_id) }}</em></span>
-              <span class="admin-match-player"><strong>{{ match.player_b_nickname || '轮空' }}</strong><em v-if="match.player_b_id">{{ swissRecord(match.player_b_id) }}</em></span>
+              <span class="admin-match-player"><strong>{{ match.player_a_nickname }}</strong><em>（{{ swissRecord(match.player_a_id) }}）</em></span>
+              <span class="admin-match-player"><strong>{{ match.player_b_nickname || '轮空' }}</strong><em v-if="match.player_b_id">（{{ swissRecord(match.player_b_id) }}）</em></span>
               <small v-if="match.warnings.length">{{ match.warnings.join(' · ') }}</small>
             </div>
             <div v-if="latestRound.status !== 'DRAFT'" class="submission-state"><span>A：{{ match.player_a_result === 'WIN' ? '胜' : match.player_a_result === 'LOSS' ? '负' : '未提交' }}</span><span v-if="match.player_b_id">B：{{ match.player_b_result === 'WIN' ? '胜' : match.player_b_result === 'LOSS' ? '负' : '未提交' }}</span></div>
