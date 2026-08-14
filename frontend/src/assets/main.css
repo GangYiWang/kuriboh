@@ -286,6 +286,29 @@ input {
 .button.small { min-height: 34px; padding: 7px 13px; font-size: 12px; }
 .button:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.form-dialog-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(24, 21, 18, 0.48);
+}
+
+.form-dialog {
+  width: min(440px, 100%);
+  padding: 26px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.form-dialog h2 { margin: 8px 0 0; font-size: 22px; }
+.form-dialog-description { margin: 18px 0 0; color: var(--color-muted); font-size: 13px; line-height: 1.8; }
+.form-dialog-error { margin: 16px 0 0; padding: 10px 12px; border-left: 3px solid #8f3a2d; color: #8f3a2d; background: #f7ebe7; font-size: 12px; }
+.form-dialog .form-actions { justify-content: flex-end; margin-top: 24px; }
+
 .hero-emblem {
   width: 420px;
   height: 360px;

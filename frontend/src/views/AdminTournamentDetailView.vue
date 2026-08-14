@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { apiGet, apiPatch, apiPost } from '@/api/client'
+import ConfirmFormDialog from '@/components/ConfirmFormDialog.vue'
 import FormMessage from '@/components/FormMessage.vue'
 import WeeklyReportContent from '@/components/WeeklyReportContent.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -45,6 +46,7 @@ const swapSecond = ref('')
 const error = ref('')
 const message = ref('')
 const busy = ref(false)
+const bulkApprovalOpen = ref(false)
 const tournamentId = computed(() => String(route.params.id))
 const section = computed(() => String(route.params.section || 'settings'))
 const coreLocked = computed(() => tournament.value ? ['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.value.status) : false)
@@ -203,9 +205,22 @@ async function review(item: Registration, action: 'approve' | 'reject' | 'cancel
   } finally { busy.value = false }
 }
 
+function requestPendingApproval() {
+  if (!tournament.value?.pending_count) return
+  error.value = ''
+  bulkApprovalOpen.value = true
+}
+
+function cancelPendingApproval() {
+  if (!busy.value) bulkApprovalOpen.value = false
+}
+
 async function approvePendingRegistrations() {
   const pendingCount = tournament.value?.pending_count ?? 0
-  if (!pendingCount || !window.confirm(`确认一次通过全部 ${pendingCount} 名待审核选手？`)) return
+  if (!pendingCount) {
+    bulkApprovalOpen.value = false
+    return
+  }
   busy.value = true
   error.value = ''
   try {
@@ -214,6 +229,7 @@ async function approvePendingRegistrations() {
     )
     message.value = `已批量通过 ${result.approved_count} 名待审核选手。`
     await Promise.all([loadRegistrations(), loadTournamentSummary()])
+    bulkApprovalOpen.value = false
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '批量审核失败'
   } finally { busy.value = false }
@@ -437,6 +453,16 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
     </nav>
     <FormMessage v-if="message" type="success" :message="message" />
     <FormMessage v-if="error" :message="error" />
+    <ConfirmFormDialog
+      v-if="bulkApprovalOpen && tournament"
+      title="批量通过报名"
+      :description="`将一次通过全部 ${tournament.pending_count} 名待审核选手，并向他们发送审核通过通知。`"
+      confirm-text="确认批量通过"
+      :busy="busy"
+      :error="error"
+      @cancel="cancelPendingApproval"
+      @confirm="approvePendingRegistrations"
+    />
 
     <form v-if="tournament && section === 'settings'" class="content-form tournament-settings" @submit.prevent="saveSettings">
       <div class="settings-heading"><div><h2>赛事设置</h2><p v-if="coreLocked" class="form-hint">赛事已经开始，容量、轮数、Top N 和禁卡表版本已锁定。</p></div><span :class="['status-badge', `status-${tournament.status.toLowerCase()}`]">{{ tournamentStatusText[tournament.status] }}</span></div>
@@ -460,7 +486,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       <div class="settings-heading">
         <div><h2>报名管理</h2><p>只展示昵称、状态与必要操作；审核通过人数不会超过 {{ tournament.max_players }} 人。</p></div>
         <div class="registration-heading-actions">
-          <button class="button primary small" type="button" :disabled="busy || tournament.pending_count === 0" @click="approvePendingRegistrations">批量通过</button>
+          <button class="button primary small" type="button" :disabled="busy || tournament.pending_count === 0" @click="requestPendingApproval">批量通过</button>
           <span>待审核 {{ tournament.pending_count }}</span>
         </div>
       </div>
