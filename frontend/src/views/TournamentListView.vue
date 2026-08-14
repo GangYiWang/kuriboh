@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { apiGet } from '@/api/client'
@@ -12,16 +12,16 @@ const authStore = useAuthStore()
 const router = useRouter()
 const loading = ref(true)
 const error = ref('')
-const search = ref('')
 const code = ref('')
-const codeSearchOpen = ref(false)
-const codeBusy = ref(false)
-const codeError = ref('')
+const nameQuery = ref('')
+const searchMode = ref<'code' | 'name' | null>(null)
+const searchBusy = ref(false)
+const searchError = ref('')
 
-const filtered = computed(() => {
-  const term = search.value.trim().toLowerCase()
-  return term ? tournaments.value.filter((item) => item.name.toLowerCase().includes(term)) : tournaments.value
-})
+async function loadTournaments(search?: string) {
+  const query = search ? `&search=${encodeURIComponent(search)}` : ''
+  tournaments.value = (await apiGet<TournamentListResponse>(`/tournaments?limit=100${query}`)).items
+}
 
 function formatDate(value: string | null) {
   return value ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '待定'
@@ -30,18 +30,53 @@ function formatDate(value: string | null) {
 async function findByCode() {
   const normalized = code.value.trim().toUpperCase()
   if (!/^[A-Z0-9]{6}$/.test(normalized)) {
-    codeError.value = '请输入 6 位大写字母或数字组成的比赛码'
+    searchError.value = '请输入 6 位大写字母或数字组成的比赛码'
     return
   }
-  codeBusy.value = true
-  codeError.value = ''
+  searchBusy.value = true
+  searchError.value = ''
   try {
     const item = await apiGet<Tournament>(`/tournaments/code/${normalized}`)
     await router.push(`/tournaments/${item.id}`)
   } catch (caught) {
-    codeError.value = caught instanceof Error ? caught.message : '未找到该比赛'
+    searchError.value = caught instanceof Error ? caught.message : '未找到该比赛'
   } finally {
-    codeBusy.value = false
+    searchBusy.value = false
+  }
+}
+
+async function findByName() {
+  const query = nameQuery.value.trim()
+  if (!query) {
+    searchError.value = '请输入赛事名称'
+    return
+  }
+  searchBusy.value = true
+  searchError.value = ''
+  error.value = ''
+  try {
+    await loadTournaments(query)
+  } catch (caught) {
+    searchError.value = caught instanceof Error ? caught.message : '赛事名称查找失败'
+  } finally {
+    searchBusy.value = false
+  }
+}
+
+function openSearch(mode: 'code' | 'name') {
+  searchMode.value = mode
+  searchError.value = ''
+}
+
+async function cancelSearch() {
+  searchMode.value = null
+  searchError.value = ''
+  code.value = ''
+  nameQuery.value = ''
+  try {
+    await loadTournaments()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '赛事列表加载失败'
   }
 }
 
@@ -53,7 +88,7 @@ async function publish() {
 
 onMounted(async () => {
   try {
-    tournaments.value = (await apiGet<TournamentListResponse>('/tournaments?limit=100')).items
+    await loadTournaments()
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '赛事列表加载失败'
   } finally {
@@ -74,14 +109,15 @@ onMounted(async () => {
     </header>
     <nav class="center-tabs tournament-center-tabs" aria-label="赛事中心内容"><RouterLink to="/tournaments">全部赛事</RouterLink><RouterLink to="/my-tournaments">我参加的</RouterLink><RouterLink :to="{ path: '/my-tournaments', query: { tab: 'created' } }">我发布的</RouterLink><RouterLink to="/reports">周报</RouterLink></nav>
     <div class="tournament-filter-bar">
-      <button class="button secondary" type="button" :aria-expanded="codeSearchOpen" @click="codeSearchOpen = !codeSearchOpen">按比赛码查找</button>
-      <label class="list-search tournament-list-search"><span class="visually-hidden">搜索赛事</span><input v-model="search" type="search" placeholder="按赛事名称搜索" /></label>
+      <button class="button secondary" type="button" :aria-expanded="searchMode === 'code'" @click="openSearch('code')">按比赛码查找</button>
+      <button class="button secondary" type="button" :aria-expanded="searchMode === 'name'" @click="openSearch('name')">按赛事名称查找</button>
     </div>
-    <form v-if="codeSearchOpen" class="tournament-code-search" @submit.prevent="findByCode"><label><span>比赛码</span><input v-model="code" maxlength="6" autocomplete="off" placeholder="例如 FU6Q8W" @input="code = code.toUpperCase()" /></label><button class="button primary" type="submit" :disabled="codeBusy">{{ codeBusy ? '查找中…' : '查找比赛' }}</button><p v-if="codeError" class="form-message">{{ codeError }}</p></form>
+    <form v-if="searchMode === 'code'" class="tournament-search-panel" @submit.prevent="findByCode"><label><span>按比赛码查找</span><input v-model="code" class="code-search-input" maxlength="6" autocomplete="off" placeholder="例如 FU6Q8W" @input="code = code.toUpperCase()" /></label><button class="button primary" type="submit" :disabled="searchBusy">{{ searchBusy ? '查找中…' : '查找比赛' }}</button><button class="button secondary" type="button" :disabled="searchBusy" @click="cancelSearch">取消</button><p v-if="searchError" class="form-message">{{ searchError }}</p></form>
+    <form v-if="searchMode === 'name'" class="tournament-search-panel" @submit.prevent="findByName"><label><span>按赛事名称查找</span><input v-model="nameQuery" autocomplete="off" placeholder="输入赛事名称" /></label><button class="button primary" type="submit" :disabled="searchBusy">{{ searchBusy ? '查找中…' : '查找赛事' }}</button><button class="button secondary" type="button" :disabled="searchBusy" @click="cancelSearch">取消</button><p v-if="searchError" class="form-message">{{ searchError }}</p></form>
     <p v-if="loading" class="empty-state">正在加载赛事…</p>
     <p v-else-if="error" class="form-message">{{ error }}</p>
-    <div v-else-if="filtered.length" class="tournament-list">
-      <RouterLink v-for="item in filtered" :key="item.id" class="tournament-row" :to="`/tournaments/${item.id}`">
+    <div v-else-if="tournaments.length" class="tournament-list">
+      <RouterLink v-for="item in tournaments" :key="item.id" class="tournament-row" :to="`/tournaments/${item.id}`">
         <span :class="['status-badge', `status-${item.status.toLowerCase()}`]">{{ tournamentStatusText[item.status] }}</span>
         <div class="tournament-summary">
           <strong>{{ item.name }}</strong>
