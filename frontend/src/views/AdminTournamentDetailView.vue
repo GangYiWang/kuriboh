@@ -47,6 +47,7 @@ const error = ref('')
 const message = ref('')
 const busy = ref(false)
 const bulkApprovalOpen = ref(false)
+const startTournamentOpen = ref(false)
 const tournamentId = computed(() => String(route.params.id))
 const section = computed(() => String(route.params.section || 'settings'))
 const coreLocked = computed(() => tournament.value ? ['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.value.status) : false)
@@ -176,9 +177,18 @@ async function publishTournament() {
   await lifecycleAction('publish', '赛事已发布并立即开放报名。')
 }
 
+function requestTournamentStart() {
+  error.value = ''
+  startTournamentOpen.value = true
+}
+
+function cancelTournamentStart() {
+  if (!busy.value) startTournamentOpen.value = false
+}
+
 async function startTournament() {
-  if (!window.confirm('开始赛事后将立即关闭报名并锁定核心配置，是否继续？')) return
-  await lifecycleAction('start', '赛事已开始，正式参赛名单快照已生成。')
+  const succeeded = await lifecycleAction('start', '赛事已开始，正式参赛名单快照已生成。')
+  if (succeeded) startTournamentOpen.value = false
 }
 
 async function lifecycleAction(action: 'publish' | 'start', successMessage: string) {
@@ -188,8 +198,10 @@ async function lifecycleAction(action: 'publish' | 'start', successMessage: stri
     tournament.value = await apiPost<Tournament>(`/admin/tournaments/${tournamentId.value}/${action}`, {}, authStore.token)
     message.value = successMessage
     syncForm(tournament.value)
+    return true
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '操作失败'
+    return false
   } finally { busy.value = false }
 }
 
@@ -463,6 +475,16 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       @cancel="cancelPendingApproval"
       @confirm="approvePendingRegistrations"
     />
+    <ConfirmFormDialog
+      v-if="startTournamentOpen && tournament"
+      title="开始赛事"
+      description="开始后将立即关闭报名、锁定核心配置，并根据已通过报名生成正式参赛名单。"
+      confirm-text="确认开始赛事"
+      :busy="busy"
+      :error="error"
+      @cancel="cancelTournamentStart"
+      @confirm="startTournament"
+    />
 
     <form v-if="tournament && section === 'settings'" class="content-form tournament-settings" @submit.prevent="saveSettings">
       <div class="settings-heading"><div><h2>赛事设置</h2><p v-if="coreLocked" class="form-hint">赛事已经开始，容量、轮数、Top N 和禁卡表版本已锁定。</p></div><span :class="['status-badge', `status-${tournament.status.toLowerCase()}`]">{{ tournamentStatusText[tournament.status] }}</span></div>
@@ -478,7 +500,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       <div class="form-actions">
         <button class="button secondary" type="submit" :disabled="busy">保存设置</button>
         <button v-if="tournament.status === 'DRAFT'" class="button primary" type="button" :disabled="busy" @click="publishTournament">发布并开放报名</button>
-        <button v-if="tournament.status === 'REGISTRATION'" class="button primary" type="button" :disabled="busy" @click="startTournament">开始赛事</button>
+        <button v-if="tournament.status === 'REGISTRATION'" class="button primary" type="button" :disabled="busy" @click="requestTournamentStart">开始赛事</button>
       </div>
     </form>
 
