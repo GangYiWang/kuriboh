@@ -1,0 +1,22 @@
+export type Role = 'PLAYER' | 'TOURNAMENT_ADMIN'
+
+export interface User {
+  id: string
+  qq_number: string
+  nickname: string
+  role: Role
+  qq_bound: boolean
+  created_at: string
+}
+
+export interface TokenResponse {
+  access_token: string
+  token_type: 'bearer'
+  user: User
+}
+
+export interface QqOAuthStatus {
+  configured: boolean
+  authorization_url: string | null
+  state: string | null
+}
