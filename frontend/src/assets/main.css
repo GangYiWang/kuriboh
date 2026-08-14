@@ -1119,6 +1119,7 @@ input {
 .swap-panel strong { font-size: 12px; }
 .admin-match-list { margin-top: 18px; border-top: 1px solid var(--color-line-strong); }
 .admin-match-row { min-height: 76px; display: grid; grid-template-columns: 54px minmax(180px, 1.4fr) minmax(150px, 1fr) 100px auto; align-items: center; gap: 16px; border-bottom: 1px solid var(--color-line); }
+.admin-match-row.admin-match-row-preview { grid-template-columns: 54px minmax(180px, 1fr); }
 .admin-match-players { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; }
 .admin-match-players span { color: var(--color-muted); }
 .admin-match-players small { grid-column: 1 / -1; color: var(--color-warning); }
@@ -1418,6 +1419,7 @@ input {
   .result-actions { align-items: stretch; flex-direction: column; }
   .swap-panel { grid-template-columns: 1fr; }
   .admin-match-row { grid-template-columns: 42px minmax(0, 1fr); gap: 10px; padding: 14px 0; }
+  .admin-match-row.admin-match-row-preview { grid-template-columns: 42px minmax(0, 1fr); }
   .admin-match-row > .status-badge, .admin-match-row > .row-actions { grid-column: 2; }
   .champion-strip { grid-template-columns: 1fr; gap: 8px; }
   .playoff-bracket { grid-template-columns: repeat(var(--round-count), minmax(190px, 1fr)); }

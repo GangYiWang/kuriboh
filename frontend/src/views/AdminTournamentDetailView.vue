@@ -54,6 +54,7 @@ const coreLocked = computed(() => tournament.value ? ['SWISS', 'ELIMINATION', 'E
 const latestRound = computed<SwissRound | null>(() => swissRounds.value[swissRounds.value.length - 1] ?? null)
 const filteredMatches = computed<SwissMatch[]>(() => {
   const matches = latestRound.value?.matches ?? []
+  if (latestRound.value?.status === 'DRAFT') return matches
   return matchFilter.value === 'ALL' ? matches : matches.filter((item) => item.status === matchFilter.value)
 })
 const draftParticipantIds = computed<string[]>(() => {
@@ -540,7 +541,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
 
         <div v-if="latestRound" class="round-admin-heading">
           <div><strong>第 {{ latestRound.round_no }} 轮</strong><span :class="['status-badge', `round-${latestRound.status.toLowerCase()}`]">{{ swissRoundStatusText[latestRound.status] }}</span></div>
-          <label>筛选
+          <label v-if="latestRound.status !== 'DRAFT'">筛选
             <select v-model="matchFilter"><option value="ALL">全部</option><option value="WAITING">未完成</option><option value="CONFLICT">赛果冲突</option><option value="COMPLETED">已完成</option></select>
           </label>
         </div>
@@ -553,11 +554,11 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
         </div>
 
         <div v-if="latestRound" class="admin-match-list">
-          <article v-for="match in filteredMatches" :key="match.id" class="admin-match-row">
+          <article v-for="match in filteredMatches" :key="match.id" :class="['admin-match-row', { 'admin-match-row-preview': latestRound.status === 'DRAFT' }]">
             <span class="match-table-no">{{ match.player_b_id ? `第 ${match.table_no} 桌` : '轮空' }}</span>
             <div class="admin-match-players"><strong>{{ match.player_a_nickname }}</strong><span>{{ match.player_b_nickname || '轮空' }}</span><small v-if="match.warnings.length">{{ match.warnings.join(' · ') }}</small></div>
-            <div class="submission-state"><span>A：{{ match.player_a_result === 'WIN' ? '胜' : match.player_a_result === 'LOSS' ? '负' : '未提交' }}</span><span v-if="match.player_b_id">B：{{ match.player_b_result === 'WIN' ? '胜' : match.player_b_result === 'LOSS' ? '负' : '未提交' }}</span></div>
-            <span :class="['status-badge', `match-${match.status.toLowerCase()}`]">{{ matchStatusText[match.status] }}</span>
+            <div v-if="latestRound.status !== 'DRAFT'" class="submission-state"><span>A：{{ match.player_a_result === 'WIN' ? '胜' : match.player_a_result === 'LOSS' ? '负' : '未提交' }}</span><span v-if="match.player_b_id">B：{{ match.player_b_result === 'WIN' ? '胜' : match.player_b_result === 'LOSS' ? '负' : '未提交' }}</span></div>
+            <span v-if="latestRound.status !== 'DRAFT'" :class="['status-badge', `match-${match.status.toLowerCase()}`]">{{ matchStatusText[match.status] }}</span>
             <div v-if="latestRound.status !== 'DRAFT' && match.player_b_id && !match.result_locked" class="row-actions"><button type="button" @click="resolveMatch(match, match.player_a_id)">判 A 胜</button><button type="button" @click="resolveMatch(match, match.player_b_id)">判 B 胜</button></div>
           </article>
           <p v-if="!filteredMatches.length" class="empty-state compact">该筛选下没有对局。</p>
