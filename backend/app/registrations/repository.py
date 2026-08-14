@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.registrations.models import Registration, RegistrationStatus
@@ -33,11 +33,16 @@ class RegistrationRepository:
             (Registration.status != RegistrationStatus.CANCELED.value)
             | Registration.reviewed_by_id.is_not(None)
         )
+        status_priority = case(
+            (Registration.status == RegistrationStatus.PENDING.value, 0),
+            (Registration.status == RegistrationStatus.APPROVED.value, 1),
+            else_=2,
+        )
         statement = (
             select(Registration)
             .where(Registration.tournament_id == tournament_id, admin_visible)
             .options(joinedload(Registration.user))
-            .order_by(Registration.created_at.asc())
+            .order_by(status_priority, Registration.created_at.asc())
         )
         items = list(self.db.scalars(statement))
         total = self.db.scalar(
