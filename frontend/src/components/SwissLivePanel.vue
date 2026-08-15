@@ -7,7 +7,16 @@ import MatchHistoryList from '@/components/MatchHistoryList.vue'
 import type { MatchHistoryItem, MySwissMatch, SubmittedResult, SwissOverview } from '@/types/tournament'
 import { matchStatusText, swissRoundStatusText } from '@/types/tournament'
 
-const props = defineProps<{ tournamentId: string; token: string | null; isPlayer: boolean }>()
+const props = withDefaults(defineProps<{
+  tournamentId: string
+  token: string | null
+  isPlayer: boolean
+  view?: 'matches' | 'results'
+  embedded?: boolean
+}>(), {
+  view: 'matches',
+  embedded: false,
+})
 const overview = ref<SwissOverview | null>(null)
 const myMatches = ref<MySwissMatch[]>([])
 const busy = ref(false)
@@ -37,7 +46,7 @@ const historyMatches = computed<MatchHistoryItem[]>(() => myMatches.value
 
 async function load() {
   overview.value = await apiGet<SwissOverview>(`/tournaments/${props.tournamentId}/swiss`)
-  if (props.token && props.isPlayer) {
+  if (props.view === 'matches' && props.token && props.isPlayer) {
     myMatches.value = await apiGet<MySwissMatch[]>(
       `/tournaments/${props.tournamentId}/matches/me`, undefined, props.token,
     ).catch(() => [])
@@ -62,57 +71,62 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
 </script>
 
 <template>
-  <section class="swiss-live">
-    <div class="swiss-progress-heading">
-      <div><p class="section-kicker">SWISS MATCHES</p><h2>对阵</h2></div>
+  <section :class="['swiss-live', { 'swiss-live-embedded': embedded }]">
+    <div v-if="!embedded" class="swiss-progress-heading">
+      <div><p class="section-kicker">{{ view === 'matches' ? 'SWISS MATCHES' : 'RESULTS' }}</p><h2>{{ view === 'matches' ? '对阵' : '赛果' }}</h2></div>
       <span v-if="overview?.current_round_status" class="status-badge status-swiss">
         第 {{ overview.current_round_no }} 轮 · {{ swissRoundStatusText[overview.current_round_status] }}
       </span>
     </div>
-    <div v-if="overview" class="round-progress">
-      <i :style="{ width: `${overview.total_rounds ? overview.completed_rounds / overview.total_rounds * 100 : 0}%` }" />
-    </div>
-    <p v-if="overview" class="form-hint">已完成 {{ overview.completed_rounds }} / {{ overview.total_rounds }} 轮；本轮未结束时继续展示第 {{ overview.ranking_round_no }} 轮后的正式排名。</p>
-    <FormMessage v-if="message" type="success" :message="message" />
-    <FormMessage v-if="error" :message="error" />
+    <template v-if="view === 'matches'">
+      <div v-if="overview" class="round-progress">
+        <i :style="{ width: `${overview.total_rounds ? overview.completed_rounds / overview.total_rounds * 100 : 0}%` }" />
+      </div>
+      <p v-if="overview" class="form-hint">已完成 {{ overview.completed_rounds }} / {{ overview.total_rounds }} 轮；本轮未结束时继续展示第 {{ overview.ranking_round_no }} 轮后的瑞士轮排名。</p>
+      <FormMessage v-if="message" type="success" :message="message" />
+      <FormMessage v-if="error" :message="error" />
 
-    <section v-if="isPlayer" class="current-match-section">
-      <div class="match-section-heading"><h3>当前对阵</h3><span>本轮对局</span></div>
-      <article v-if="currentMatch" class="my-match-panel">
-        <div class="match-table-no">第 {{ currentMatch.round_no }} 轮瑞士轮 · {{ currentMatch.player_b_id ? `第 ${currentMatch.table_no} 桌` : '轮空' }}</div>
-        <div class="match-versus">
-          <strong :class="{ winner: currentMatch.winner_id === currentMatch.player_a_id }">{{ currentMatch.player_a_nickname }}</strong>
-          <span>{{ currentMatch.player_b_id ? 'VS' : 'BYE' }}</span>
-          <strong v-if="currentMatch.player_b_id" :class="{ winner: currentMatch.winner_id === currentMatch.player_b_id }">{{ currentMatch.player_b_nickname }}</strong>
-        </div>
-        <div class="match-meta">
-          <span>{{ matchStatusText[currentMatch.status] }}</span>
-          <span>对手{{ currentMatch.opponent_submitted ? '已提交' : '未提交' }}</span>
-          <span v-if="currentMatch.my_submission">我已提交：{{ currentMatch.my_submission === 'WIN' ? '胜' : '负' }}</span>
-        </div>
-        <div v-if="currentMatch.player_b_id" class="result-actions">
-          <button class="button primary" type="button" aria-label="提交我获胜" :disabled="busy" @click="submit('WIN')">胜</button>
-          <button class="button secondary" type="button" aria-label="提交我落败" :disabled="busy" @click="submit('LOSS')">负</button>
-        </div>
-        <p v-else class="form-hint">本轮轮空，系统已自动记录胜场。</p>
-      </article>
-      <p v-else class="empty-state compact">当前没有进行中的个人对阵。</p>
-    </section>
+      <section v-if="isPlayer" class="current-match-section">
+        <div class="match-section-heading"><h3>当前对阵</h3><span>本轮对局</span></div>
+        <article v-if="currentMatch" class="my-match-panel">
+          <div class="match-table-no">第 {{ currentMatch.round_no }} 轮瑞士轮 · {{ currentMatch.player_b_id ? `第 ${currentMatch.table_no} 桌` : '轮空' }}</div>
+          <div class="match-versus">
+            <strong :class="{ winner: currentMatch.winner_id === currentMatch.player_a_id }">{{ currentMatch.player_a_nickname }}</strong>
+            <span>{{ currentMatch.player_b_id ? 'VS' : 'BYE' }}</span>
+            <strong v-if="currentMatch.player_b_id" :class="{ winner: currentMatch.winner_id === currentMatch.player_b_id }">{{ currentMatch.player_b_nickname }}</strong>
+          </div>
+          <div class="match-meta">
+            <span>{{ matchStatusText[currentMatch.status] }}</span>
+            <span>对手{{ currentMatch.opponent_submitted ? '已提交' : '未提交' }}</span>
+            <span v-if="currentMatch.my_submission">我已提交：{{ currentMatch.my_submission === 'WIN' ? '胜' : '负' }}</span>
+          </div>
+          <div v-if="currentMatch.player_b_id" class="result-actions">
+            <button class="button primary" type="button" aria-label="提交我获胜" :disabled="busy" @click="submit('WIN')">胜</button>
+            <button class="button secondary" type="button" aria-label="提交我落败" :disabled="busy" @click="submit('LOSS')">负</button>
+          </div>
+          <p v-else class="form-hint">本轮轮空，系统已自动记录胜场。</p>
+        </article>
+        <p v-else class="empty-state compact">当前没有进行中的个人对阵。</p>
+      </section>
 
-    <MatchHistoryList v-if="isPlayer" :matches="historyMatches" />
+      <MatchHistoryList v-if="isPlayer" :matches="historyMatches" />
+    </template>
 
-    <div class="ranking-heading"><h2>正式排名</h2><span>第 {{ overview?.ranking_round_no ?? 0 }} 轮快照</span></div>
-    <div class="ranking-table-wrap">
-      <table class="ranking-table">
-        <thead><tr><th>排名</th><th>选手</th><th>胜负</th><th>OMW</th><th>败局小分</th></tr></thead>
-        <tbody>
-          <tr v-for="item in overview?.rankings" :key="item.participant_id">
-            <td>{{ item.rank }}</td><td><strong>{{ item.nickname }}</strong><small v-if="item.participant_status === 'WITHDRAWN'">已退赛</small></td>
-            <td>{{ item.wins }}-{{ item.losses }}</td><td>{{ (item.omw * 100).toFixed(2) }}%</td><td>{{ item.loss_round_score }}</td>
-          </tr>
-          <tr v-if="!overview?.rankings.length"><td colspan="5">首轮全部结束后公布正式排名。</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <template v-else>
+      <FormMessage v-if="error" :message="error" />
+      <div class="ranking-heading"><h3>瑞士轮排名</h3><span>第 {{ overview?.ranking_round_no ?? 0 }} 轮快照</span></div>
+      <div class="ranking-table-wrap">
+        <table class="ranking-table">
+          <thead><tr><th>排名</th><th>选手</th><th>胜负</th><th>OMW(%)</th><th>LRS</th></tr></thead>
+          <tbody>
+            <tr v-for="item in overview?.rankings" :key="item.participant_id">
+              <td>{{ item.rank }}</td><td><strong>{{ item.nickname }}</strong><small v-if="item.participant_status === 'WITHDRAWN'">已退赛</small></td>
+              <td>{{ item.wins }}-{{ item.losses }}</td><td>{{ (item.omw * 100).toFixed(2) }}</td><td>{{ item.loss_round_score }}</td>
+            </tr>
+            <tr v-if="!overview?.rankings.length"><td colspan="5">首轮全部结束后公布瑞士轮排名。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
   </section>
 </template>

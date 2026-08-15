@@ -1006,7 +1006,14 @@ input {
 .detail-banner h1 { margin: 14px 0 10px; font-size: 38px; }
 .detail-banner .button { margin-top: 10px; }
 .detail-banner p { max-width: 760px; margin: 0; color: #d3cbc6; line-height: 1.8; }
-.tournament-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 72px; padding-top: 42px; padding-bottom: 90px; }
+.tournament-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; column-gap: 72px; row-gap: 32px; padding-top: 24px; padding-bottom: 90px; }
+.tournament-detail-tabs { grid-column: 1 / -1; display: flex; gap: 34px; border-bottom: 1px solid var(--color-line-strong); }
+.tournament-detail-tabs button { position: relative; min-height: 46px; padding: 0 2px; border: 0; color: var(--color-muted); font-size: 15px; font-weight: 600; background: transparent; cursor: pointer; }
+.tournament-detail-tabs button:focus { outline: none; }
+.tournament-detail-tabs button:focus-visible { background: var(--color-brand-pale); }
+.tournament-detail-tabs button.active { color: var(--color-ink); }
+.tournament-detail-tabs button.active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: var(--color-brand); content: ''; }
+.tournament-stage-empty h2 { margin: 7px 0 10px; font-size: 22px; }
 .info-section + .info-section { margin-top: 46px; }
 .info-section h2 { margin: 7px 0 22px; font-size: 22px; }
 .info-grid { display: grid; grid-template-columns: 1fr 1fr; margin: 0; border-top: 1px solid var(--color-line-strong); }
@@ -1062,7 +1069,8 @@ input {
 .registration-row { min-height: 66px; display: grid; grid-template-columns: minmax(160px, 1fr) 100px auto; align-items: center; gap: 20px; border-bottom: 1px solid var(--color-line); }
 .registration-row:first-of-type { border-top: 1px solid var(--color-line-strong); }
 
-.swiss-live { margin-top: 52px; padding-top: 34px; border-top: 1px solid var(--color-line-strong); }
+.swiss-live { margin-top: 0; }
+.swiss-live.swiss-live-embedded { margin-top: 42px; padding-top: 32px; border-top: 1px solid var(--color-line-strong); }
 .swiss-progress-heading, .ranking-heading, .swiss-operation-bar, .round-admin-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 .swiss-progress-heading h2, .ranking-heading h2, .swiss-operation-bar h2, .withdrawal-panel h2 { margin: 7px 0 10px; font-size: 22px; }
 .round-progress { height: 6px; overflow: hidden; margin: 18px 0 10px; background: var(--color-line); }
@@ -1098,6 +1106,7 @@ input {
 .history-player.winner > strong, .history-player.winner > i { color: var(--color-success); }
 .history-bye > strong { color: var(--color-muted); font-weight: 500; }
 .ranking-heading { align-items: baseline; margin-top: 32px; }
+.ranking-heading h3 { margin: 0 0 10px; font-size: 16px; }
 .ranking-heading span { color: var(--color-muted); font-size: 11px; }
 .ranking-table-wrap { overflow-x: auto; border-top: 1px solid var(--color-line-strong); }
 .ranking-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -1141,7 +1150,7 @@ input {
 .withdrawal-panel article button { border: 0; color: var(--color-brand); background: transparent; cursor: pointer; }
 .withdrawal-panel article button:disabled { color: var(--color-muted); cursor: not-allowed; }
 
-.playoff-live { margin-top: 52px; padding-top: 34px; border-top: 1px solid var(--color-line-strong); }
+.playoff-live { margin-top: 0; }
 .playoff-live h2 { margin: 7px 0 10px; font-size: 22px; }
 .champion-strip { display: grid; grid-template-columns: 110px minmax(160px, 1fr) auto; align-items: center; gap: 20px; margin: 26px 0; padding: 18px 20px; border-top: 1px solid var(--color-brand); border-bottom: 1px solid var(--color-brand); background: var(--color-brand-pale); }
 .champion-strip span { color: var(--color-brand); font: 700 10px/1 var(--font-number); letter-spacing: .15em; }

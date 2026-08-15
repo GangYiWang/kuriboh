@@ -28,7 +28,7 @@ function formatDate(value: string | null) {
 
     <section class="report-section">
       <p class="section-kicker">SWISS RANKING</p><h2>瑞士轮最终排名</h2>
-      <div class="ranking-table-wrap"><table class="ranking-table"><thead><tr><th>排名</th><th>选手</th><th>胜负</th><th>OMW</th><th>败局小分</th></tr></thead><tbody><tr v-for="item in report.snapshot_content.swiss_rankings" :key="item.rank"><td>{{ item.rank }}</td><td>{{ item.nickname }}</td><td>{{ item.wins }}-{{ item.losses }}</td><td>{{ (item.omw * 100).toFixed(2) }}%</td><td>{{ item.loss_round_score }}</td></tr></tbody></table></div>
+      <div class="ranking-table-wrap"><table class="ranking-table"><thead><tr><th>排名</th><th>选手</th><th>胜负</th><th>OMW(%)</th><th>LRS</th></tr></thead><tbody><tr v-for="item in report.snapshot_content.swiss_rankings" :key="item.rank"><td>{{ item.rank }}</td><td>{{ item.nickname }}</td><td>{{ item.wins }}-{{ item.losses }}</td><td>{{ (item.omw * 100).toFixed(2) }}</td><td>{{ item.loss_round_score }}</td></tr></tbody></table></div>
     </section>
 
     <section class="report-section">

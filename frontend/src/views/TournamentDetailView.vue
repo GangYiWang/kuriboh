@@ -19,6 +19,7 @@ const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
 const message = ref('')
+const activeTab = ref<'info' | 'matches' | 'results'>('info')
 const tournamentId = computed(() => String(route.params.id))
 const remaining = computed(() => Math.max(0, (tournament.value?.max_players ?? 0) - (tournament.value?.approved_count ?? 0)))
 const canReapply = computed(() => registration.value?.status === 'CANCELED' && !registration.value.reviewed_by_id)
@@ -93,8 +94,13 @@ onMounted(async () => {
       </div>
     </header>
     <div class="page-shell tournament-detail-layout">
+      <nav class="tournament-detail-tabs" aria-label="赛事页面内容">
+        <button type="button" :class="{ active: activeTab === 'info' }" :aria-current="activeTab === 'info' ? 'page' : undefined" @click="activeTab = 'info'">赛事信息</button>
+        <button type="button" :class="{ active: activeTab === 'matches' }" :aria-current="activeTab === 'matches' ? 'page' : undefined" @click="activeTab = 'matches'">对阵</button>
+        <button type="button" :class="{ active: activeTab === 'results' }" :aria-current="activeTab === 'results' ? 'page' : undefined" @click="activeTab = 'results'">赛果</button>
+      </nav>
       <main>
-        <section class="info-section">
+        <section v-if="activeTab === 'info'" class="info-section">
           <p class="section-kicker">TOURNAMENT INFO</p>
           <h2>赛事信息</h2>
           <dl class="info-grid">
@@ -111,22 +117,54 @@ onMounted(async () => {
           </section>
         </section>
         <SwissLivePanel
-          v-if="tournament.status === 'SWISS'"
+          v-if="activeTab === 'matches' && tournament.status === 'SWISS'"
           :tournament-id="tournament.id"
           :token="authStore.token"
           :is-player="authStore.isAuthenticated"
+          view="matches"
         />
         <PlayoffBracket
-          v-if="['ELIMINATION', 'ENDED'].includes(tournament.status)"
+          v-if="activeTab === 'matches' && ['ELIMINATION', 'ENDED'].includes(tournament.status)"
           :tournament-id="tournament.id"
           :token="authStore.token"
           :is-player="authStore.isAuthenticated"
+          view="matches"
         />
-        <DeckSubmissionPanel
-          v-if="tournament.status === 'ENDED' && authStore.isAuthenticated && authStore.token"
-          :tournament-id="tournament.id"
-          :token="authStore.token"
-        />
+        <section v-if="activeTab === 'matches' && ['DRAFT', 'REGISTRATION'].includes(tournament.status)" class="tournament-stage-empty">
+          <p class="section-kicker">MATCHES</p><h2>对阵</h2><p class="empty-state compact">赛事开始并发布首轮后显示对阵。</p>
+        </section>
+        <template v-if="activeTab === 'results'">
+          <SwissLivePanel
+            v-if="tournament.status === 'SWISS'"
+            :tournament-id="tournament.id"
+            :token="authStore.token"
+            :is-player="authStore.isAuthenticated"
+            view="results"
+          />
+          <template v-else-if="['ELIMINATION', 'ENDED'].includes(tournament.status)">
+            <PlayoffBracket
+              :tournament-id="tournament.id"
+              :token="authStore.token"
+              :is-player="authStore.isAuthenticated"
+              view="results"
+            />
+            <SwissLivePanel
+              :tournament-id="tournament.id"
+              :token="authStore.token"
+              :is-player="authStore.isAuthenticated"
+              view="results"
+              embedded
+            />
+            <DeckSubmissionPanel
+              v-if="tournament.status === 'ENDED' && authStore.isAuthenticated && authStore.token"
+              :tournament-id="tournament.id"
+              :token="authStore.token"
+            />
+          </template>
+          <section v-else class="tournament-stage-empty">
+            <p class="section-kicker">RESULTS</p><h2>赛果</h2><p class="empty-state compact">赛事开始后显示排名与赛果。</p>
+          </section>
+        </template>
       </main>
       <aside class="signup-box">
         <p class="section-kicker">REGISTRATION</p>
@@ -149,9 +187,9 @@ onMounted(async () => {
         </template>
         <template v-else>
           <p>赛事已开始，报名现已关闭。</p>
-          <p v-if="tournament.status === 'SWISS'" class="form-hint">选手可在左侧“对阵”查看个人当前对阵并独立提交赛果。</p>
-          <p v-if="tournament.status === 'ELIMINATION'" class="form-hint">选手可在左侧固定种子签表中查看淘汰赛对局并提交赛果。</p>
-          <p v-if="tournament.status === 'ENDED'" class="form-hint">赛事结果已经永久锁定。最终四强请在左侧上传卡组截图。</p>
+          <p v-if="tournament.status === 'SWISS'" class="form-hint">选手可切换到“对阵”查看个人当前对阵并独立提交赛果。</p>
+          <p v-if="tournament.status === 'ELIMINATION'" class="form-hint">选手可切换到“对阵”查看淘汰赛对局并提交赛果。</p>
+          <p v-if="tournament.status === 'ENDED'" class="form-hint">赛事结果已经永久锁定。最终四强可在“赛果”中上传卡组截图。</p>
         </template>
       </aside>
     </div>

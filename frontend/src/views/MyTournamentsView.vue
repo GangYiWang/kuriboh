@@ -45,7 +45,7 @@ onMounted(loadCurrent)
         <article v-for="item in joined.items" :key="item.id" class="my-tournament-row">
           <header><span :class="['status-badge', `status-${item.status.toLowerCase()}`]">{{ tournamentStatusText[item.status] }}</span><small>{{ formatDate(item.planned_start_at) }}</small></header>
           <div class="my-tournament-main"><div><h2>{{ item.name }}</h2><p>报名：{{ registrationStatusText[item.registration_status] }}<template v-if="item.participant_status"> · {{ item.participant_status === 'WITHDRAWN' ? '已退赛' : '正式参赛' }}</template></p></div><RouterLink class="button secondary small" :to="`/tournaments/${item.id}`">进入赛事</RouterLink></div>
-          <dl><div><dt>当前对阵</dt><dd>{{ matchLabel(item) }}</dd></div><div><dt>对手</dt><dd>{{ item.current_match?.opponent_nickname ?? '—' }}</dd></div><div><dt>正式排名</dt><dd>{{ item.ranking ? `第 ${item.ranking.rank} 名 · ${item.ranking.wins}-${item.ranking.losses}` : '—' }}</dd></div></dl>
+          <dl><div><dt>当前对阵</dt><dd>{{ matchLabel(item) }}</dd></div><div><dt>对手</dt><dd>{{ item.current_match?.opponent_nickname ?? '—' }}</dd></div><div><dt>瑞士轮排名</dt><dd>{{ item.ranking ? `第 ${item.ranking.rank} 名 · ${item.ranking.wins}-${item.ranking.losses}` : '—' }}</dd></div></dl>
           <RouterLink v-if="item.report_id" class="link-tone" :to="`/reports/${item.report_id}`">查看赛事周报 →</RouterLink>
         </article>
       </div>

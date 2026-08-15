@@ -7,14 +7,24 @@ import MatchHistoryList from '@/components/MatchHistoryList.vue'
 import type { MatchHistoryItem, MyPlayoffMatch, MySwissMatch, PlayoffOverview, SubmittedResult } from '@/types/tournament'
 import { matchStatusText, swissRoundStatusText } from '@/types/tournament'
 
-const props = defineProps<{ tournamentId: string; token: string | null; isPlayer: boolean }>()
+const props = withDefaults(defineProps<{
+  tournamentId: string
+  token: string | null
+  isPlayer: boolean
+  view?: 'matches' | 'results'
+}>(), {
+  view: 'matches',
+})
 const overview = ref<PlayoffOverview | null>(null)
 const myMatches = ref<MyPlayoffMatch[]>([])
 const swissMatches = ref<MySwissMatch[]>([])
 const busy = ref(false)
 const message = ref('')
 const error = ref('')
-const currentMatch = computed(() => [...myMatches.value].reverse().find((item) => item.status !== 'COMPLETED') ?? myMatches.value[myMatches.value.length - 1] ?? null)
+const currentMatch = computed(() => [...myMatches.value].reverse().find((item) => item.status !== 'COMPLETED') ?? null)
+const currentRoundName = computed(() => currentMatch.value
+  ? overview.value?.rounds.find((item) => item.stage_no === currentMatch.value?.stage_no)?.name ?? `第 ${currentMatch.value.stage_no} 阶段`
+  : '')
 const historyMatches = computed<MatchHistoryItem[]>(() => [
   ...myMatches.value.map((item) => ({
     id: item.id,
@@ -52,7 +62,7 @@ const historyMatches = computed<MatchHistoryItem[]>(() => [
 
 async function load() {
   overview.value = await apiGet<PlayoffOverview>(`/tournaments/${props.tournamentId}/playoffs`)
-  if (props.token && props.isPlayer) {
+  if (props.view === 'matches' && props.token && props.isPlayer) {
     const [playoffItems, swissItems] = await Promise.all([
       apiGet<MyPlayoffMatch[]>(
         `/tournaments/${props.tournamentId}/playoffs/matches/me`, undefined, props.token,
@@ -85,31 +95,40 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
 
 <template>
   <section class="playoff-live">
-    <div class="swiss-progress-heading"><div><p class="section-kicker">PLAYOFF BRACKET</p><h2>淘汰赛签表</h2></div><span v-if="overview" class="status-badge status-elimination">Top {{ overview.playoff_size }}</span></div>
-    <FormMessage v-if="message" type="success" :message="message" />
+    <div class="swiss-progress-heading"><div><p class="section-kicker">{{ view === 'matches' ? 'PLAYOFF MATCHES' : 'RESULTS' }}</p><h2>{{ view === 'matches' ? '对阵' : '赛果' }}</h2></div><span v-if="overview" class="status-badge status-elimination">Top {{ overview.playoff_size }}</span></div>
+    <FormMessage v-if="view === 'matches' && message" type="success" :message="message" />
     <FormMessage v-if="error" :message="error" />
-    <div v-if="overview?.champion_nickname" class="champion-strip"><span>CHAMPION</span><strong>{{ overview.champion_nickname }}</strong><small>{{ overview.awaiting_tournament_end ? '决赛已完成，等待管理员结束赛事。' : '赛事已结束，全部结果已永久锁定。' }}</small></div>
 
-    <article v-if="currentMatch && currentMatch.status !== 'COMPLETED'" class="my-match-panel playoff-current-match">
-      <div class="match-table-no">淘汰赛 · {{ overview?.rounds.find((item) => item.stage_no === currentMatch.stage_no)?.name }} · 第 {{ currentMatch.table_no }} 桌</div>
-      <div class="match-versus"><strong>#{{ currentMatch.seed_a }} {{ currentMatch.player_a_nickname }}</strong><span>VS</span><strong>#{{ currentMatch.seed_b }} {{ currentMatch.player_b_nickname }}</strong></div>
-      <div class="match-meta"><span>{{ matchStatusText[currentMatch.status] }}</span><span>对手{{ currentMatch.opponent_submitted ? '已提交' : '未提交' }}</span><span v-if="currentMatch.my_submission">我已提交：{{ currentMatch.my_submission === 'WIN' ? '胜' : '负' }}</span></div>
-      <div class="result-actions"><button class="button primary" type="button" aria-label="提交我获胜" :disabled="busy" @click="submit('WIN')">胜</button><button class="button secondary" type="button" aria-label="提交我落败" :disabled="busy" @click="submit('LOSS')">负</button></div>
-    </article>
-
-    <MatchHistoryList v-if="isPlayer" :matches="historyMatches" />
-
-    <div class="playoff-bracket" :style="{ '--round-count': overview?.rounds.length || 1 }">
-      <section v-for="round in overview?.rounds" :key="round.id" class="bracket-round">
-        <header><strong>{{ round.name }}</strong><span>{{ swissRoundStatusText[round.status] }}</span></header>
-        <div class="bracket-match-list">
-          <article v-for="match in round.matches" :key="match.id" class="bracket-match">
-            <div :class="{ winner: match.winner_id === match.player_a_id }"><span>#{{ match.seed_a }}</span><strong>{{ match.player_a_nickname }}</strong><i>{{ match.winner_id === match.player_a_id ? 'W' : '' }}</i></div>
-            <div :class="{ winner: match.winner_id === match.player_b_id }"><span>#{{ match.seed_b }}</span><strong>{{ match.player_b_nickname }}</strong><i>{{ match.winner_id === match.player_b_id ? 'W' : '' }}</i></div>
-          </article>
-        </div>
+    <template v-if="view === 'matches'">
+      <section v-if="isPlayer" class="current-match-section">
+        <div class="match-section-heading"><h3>当前对阵</h3><span>当前淘汰阶段</span></div>
+        <article v-if="currentMatch" class="my-match-panel playoff-current-match">
+          <div class="match-table-no">淘汰赛 · {{ currentRoundName }} · 第 {{ currentMatch.table_no }} 桌</div>
+          <div class="match-versus"><strong>#{{ currentMatch.seed_a }} {{ currentMatch.player_a_nickname }}</strong><span>VS</span><strong>#{{ currentMatch.seed_b }} {{ currentMatch.player_b_nickname }}</strong></div>
+          <div class="match-meta"><span>{{ matchStatusText[currentMatch.status] }}</span><span>对手{{ currentMatch.opponent_submitted ? '已提交' : '未提交' }}</span><span v-if="currentMatch.my_submission">我已提交：{{ currentMatch.my_submission === 'WIN' ? '胜' : '负' }}</span></div>
+          <div class="result-actions"><button class="button primary" type="button" aria-label="提交我获胜" :disabled="busy" @click="submit('WIN')">胜</button><button class="button secondary" type="button" aria-label="提交我落败" :disabled="busy" @click="submit('LOSS')">负</button></div>
+        </article>
+        <p v-else class="empty-state compact">当前没有进行中的个人对阵。</p>
       </section>
-    </div>
-    <p v-if="!overview?.rounds.length" class="empty-state compact">管理员发布首个淘汰阶段后显示固定种子签表。</p>
+
+      <MatchHistoryList v-if="isPlayer" :matches="historyMatches" />
+    </template>
+
+    <template v-else>
+      <div v-if="overview?.champion_nickname" class="champion-strip"><span>CHAMPION</span><strong>{{ overview.champion_nickname }}</strong><small>{{ overview.awaiting_tournament_end ? '决赛已完成，等待管理员结束赛事。' : '赛事已结束，全部结果已永久锁定。' }}</small></div>
+      <div class="ranking-heading"><h3>淘汰赛</h3><span>对阵与胜负</span></div>
+      <div class="playoff-bracket" :style="{ '--round-count': overview?.rounds.length || 1 }">
+        <section v-for="round in overview?.rounds" :key="round.id" class="bracket-round">
+          <header><strong>{{ round.name }}</strong><span>{{ swissRoundStatusText[round.status] }}</span></header>
+          <div class="bracket-match-list">
+            <article v-for="match in round.matches" :key="match.id" class="bracket-match">
+              <div :class="{ winner: match.winner_id === match.player_a_id }"><span>#{{ match.seed_a }}</span><strong>{{ match.player_a_nickname }}</strong><i>{{ match.winner_id === match.player_a_id ? '胜' : '' }}</i></div>
+              <div :class="{ winner: match.winner_id === match.player_b_id }"><span>#{{ match.seed_b }}</span><strong>{{ match.player_b_nickname }}</strong><i>{{ match.winner_id === match.player_b_id ? '胜' : '' }}</i></div>
+            </article>
+          </div>
+        </section>
+      </div>
+      <p v-if="!overview?.rounds.length" class="empty-state compact">管理员发布首个淘汰阶段后显示固定种子签表。</p>
+    </template>
   </section>
 </template>
