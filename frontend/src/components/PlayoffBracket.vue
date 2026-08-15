@@ -94,7 +94,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       <div class="match-table-no">淘汰赛 · {{ overview?.rounds.find((item) => item.stage_no === currentMatch.stage_no)?.name }} · 第 {{ currentMatch.table_no }} 桌</div>
       <div class="match-versus"><strong>#{{ currentMatch.seed_a }} {{ currentMatch.player_a_nickname }}</strong><span>VS</span><strong>#{{ currentMatch.seed_b }} {{ currentMatch.player_b_nickname }}</strong></div>
       <div class="match-meta"><span>{{ matchStatusText[currentMatch.status] }}</span><span>对手{{ currentMatch.opponent_submitted ? '已提交' : '未提交' }}</span><span v-if="currentMatch.my_submission">我已提交：{{ currentMatch.my_submission === 'WIN' ? '胜' : '负' }}</span></div>
-      <div class="result-actions"><button class="button primary" type="button" :disabled="busy" @click="submit('WIN')">提交我获胜</button><button class="button secondary" type="button" :disabled="busy" @click="submit('LOSS')">提交我落败</button></div>
+      <div class="result-actions"><button class="button primary" type="button" aria-label="提交我获胜" :disabled="busy" @click="submit('WIN')">胜</button><button class="button secondary" type="button" aria-label="提交我落败" :disabled="busy" @click="submit('LOSS')">负</button></div>
     </article>
 
     <MatchHistoryList v-if="isPlayer" :matches="historyMatches" />

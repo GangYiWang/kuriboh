@@ -12,7 +12,7 @@ function resultText(match: MatchHistoryItem, participantId: string | null) {
 
 <template>
   <section class="match-history-section">
-    <div class="ranking-heading"><h2>历史对阵</h2><span>最新对局优先</span></div>
+    <div class="match-section-heading"><h3>历史对阵</h3><span>最新对局优先</span></div>
     <div v-if="matches.length" class="match-history-list">
       <article v-for="match in matches" :key="`${match.stage}-${match.id}`" class="history-match-card">
         <header>

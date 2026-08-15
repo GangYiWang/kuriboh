@@ -149,7 +149,7 @@ onMounted(async () => {
         </template>
         <template v-else>
           <p>赛事已开始，报名现已关闭。</p>
-          <p v-if="tournament.status === 'SWISS'" class="form-hint">选手可在左侧“赛事进程”查看个人当前对阵并独立提交赛果。</p>
+          <p v-if="tournament.status === 'SWISS'" class="form-hint">选手可在左侧“对阵”查看个人当前对阵并独立提交赛果。</p>
           <p v-if="tournament.status === 'ELIMINATION'" class="form-hint">选手可在左侧固定种子签表中查看淘汰赛对局并提交赛果。</p>
           <p v-if="tournament.status === 'ENDED'" class="form-hint">赛事结果已经永久锁定。最终四强请在左侧上传卡组截图。</p>
         </template>

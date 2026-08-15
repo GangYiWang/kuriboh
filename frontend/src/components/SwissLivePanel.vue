@@ -64,7 +64,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
 <template>
   <section class="swiss-live">
     <div class="swiss-progress-heading">
-      <div><p class="section-kicker">SWISS LIVE</p><h2>赛事进程</h2></div>
+      <div><p class="section-kicker">SWISS MATCHES</p><h2>对阵</h2></div>
       <span v-if="overview?.current_round_status" class="status-badge status-swiss">
         第 {{ overview.current_round_no }} 轮 · {{ swissRoundStatusText[overview.current_round_status] }}
       </span>
@@ -76,25 +76,28 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
     <FormMessage v-if="message" type="success" :message="message" />
     <FormMessage v-if="error" :message="error" />
 
-    <article v-if="currentMatch" class="my-match-panel">
-      <div class="match-table-no">第 {{ currentMatch.round_no }} 轮瑞士轮 · {{ currentMatch.player_b_id ? `第 ${currentMatch.table_no} 桌` : '轮空' }}</div>
-      <div class="match-versus">
-        <strong :class="{ winner: currentMatch.winner_id === currentMatch.player_a_id }">{{ currentMatch.player_a_nickname }}</strong>
-        <span>{{ currentMatch.player_b_id ? 'VS' : 'BYE' }}</span>
-        <strong v-if="currentMatch.player_b_id" :class="{ winner: currentMatch.winner_id === currentMatch.player_b_id }">{{ currentMatch.player_b_nickname }}</strong>
-      </div>
-      <div class="match-meta">
-        <span>{{ matchStatusText[currentMatch.status] }}</span>
-        <span>对手{{ currentMatch.opponent_submitted ? '已提交' : '未提交' }}</span>
-        <span v-if="currentMatch.my_submission">我已提交：{{ currentMatch.my_submission === 'WIN' ? '胜' : '负' }}</span>
-      </div>
-      <div v-if="currentMatch.player_b_id" class="result-actions">
-        <button class="button primary" type="button" :disabled="busy" @click="submit('WIN')">提交我获胜</button>
-        <button class="button secondary" type="button" :disabled="busy" @click="submit('LOSS')">提交我落败</button>
-      </div>
-      <p v-else class="form-hint">本轮轮空，系统已自动记录胜场。</p>
-    </article>
-    <p v-else-if="isPlayer" class="empty-state compact">当前没有进行中的个人对阵。</p>
+    <section v-if="isPlayer" class="current-match-section">
+      <div class="match-section-heading"><h3>当前对阵</h3><span>本轮对局</span></div>
+      <article v-if="currentMatch" class="my-match-panel">
+        <div class="match-table-no">第 {{ currentMatch.round_no }} 轮瑞士轮 · {{ currentMatch.player_b_id ? `第 ${currentMatch.table_no} 桌` : '轮空' }}</div>
+        <div class="match-versus">
+          <strong :class="{ winner: currentMatch.winner_id === currentMatch.player_a_id }">{{ currentMatch.player_a_nickname }}</strong>
+          <span>{{ currentMatch.player_b_id ? 'VS' : 'BYE' }}</span>
+          <strong v-if="currentMatch.player_b_id" :class="{ winner: currentMatch.winner_id === currentMatch.player_b_id }">{{ currentMatch.player_b_nickname }}</strong>
+        </div>
+        <div class="match-meta">
+          <span>{{ matchStatusText[currentMatch.status] }}</span>
+          <span>对手{{ currentMatch.opponent_submitted ? '已提交' : '未提交' }}</span>
+          <span v-if="currentMatch.my_submission">我已提交：{{ currentMatch.my_submission === 'WIN' ? '胜' : '负' }}</span>
+        </div>
+        <div v-if="currentMatch.player_b_id" class="result-actions">
+          <button class="button primary" type="button" aria-label="提交我获胜" :disabled="busy" @click="submit('WIN')">胜</button>
+          <button class="button secondary" type="button" aria-label="提交我落败" :disabled="busy" @click="submit('LOSS')">负</button>
+        </div>
+        <p v-else class="form-hint">本轮轮空，系统已自动记录胜场。</p>
+      </article>
+      <p v-else class="empty-state compact">当前没有进行中的个人对阵。</p>
+    </section>
 
     <MatchHistoryList v-if="isPlayer" :matches="historyMatches" />
 
