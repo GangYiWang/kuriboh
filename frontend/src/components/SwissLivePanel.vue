@@ -25,6 +25,17 @@ const message = ref('')
 const currentMatch = computed<MySwissMatch | null>(() =>
   [...myMatches.value].reverse().find((item) => item.status !== 'COMPLETED') ?? null,
 )
+const currentMatchSides = computed(() => {
+  const match = currentMatch.value
+  if (!match) return null
+  const selfIsPlayerA = match.my_participant_id === match.player_a_id
+  return {
+    selfId: match.my_participant_id,
+    selfNickname: selfIsPlayerA ? match.player_a_nickname : match.player_b_nickname,
+    opponentId: selfIsPlayerA ? match.player_b_id : match.player_a_id,
+    opponentNickname: selfIsPlayerA ? match.player_b_nickname : match.player_a_nickname,
+  }
+})
 const historyMatches = computed<MatchHistoryItem[]>(() => myMatches.value
   .filter((item) => item.status === 'COMPLETED')
   .map((item) => ({
@@ -88,19 +99,19 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
 
       <section v-if="isPlayer" class="current-match-section">
         <div class="match-section-heading"><h3>当前对阵</h3><span>本轮对局</span></div>
-        <article v-if="currentMatch" class="my-match-panel">
+        <article v-if="currentMatch && currentMatchSides" class="my-match-panel">
           <div class="match-table-no">第 {{ currentMatch.round_no }} 轮瑞士轮 · {{ currentMatch.player_b_id ? `第 ${currentMatch.table_no} 桌` : '轮空' }}</div>
           <div class="match-versus">
-            <strong :class="{ winner: currentMatch.winner_id === currentMatch.player_a_id }">{{ currentMatch.player_a_nickname }}</strong>
-            <span>{{ currentMatch.player_b_id ? 'VS' : 'BYE' }}</span>
-            <strong v-if="currentMatch.player_b_id" :class="{ winner: currentMatch.winner_id === currentMatch.player_b_id }">{{ currentMatch.player_b_nickname }}</strong>
+            <strong :class="{ winner: currentMatch.winner_id === currentMatchSides.selfId }">{{ currentMatchSides.selfNickname }}</strong>
+            <span>{{ currentMatchSides.opponentId ? 'VS' : 'BYE' }}</span>
+            <strong v-if="currentMatchSides.opponentId" :class="{ winner: currentMatch.winner_id === currentMatchSides.opponentId }">{{ currentMatchSides.opponentNickname }}</strong>
           </div>
           <div class="match-meta">
             <span>{{ matchStatusText[currentMatch.status] }}</span>
             <span>对手{{ currentMatch.opponent_submitted ? '已提交' : '未提交' }}</span>
             <span v-if="currentMatch.my_submission">我已提交：{{ currentMatch.my_submission === 'WIN' ? '胜' : '负' }}</span>
           </div>
-          <div v-if="currentMatch.player_b_id" class="result-actions">
+          <div v-if="currentMatchSides.opponentId" class="result-actions">
             <button class="button primary" type="button" aria-label="提交我获胜" :disabled="busy" @click="submit('WIN')">胜</button>
             <button class="button secondary" type="button" aria-label="提交我落败" :disabled="busy" @click="submit('LOSS')">负</button>
           </div>

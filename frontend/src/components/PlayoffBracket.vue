@@ -22,6 +22,19 @@ const busy = ref(false)
 const message = ref('')
 const error = ref('')
 const currentMatch = computed(() => [...myMatches.value].reverse().find((item) => item.status !== 'COMPLETED') ?? null)
+const currentMatchSides = computed(() => {
+  const match = currentMatch.value
+  if (!match) return null
+  const selfIsPlayerA = match.my_participant_id === match.player_a_id
+  return {
+    selfId: match.my_participant_id,
+    selfNickname: selfIsPlayerA ? match.player_a_nickname : match.player_b_nickname,
+    selfSeed: selfIsPlayerA ? match.seed_a : match.seed_b,
+    opponentId: selfIsPlayerA ? match.player_b_id : match.player_a_id,
+    opponentNickname: selfIsPlayerA ? match.player_b_nickname : match.player_a_nickname,
+    opponentSeed: selfIsPlayerA ? match.seed_b : match.seed_a,
+  }
+})
 const currentRoundName = computed(() => currentMatch.value
   ? overview.value?.rounds.find((item) => item.stage_no === currentMatch.value?.stage_no)?.name ?? `第 ${currentMatch.value.stage_no} 阶段`
   : '')
@@ -102,9 +115,9 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
     <template v-if="view === 'matches'">
       <section v-if="isPlayer" class="current-match-section">
         <div class="match-section-heading"><h3>当前对阵</h3><span>当前淘汰阶段</span></div>
-        <article v-if="currentMatch" class="my-match-panel playoff-current-match">
+        <article v-if="currentMatch && currentMatchSides" class="my-match-panel playoff-current-match">
           <div class="match-table-no">淘汰赛 · {{ currentRoundName }} · 第 {{ currentMatch.table_no }} 桌</div>
-          <div class="match-versus"><strong>#{{ currentMatch.seed_a }} {{ currentMatch.player_a_nickname }}</strong><span>VS</span><strong>#{{ currentMatch.seed_b }} {{ currentMatch.player_b_nickname }}</strong></div>
+          <div class="match-versus"><strong>#{{ currentMatchSides.selfSeed }} {{ currentMatchSides.selfNickname }}</strong><span>VS</span><strong>#{{ currentMatchSides.opponentSeed }} {{ currentMatchSides.opponentNickname }}</strong></div>
           <div class="match-meta"><span>{{ matchStatusText[currentMatch.status] }}</span><span>对手{{ currentMatch.opponent_submitted ? '已提交' : '未提交' }}</span><span v-if="currentMatch.my_submission">我已提交：{{ currentMatch.my_submission === 'WIN' ? '胜' : '负' }}</span></div>
           <div class="result-actions"><button class="button primary" type="button" aria-label="提交我获胜" :disabled="busy" @click="submit('WIN')">胜</button><button class="button secondary" type="button" aria-label="提交我落败" :disabled="busy" @click="submit('LOSS')">负</button></div>
         </article>
