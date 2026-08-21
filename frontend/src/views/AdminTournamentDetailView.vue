@@ -1,27 +1,35 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { apiGet, apiPatch, apiPost } from '@/api/client'
 import ConfirmFormDialog from '@/components/ConfirmFormDialog.vue'
 import FormMessage from '@/components/FormMessage.vue'
-import WeeklyReportContent from '@/components/WeeklyReportContent.vue'
+import MatchHistoryList from '@/components/MatchHistoryList.vue'
+import PlayoffResultsTree from '@/components/PlayoffResultsTree.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { BanlistVersion, ListResponse } from '@/types/content'
 import type { DeckSubmission, DeckSubmissionList, WeeklyReport } from '@/types/report'
-import { deckStatusText } from '@/types/report'
+import { deckPlacementText, deckStatusText } from '@/types/report'
 import type { AuditLogListResponse, MessageSendResponse } from '@/types/message'
+import { auditActionText } from '@/types/message'
 import type {
-  Participant, PlayoffMatch, PlayoffOverview, Registration, RegistrationBulkApproveResponse, RegistrationListResponse, SwissMatch, SwissOverview, SwissRound, Tournament,
+  MatchHistoryItem, Participant, PlayoffMatch, PlayoffOverview, PlayoffRound, Registration, RegistrationBulkApproveResponse, RegistrationListResponse, SwissMatch, SwissOverview, SwissRound, Tournament,
 } from '@/types/tournament'
 import { matchStatusText, registrationStatusText, swissRoundStatusText, tournamentStatusText } from '@/types/tournament'
 
-type PendingPlayoffForfeit = {
+type PendingPlayoffResolution = {
   match: PlayoffMatch
-  loserId: string
-  loserNickname: string
-  winnerNickname: string
+  winnerId: string | null
   reason: string
+  reasonOpen: boolean
+}
+
+type PendingSwissResolution = {
+  match: SwissMatch
+  winnerId: string | null
+  reason: string
+  reasonOpen: boolean
 }
 
 const route = useRoute()
@@ -33,14 +41,20 @@ const swissRounds = ref<SwissRound[]>([])
 const swissOverview = ref<SwissOverview | null>(null)
 const participants = ref<Participant[]>([])
 const playoff = ref<PlayoffOverview | null>(null)
-const forfeitReason = ref('选手无法继续参赛')
-const pendingPlayoffForfeit = ref<PendingPlayoffForfeit | null>(null)
+const pendingPlayoffResolution = ref<PendingPlayoffResolution | null>(null)
+const pendingSwissResolution = ref<PendingSwissResolution | null>(null)
 const deckSubmissions = ref<DeckSubmissionList | null>(null)
 const weeklyReport = ref<WeeklyReport | null>(null)
 const auditLogs = ref<AuditLogListResponse | null>(null)
 const noticeForm = reactive({ title: '', body: '' })
-const deckReturnReason = ref('截图信息不完整，请重新上传')
+const previewDeck = ref<DeckSubmission | null>(null)
+const deckPreviewCloseButton = ref<HTMLButtonElement | null>(null)
 const matchFilter = ref<'ALL' | 'WAITING' | 'CONFLICT' | 'COMPLETED'>('ALL')
+const playerTab = ref<'registrations' | 'participants'>('registrations')
+const competitionStage = ref<'swiss' | 'playoff'>('swiss')
+const selectedSwissRoundNo = ref<number | null>(null)
+const selectedPlayoffRoundId = ref<string | null>(null)
+const selectedRankingParticipantId = ref<string | null>(null)
 const swapFirst = ref('')
 const swapSecond = ref('')
 const error = ref('')
@@ -49,13 +63,17 @@ const busy = ref(false)
 const bulkApprovalOpen = ref(false)
 const startTournamentOpen = ref(false)
 const publishSwissRoundOpen = ref(false)
+const publishPlayoffStageOpen = ref(false)
 const tournamentId = computed(() => String(route.params.id))
 const section = computed(() => String(route.params.section || 'settings'))
 const coreLocked = computed(() => tournament.value ? ['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.value.status) : false)
 const latestRound = computed<SwissRound | null>(() => swissRounds.value[swissRounds.value.length - 1] ?? null)
+const selectedSwissRound = computed<SwissRound | null>(() =>
+  swissRounds.value.find((item) => item.round_no === selectedSwissRoundNo.value) ?? latestRound.value,
+)
 const filteredMatches = computed<SwissMatch[]>(() => {
-  const matches = latestRound.value?.matches ?? []
-  if (latestRound.value?.status === 'DRAFT') return matches
+  const matches = selectedSwissRound.value?.matches ?? []
+  if (selectedSwissRound.value?.status === 'DRAFT') return matches
   return matchFilter.value === 'ALL' ? matches : matches.filter((item) => item.status === matchFilter.value)
 })
 const draftParticipantIds = computed<string[]>(() => {
@@ -64,14 +82,55 @@ const draftParticipantIds = computed<string[]>(() => {
     [item.player_a_id, item.player_b_id].filter((id): id is string => Boolean(id)),
   )
 })
-const withdrawalOpen = computed(() => !latestRound.value || ['DRAFT', 'COMPLETED'].includes(latestRound.value.status))
+const tournamentStarted = computed(() => tournament.value ? ['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.value.status) : false)
+const registrationActionsOpen = computed(() => tournament.value?.status === 'REGISTRATION')
+const activeParticipantCount = computed(() => participants.value.filter((item) => item.status === 'ACTIVE').length)
+const withdrawnParticipantCount = computed(() => participants.value.filter((item) => item.status === 'WITHDRAWN').length)
+const pendingRegistrationCount = computed(() => registrations.value.filter((item) => item.status === 'PENDING').length)
+const withdrawalOpen = computed(() => tournament.value?.status === 'SWISS' && (!latestRound.value || ['DRAFT', 'COMPLETED'].includes(latestRound.value.status)))
 const latestPlayoffRound = computed(() => playoff.value?.rounds[playoff.value.rounds.length - 1] ?? null)
+const selectedPlayoffRound = computed<PlayoffRound | null>(() =>
+  playoff.value?.rounds.find((round) => round.id === selectedPlayoffRoundId.value) ?? latestPlayoffRound.value,
+)
+const filteredPlayoffMatches = computed<PlayoffMatch[]>(() => {
+  const matches = selectedPlayoffRound.value?.matches ?? []
+  if (selectedPlayoffRound.value?.status === 'DRAFT') return matches
+  return matchFilter.value === 'ALL' ? matches : matches.filter((match) => match.status === matchFilter.value)
+})
 const swissRecords = computed(() => new Map(
   (swissOverview.value?.rankings ?? []).map((item) => [item.participant_id, `${item.wins}-${item.losses}`]),
 ))
+const selectedRankingHistory = computed<MatchHistoryItem[]>(() => {
+  const participantId = selectedRankingParticipantId.value
+  if (!participantId) return []
+  return swissRounds.value
+    .filter((round) => round.status === 'COMPLETED')
+    .flatMap((round) => round.matches
+      .filter((match) => match.status === 'COMPLETED' && [match.player_a_id, match.player_b_id].includes(participantId))
+      .map((match) => ({
+        id: match.id,
+        stage: 'SWISS' as const,
+        stage_order: 1,
+        round_no: round.round_no,
+        round_name: `第 ${round.round_no} 轮瑞士轮`,
+        table_no: match.table_no,
+        player_a_id: match.player_a_id,
+        player_a_nickname: match.player_a_nickname,
+        player_b_id: match.player_b_id,
+        player_b_nickname: match.player_b_nickname,
+        winner_id: match.winner_id,
+        status: match.status,
+        my_participant_id: participantId,
+      })))
+    .sort((a, b) => b.round_no - a.round_no || b.table_no - a.table_no)
+})
 const form = reactive({ name: '', description: '', planned_start_at: '', max_players: 32, swiss_rounds: 5, playoff_size: 8, banlist_version_id: '' })
 
 const swissRecord = (participantId: string) => swissRecords.value.get(participantId) ?? '0-0'
+
+function toggleRankingHistory(participantId: string) {
+  selectedRankingParticipantId.value = selectedRankingParticipantId.value === participantId ? null : participantId
+}
 
 function toLocalInput(value: string | null) {
   if (!value) return ''
@@ -97,9 +156,16 @@ async function load() {
   tournament.value = item
   banlists.value = banlistData.items
   syncForm(item)
-  if (section.value === 'registrations') await loadRegistrations()
-  if (section.value === 'matches' && item.status === 'SWISS') await loadSwiss()
-  if (section.value === 'playoffs' && ['SWISS', 'ELIMINATION', 'ENDED'].includes(item.status)) await loadPlayoffs()
+  if (section.value === 'players') {
+    playerTab.value = ['DRAFT', 'REGISTRATION'].includes(item.status) ? 'registrations' : 'participants'
+    await loadPlayerManagement(item)
+  }
+  if (['matches', 'results'].includes(section.value) && ['SWISS', 'ELIMINATION', 'ENDED'].includes(item.status)) {
+    competitionStage.value = route.query.stage === 'playoff' || route.query.stage === 'swiss'
+      ? route.query.stage
+      : (['ELIMINATION', 'ENDED'].includes(item.status) ? 'playoff' : 'swiss')
+    await loadCompetitionData()
+  }
   if (section.value === 'decks-report' && item.status === 'ENDED') await loadPhase5()
   if (section.value === 'audit') await loadAuditLogs()
 }
@@ -136,15 +202,37 @@ async function loadRegistrations() {
   )).items
 }
 
+async function loadParticipants() {
+  participants.value = await apiGet<Participant[]>(
+    `/admin/tournaments/${tournamentId.value}/participants`, undefined, authStore.token,
+  )
+}
+
+async function loadSwissOverview() {
+  swissOverview.value = await apiGet<SwissOverview>(`/tournaments/${tournamentId.value}/swiss`)
+}
+
+async function loadSwissRounds() {
+  const isActiveSwiss = tournament.value?.status === 'SWISS'
+  swissRounds.value = await apiGet<SwissRound[]>(
+    isActiveSwiss
+      ? `/admin/tournaments/${tournamentId.value}/swiss/rounds`
+      : `/tournaments/${tournamentId.value}/swiss/rounds`,
+    undefined,
+    isActiveSwiss ? authStore.token : undefined,
+  )
+}
+
+async function loadPlayerManagement(item: Tournament) {
+  const requests: Promise<void>[] = [loadRegistrations(), loadParticipants()]
+  if (['SWISS', 'ELIMINATION', 'ENDED'].includes(item.status)) requests.push(loadSwissOverview())
+  if (item.status === 'SWISS') requests.push(loadSwissRounds())
+  await Promise.all(requests)
+}
+
 async function loadSwiss() {
-  const [rounds, overview, participantItems] = await Promise.all([
-    apiGet<SwissRound[]>(`/admin/tournaments/${tournamentId.value}/swiss/rounds`, undefined, authStore.token),
-    apiGet<SwissOverview>(`/tournaments/${tournamentId.value}/swiss`),
-    apiGet<Participant[]>(`/admin/tournaments/${tournamentId.value}/participants`, undefined, authStore.token),
-  ])
-  swissRounds.value = rounds
-  swissOverview.value = overview
-  participants.value = participantItems
+  await Promise.all([loadSwissRounds(), loadSwissOverview(), loadParticipants()])
+  selectedSwissRoundNo.value = latestRound.value?.round_no ?? null
   swapFirst.value = ''
   swapSecond.value = ''
 }
@@ -153,6 +241,13 @@ async function loadPlayoffs() {
   playoff.value = await apiGet<PlayoffOverview>(
     `/admin/tournaments/${tournamentId.value}/playoffs`, undefined, authStore.token,
   )
+  if (!playoff.value.rounds.some((round) => round.id === selectedPlayoffRoundId.value)) {
+    selectedPlayoffRoundId.value = playoff.value.rounds[playoff.value.rounds.length - 1]?.id ?? null
+  }
+}
+
+async function loadCompetitionData() {
+  await Promise.all([loadSwiss(), loadPlayoffs()])
 }
 
 async function loadPhase5() {
@@ -313,12 +408,51 @@ async function swapPlayers() {
   } finally { busy.value = false }
 }
 
-async function resolveMatch(match: SwissMatch, winnerId: string) {
+function requestMatchResolution(match: SwissMatch) {
+  error.value = ''
+  pendingSwissResolution.value = { match, winnerId: null, reason: '', reasonOpen: false }
+}
+
+function cancelMatchResolution() {
+  pendingSwissResolution.value = null
+  error.value = ''
+}
+
+function matchResolutionActionText(match: SwissMatch | PlayoffMatch) {
+  if (match.status === 'COMPLETED') return '纠正赛果'
+  if (match.status === 'CONFLICT') return '处理冲突'
+  return '处理未提交'
+}
+
+function matchResolutionTitle(match: SwissMatch | PlayoffMatch) {
+  if (match.status === 'COMPLETED') return `纠正第 ${match.table_no} 桌赛果`
+  if (match.status === 'CONFLICT') return `处理第 ${match.table_no} 桌冲突`
+  return `处理第 ${match.table_no} 桌未提交`
+}
+
+function resolutionSummary(match: SwissMatch | PlayoffMatch, winnerId: string | null) {
+  if (!winnerId) return ''
+  const winnerNickname = winnerId === match.player_a_id ? match.player_a_nickname : match.player_b_nickname
+  const loserNickname = winnerId === match.player_a_id ? match.player_b_nickname : match.player_a_nickname
+  return `将记录：${winnerNickname} 胜 / ${loserNickname} 负`
+}
+
+function canConfirmResolution(pending: PendingSwissResolution | PendingPlayoffResolution) {
+  return Boolean(pending.winnerId)
+}
+
+async function confirmSwissResolution() {
+  const pending = pendingSwissResolution.value
+  if (!pending?.winnerId || !canConfirmResolution(pending)) return
   busy.value = true
   error.value = ''
   try {
-    await apiPost(`/admin/matches/${match.id}/resolve`, { winner_id: winnerId }, authStore.token)
+    await apiPost(`/admin/matches/${pending.match.id}/resolve`, {
+      winner_id: pending.winnerId,
+      reason: pending.reason.trim() || null,
+    }, authStore.token)
     message.value = '赛果已由赛事主办方确认。'
+    pendingSwissResolution.value = null
     await loadSwiss()
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '赛果裁定失败'
@@ -326,13 +460,13 @@ async function resolveMatch(match: SwissMatch, winnerId: string) {
 }
 
 async function withdraw(participant: Participant) {
-  if (!window.confirm(`确认将“${participant.nickname_snapshot}”标记为退赛？历史赛果会保留。`)) return
+  if (!window.confirm(`确认将“${participant.nickname_snapshot}”强制退赛？历史赛果会保留。`)) return
   busy.value = true
   error.value = ''
   try {
     await apiPost(`/admin/tournaments/${tournamentId.value}/participants/${participant.id}/withdraw`, {}, authStore.token)
     message.value = '选手已退赛；若存在未发布预览，系统已自动作废。'
-    await loadSwiss()
+    if (tournament.value) await loadPlayerManagement(tournament.value)
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '退赛操作失败'
   } finally { busy.value = false }
@@ -345,13 +479,27 @@ async function generatePlayoffStage() {
     await apiPost(`/admin/tournaments/${tournamentId.value}/playoffs/generate`, {}, authStore.token)
     message.value = '淘汰阶段固定种子签表预览已生成。'
     await loadPlayoffs()
+    selectedPlayoffRoundId.value = latestPlayoffRound.value?.id ?? null
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '淘汰阶段生成失败'
   } finally { busy.value = false }
 }
 
+function requestPlayoffStagePublish() {
+  if (!latestPlayoffRound.value || latestPlayoffRound.value.status !== 'DRAFT') return
+  error.value = ''
+  publishPlayoffStageOpen.value = true
+}
+
+function cancelPlayoffStagePublish() {
+  if (!busy.value) publishPlayoffStageOpen.value = false
+}
+
 async function publishPlayoffStage() {
-  if (!latestPlayoffRound.value || !window.confirm(`发布${latestPlayoffRound.value.name}后签表不可修改，是否继续？`)) return
+  if (!latestPlayoffRound.value || latestPlayoffRound.value.status !== 'DRAFT') {
+    publishPlayoffStageOpen.value = false
+    return
+  }
   busy.value = true
   error.value = ''
   try {
@@ -360,13 +508,13 @@ async function publishPlayoffStage() {
     )
     message.value = `${latestPlayoffRound.value.name}已正式发布。`
     await Promise.all([loadPlayoffs(), loadTournamentSummary()])
+    publishPlayoffStageOpen.value = false
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '淘汰阶段发布失败'
   } finally { busy.value = false }
 }
 
 async function endTournament() {
-  if (!window.confirm('确认结束赛事？结束后全部赛果将永久锁定，并向最终四强开放卡组截图上传。')) return
   busy.value = true
   error.value = ''
   try {
@@ -381,21 +529,25 @@ async function endTournament() {
 }
 
 async function reviewDeck(item: DeckSubmission, action: 'approve' | 'return') {
-  if (action === 'return' && !deckReturnReason.value.trim()) {
-    error.value = '退回截图必须填写原因。'
-    return
-  }
   busy.value = true
   error.value = ''
   try {
     await apiPost(`/admin/deck-submissions/${item.id}/${action}`, action === 'return'
-      ? { reason: deckReturnReason.value.trim() }
+      ? { reason: '' }
       : {}, authStore.token)
     message.value = action === 'approve' ? '卡组截图已审核通过并锁定。' : '截图已退回，等待选手重新上传。'
     await loadPhase5()
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '卡组截图审核失败'
   } finally { busy.value = false }
+}
+
+function openDeckPreview(item: DeckSubmission) {
+  if (item.image_url) previewDeck.value = item
+}
+
+function closeDeckPreview() {
+  previewDeck.value = null
 }
 
 async function generateWeeklyReport() {
@@ -405,66 +557,55 @@ async function generateWeeklyReport() {
     weeklyReport.value = await apiPost<WeeklyReport>(
       `/admin/tournaments/${tournamentId.value}/reports/generate`, {}, authStore.token,
     )
-    message.value = '周报草稿已按赛事结构化数据生成，请预览后发布。'
+    message.value = '周报已生成并发布。'
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '周报生成失败'
   } finally { busy.value = false }
 }
 
-async function publishWeeklyReport() {
-  if (!weeklyReport.value || !window.confirm('确认发布周报？发布后不可撤回、修改或替换四强截图。')) return
-  busy.value = true
+function requestPlayoffResolution(match: PlayoffMatch) {
   error.value = ''
-  try {
-    weeklyReport.value = await apiPost<WeeklyReport>(
-      `/admin/reports/${weeklyReport.value.id}/publish`, {}, authStore.token,
-    )
-    message.value = '周报已发布并永久锁定。'
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : '周报发布失败'
-  } finally { busy.value = false }
+  pendingPlayoffResolution.value = { match, winnerId: null, reason: '', reasonOpen: false }
 }
 
-function requestPlayoffForfeit(match: PlayoffMatch, loserId: string) {
-  const reason = forfeitReason.value.trim()
-  if (!reason) {
-    error.value = '主办方判负必须填写原因。'
-    return
-  }
-  const loserNickname = loserId === match.player_a_id ? match.player_a_nickname : match.player_b_nickname
-  const winnerNickname = loserId === match.player_a_id ? match.player_b_nickname : match.player_a_nickname
-  error.value = ''
-  pendingPlayoffForfeit.value = { match, loserId, loserNickname, winnerNickname, reason }
+function cancelPlayoffResolution() {
+  pendingPlayoffResolution.value = null
 }
 
-function cancelPlayoffForfeit() {
-  pendingPlayoffForfeit.value = null
-}
-
-async function confirmPlayoffForfeit() {
-  const pending = pendingPlayoffForfeit.value
-  if (!pending) return
+async function confirmPlayoffResolution() {
+  const pending = pendingPlayoffResolution.value
+  if (!pending?.winnerId || !canConfirmResolution(pending)) return
+  const loserId = pending.winnerId === pending.match.player_a_id
+    ? pending.match.player_b_id
+    : pending.match.player_a_id
   busy.value = true
   error.value = ''
   try {
     await apiPost(`/admin/playoffs/matches/${pending.match.id}/forfeit`, {
-      loser_id: pending.loserId,
-      reason: pending.reason,
+      loser_id: loserId,
+      reason: pending.reason.trim() || null,
     }, authStore.token)
-    pendingPlayoffForfeit.value = null
-    message.value = '主办方判负已生效并写入审计记录。'
+    pendingPlayoffResolution.value = null
+    message.value = '赛果已由赛事主办方确认并写入审计记录。'
     await loadPlayoffs()
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : '主办方判负失败'
+    error.value = caught instanceof Error ? caught.message : '赛果裁定失败'
   } finally { busy.value = false }
 }
 
 watch(section, async (value) => {
-  if (value === 'registrations') await loadRegistrations()
-  if (value === 'matches' && tournament.value?.status === 'SWISS') await loadSwiss()
-  if (value === 'playoffs' && tournament.value && ['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.value.status)) await loadPlayoffs()
+  if (value === 'players' && tournament.value) {
+    playerTab.value = ['DRAFT', 'REGISTRATION'].includes(tournament.value.status) ? 'registrations' : 'participants'
+    await loadPlayerManagement(tournament.value)
+  }
+  if (['matches', 'results'].includes(value) && tournament.value && ['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.value.status)) await loadCompetitionData()
   if (value === 'decks-report' && tournament.value?.status === 'ENDED') await loadPhase5()
   if (value === 'audit') await loadAuditLogs()
+})
+watch(previewDeck, async (item) => {
+  if (!item) return
+  await nextTick()
+  deckPreviewCloseButton.value?.focus()
 })
 onMounted(() => load().catch((caught) => { error.value = caught instanceof Error ? caught.message : '赛事加载失败' }))
 </script>
@@ -477,15 +618,26 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
     </header>
     <nav class="admin-subnav" aria-label="赛事管理导航">
       <RouterLink :to="`/tournaments/${tournamentId}/manage/settings`">赛事设置</RouterLink>
-      <RouterLink :to="`/tournaments/${tournamentId}/manage/registrations`">报名管理</RouterLink>
-      <RouterLink :to="`/tournaments/${tournamentId}/manage/matches`">对局与排名</RouterLink>
-      <RouterLink :to="`/tournaments/${tournamentId}/manage/playoffs`">淘汰赛</RouterLink>
+      <RouterLink :to="`/tournaments/${tournamentId}/manage/players`">选手</RouterLink>
+      <RouterLink :to="`/tournaments/${tournamentId}/manage/matches`">对阵</RouterLink>
+      <RouterLink :to="`/tournaments/${tournamentId}/manage/results`">赛果</RouterLink>
       <RouterLink :to="`/tournaments/${tournamentId}/manage/decks-report`">卡组与周报</RouterLink>
       <RouterLink :to="`/tournaments/${tournamentId}/manage/notifications`">赛事通知</RouterLink>
       <RouterLink :to="`/tournaments/${tournamentId}/manage/audit`">操作日志</RouterLink>
     </nav>
     <FormMessage v-if="message" type="success" :message="message" />
     <FormMessage v-if="error" :message="error" />
+    <Teleport to="body">
+      <div v-if="previewDeck?.image_url" class="form-dialog-backdrop" @mousedown.self="closeDeckPreview">
+        <section class="deck-image-preview-dialog" role="dialog" aria-modal="true" :aria-label="`${previewDeck.nickname}的卡组大图预览`" @keydown.esc.prevent="closeDeckPreview">
+          <header>
+            <div><p class="section-kicker">DECK PREVIEW</p><h2>{{ previewDeck.nickname }}的卡组截图</h2></div>
+            <button ref="deckPreviewCloseButton" class="button secondary small" type="button" @click="closeDeckPreview">关闭预览</button>
+          </header>
+          <img :src="previewDeck.image_url" :alt="`${previewDeck.nickname} 的卡组截图大图`" />
+        </section>
+      </div>
+    </Teleport>
     <ConfirmFormDialog
       v-if="bulkApprovalOpen && tournament"
       title="批量通过报名"
@@ -516,6 +668,16 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       @cancel="cancelSwissRoundPublish"
       @confirm="publishSwissRound"
     />
+    <ConfirmFormDialog
+      v-if="publishPlayoffStageOpen && latestPlayoffRound"
+      :title="`正式发布${latestPlayoffRound.name}`"
+      description="发布后本阶段签表不可修改，选手将可以查看对手并提交赛果。"
+      confirm-text="确认正式发布"
+      :busy="busy"
+      :error="error"
+      @cancel="cancelPlayoffStagePublish"
+      @confirm="publishPlayoffStage"
+    />
 
     <form v-if="tournament && section === 'settings'" class="content-form tournament-settings" @submit.prevent="saveSettings">
       <div class="settings-heading"><div><h2>赛事设置</h2><p v-if="coreLocked" class="form-hint">赛事已经开始，容量、轮数、Top N 和禁卡表版本已锁定。</p></div><span :class="['status-badge', `status-${tournament.status.toLowerCase()}`]">{{ tournamentStatusText[tournament.status] }}</span></div>
@@ -535,135 +697,273 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       </div>
     </form>
 
-    <section v-if="tournament && section === 'registrations'" class="registration-management">
+    <section v-if="tournament && section === 'players'" class="player-management">
       <div class="settings-heading">
-        <div><h2>报名管理</h2><p>只展示昵称、状态与必要操作；审核通过人数不会超过 {{ tournament.max_players }} 人。</p></div>
-        <div class="registration-heading-actions">
-          <button class="button primary small" type="button" :disabled="busy || tournament.pending_count === 0" @click="requestPendingApproval">批量通过</button>
-          <span>待审核 {{ tournament.pending_count }}</span>
+        <div><h2>选手管理</h2><p>统一管理报名审核与开赛后的正式参赛名单。</p></div>
+      </div>
+      <dl class="player-summary" aria-label="选手数量概览">
+        <div><dt>报名</dt><dd>{{ registrations.length }}</dd></div>
+        <div><dt>待审核</dt><dd>{{ pendingRegistrationCount }}</dd></div>
+        <div><dt>正式选手</dt><dd>{{ participants.length }}</dd></div>
+        <div><dt>已退赛</dt><dd>{{ withdrawnParticipantCount }}</dd></div>
+      </dl>
+      <nav class="player-tabs" role="tablist" aria-label="选手管理内容">
+        <button type="button" role="tab" :aria-selected="playerTab === 'registrations'" :class="{ active: playerTab === 'registrations' }" @click="playerTab = 'registrations'">报名申请 <small>{{ registrations.length }}</small></button>
+        <button type="button" role="tab" :aria-selected="playerTab === 'participants'" :class="{ active: playerTab === 'participants' }" @click="playerTab = 'participants'">正式选手 <small>{{ participants.length }}</small></button>
+      </nav>
+
+      <div v-if="playerTab === 'registrations'" role="tabpanel">
+        <div class="player-section-heading">
+          <p>审核通过人数不会超过 {{ tournament.max_players }} 人。<span v-if="!registrationActionsOpen">当前赛事已关闭报名，申请记录仅供查看。</span></p>
+          <div class="registration-heading-actions">
+            <button v-if="registrationActionsOpen" class="button primary small" type="button" :disabled="busy || pendingRegistrationCount === 0" @click="requestPendingApproval">批量通过</button>
+            <span>待审核 {{ pendingRegistrationCount }}</span>
+          </div>
+        </div>
+        <p v-if="!registrations.length" class="empty-state">暂无报名记录。</p>
+        <div v-else class="player-table-wrap">
+          <table class="player-table">
+            <thead><tr><th>昵称</th><th>报名状态</th><th>申请时间</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr v-for="item in registrations" :key="item.id">
+                <td><strong>{{ item.nickname }}</strong></td>
+                <td><span :class="['status-badge', `registration-${item.status.toLowerCase()}`]">{{ registrationStatusText[item.status] }}</span></td>
+                <td><time>{{ formatAuditTime(item.created_at) }}</time></td>
+                <td>
+                  <div v-if="registrationActionsOpen" class="row-actions">
+                    <template v-if="item.status === 'PENDING'"><button type="button" :disabled="busy" @click="review(item, 'approve')">通过</button><button type="button" :disabled="busy" @click="review(item, 'reject')">拒绝</button></template>
+                    <button v-if="item.status === 'APPROVED'" type="button" :disabled="busy" @click="review(item, 'cancel')">取消</button>
+                    <button v-if="['REJECTED','CANCELED'].includes(item.status)" type="button" :disabled="busy" @click="review(item, 'restore')">恢复为已通过</button>
+                  </div>
+                  <span v-else class="table-placeholder">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
-      <p v-if="!registrations.length" class="empty-state">暂无报名记录。</p>
-      <article v-for="item in registrations" :key="item.id" class="registration-row">
-        <strong>{{ item.nickname }}</strong>
-        <span :class="['status-badge', `registration-${item.status.toLowerCase()}`]">{{ registrationStatusText[item.status] }}</span>
-        <div class="row-actions">
-          <template v-if="item.status === 'PENDING'"><button type="button" @click="review(item, 'approve')">通过</button><button type="button" @click="review(item, 'reject')">拒绝</button></template>
-          <button v-if="item.status === 'APPROVED'" type="button" @click="review(item, 'cancel')">取消</button>
-          <button v-if="['REJECTED','CANCELED'].includes(item.status)" type="button" @click="review(item, 'restore')">恢复为已通过</button>
-        </div>
-      </article>
+
+      <div v-else role="tabpanel">
+        <p v-if="!tournamentStarted" class="empty-state">赛事开始后，系统会根据已通过的报名生成正式选手名单。</p>
+        <template v-else>
+          <div class="player-section-heading">
+            <p><template v-if="tournament.status === 'SWISS'">仅轮次结束且下一轮未发布时可强制退赛；未发布的预览将自动作废。</template><template v-else>当前阶段的正式选手名单仅供查看。</template></p>
+            <span>参赛中 {{ activeParticipantCount }} · 已退赛 {{ withdrawnParticipantCount }}</span>
+          </div>
+          <p v-if="!participants.length" class="empty-state">暂无正式选手。</p>
+          <div v-else class="player-table-wrap">
+            <table class="player-table">
+              <thead><tr><th>昵称</th><th>参赛状态</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr v-for="item in participants" :key="item.id">
+                  <td><strong>{{ item.nickname_snapshot }}</strong></td>
+                  <td><span :class="['status-badge', `participant-${item.status.toLowerCase()}`]">{{ item.status === 'ACTIVE' ? '参赛中' : '已退赛' }}</span></td>
+                  <td>
+                    <button v-if="item.status === 'ACTIVE' && tournament.status === 'SWISS'" class="text-action" type="button" :disabled="busy || !withdrawalOpen" :title="withdrawalOpen ? '强制退赛' : '当前轮已发布，请先完成本轮'" @click="withdraw(item)">强制退赛</button>
+                    <span v-else class="table-placeholder">—</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
+      </div>
     </section>
 
-    <section v-if="tournament && section === 'matches'" class="swiss-admin">
-      <div v-if="tournament.status !== 'SWISS'" class="empty-state">赛事进入瑞士轮后开放对局管理。</div>
-      <template v-else>
-        <div class="swiss-operation-bar">
-          <div><h2>瑞士轮对局</h2><p>生成只是预览；正式发布后对阵不可修改，并锁定上一轮赛果。</p></div>
-          <div class="form-actions">
-            <button v-if="!latestRound || latestRound.status === 'COMPLETED'" class="button primary" type="button" :disabled="busy || (swissOverview?.completed_rounds ?? 0) >= (tournament.swiss_rounds ?? 0)" @click="swissAction('generate')">生成下一轮</button>
-            <template v-if="latestRound?.status === 'DRAFT'">
-              <button class="button secondary" type="button" :disabled="busy" @click="swissAction('regenerate')">重新生成</button>
-              <button class="button primary" type="button" :disabled="busy" @click="requestSwissRoundPublish">正式发布</button>
-            </template>
-          </div>
+    <section v-if="tournament && ['matches', 'results'].includes(section)" class="competition-admin">
+      <header class="competition-heading">
+        <div>
+          <p class="section-kicker">{{ section === 'matches' ? 'MATCHES' : 'RESULTS' }}</p>
+          <h2>{{ section === 'matches' ? '对阵' : '赛果' }}</h2>
+          <p>{{ section === 'matches' ? '查看并管理每一场比赛明细。' : '查看瑞士轮排名与淘汰赛晋级结果。' }}</p>
         </div>
+      </header>
+      <nav class="competition-stage-tabs" role="tablist" :aria-label="`${section === 'matches' ? '对阵' : '赛果'}阶段`">
+        <button type="button" role="tab" :class="{ active: competitionStage === 'swiss' }" :aria-selected="competitionStage === 'swiss'" @click="competitionStage = 'swiss'">瑞士轮</button>
+        <button type="button" role="tab" :class="{ active: competitionStage === 'playoff' }" :aria-selected="competitionStage === 'playoff'" @click="competitionStage = 'playoff'">淘汰赛</button>
+      </nav>
 
-        <div v-if="latestRound" class="round-admin-heading">
-          <div><strong>第 {{ latestRound.round_no }} 轮</strong><span :class="['status-badge', `round-${latestRound.status.toLowerCase()}`]">{{ swissRoundStatusText[latestRound.status] }}</span></div>
-          <label v-if="latestRound.status !== 'DRAFT'">筛选
-            <select v-model="matchFilter"><option value="ALL">全部</option><option value="WAITING">未完成</option><option value="CONFLICT">赛果冲突</option><option value="COMPLETED">已完成</option></select>
-          </label>
-        </div>
-
-        <div v-if="latestRound?.status === 'DRAFT'" class="swap-panel">
-          <strong>交换选手 / 更换 BYE</strong>
-          <select v-model="swapFirst"><option value="">选择第一名选手</option><option v-for="item in draftParticipantIds" :key="item" :value="item">{{ participants.find((participant) => participant.id === item)?.nickname_snapshot }}</option></select>
-          <select v-model="swapSecond"><option value="">选择第二名选手</option><option v-for="item in draftParticipantIds" :key="item" :value="item">{{ participants.find((participant) => participant.id === item)?.nickname_snapshot }}</option></select>
-          <button class="button secondary small" type="button" :disabled="busy || !swapFirst || !swapSecond || swapFirst === swapSecond" @click="swapPlayers">交换位置</button>
-        </div>
-
-        <div v-if="latestRound" class="admin-match-list">
-          <article v-for="match in filteredMatches" :key="match.id" :class="['admin-match-row', { 'admin-match-row-preview': latestRound.status === 'DRAFT' }]">
-            <span class="match-table-no">第 {{ match.table_no }} 桌</span>
-            <div class="admin-match-players">
-              <span class="admin-match-player"><strong>{{ match.player_a_nickname }}</strong><em v-if="latestRound.status === 'DRAFT'">（{{ swissRecord(match.player_a_id) }}）</em></span>
-              <span class="admin-match-player"><strong>{{ match.player_b_nickname || '轮空' }}</strong><em v-if="latestRound.status === 'DRAFT' && match.player_b_id">（{{ swissRecord(match.player_b_id) }}）</em></span>
-              <small v-if="match.warnings.length">{{ match.warnings.join(' · ') }}</small>
+      <template v-if="section === 'matches' && competitionStage === 'swiss'">
+        <div v-if="!['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.status)" class="empty-state">赛事进入瑞士轮后显示对阵。</div>
+        <template v-else>
+          <div v-if="tournament.status === 'SWISS'" class="swiss-operation-bar">
+            <div><h3>瑞士轮对阵</h3><p>生成只是预览；正式发布后对阵不可修改，并锁定上一轮赛果。</p></div>
+            <div class="form-actions">
+              <button v-if="!latestRound || latestRound.status === 'COMPLETED'" class="button primary" type="button" :disabled="busy || (swissOverview?.completed_rounds ?? 0) >= (tournament.swiss_rounds ?? 0)" @click="swissAction('generate')">生成下一轮</button>
+              <template v-if="latestRound?.status === 'DRAFT'">
+                <button class="button secondary" type="button" :disabled="busy" @click="swissAction('regenerate')">重新生成</button>
+                <button class="button primary" type="button" :disabled="busy" @click="requestSwissRoundPublish">正式发布</button>
+              </template>
             </div>
-            <div v-if="latestRound.status !== 'DRAFT' && match.player_b_id" class="submission-state"><span>A：{{ match.player_a_result === 'WIN' ? '胜' : match.player_a_result === 'LOSS' ? '负' : '未提交' }}</span><span>B：{{ match.player_b_result === 'WIN' ? '胜' : match.player_b_result === 'LOSS' ? '负' : '未提交' }}</span></div>
-            <span v-else-if="latestRound.status !== 'DRAFT'" class="bye-auto-win">轮空自动获胜</span>
-            <span v-if="latestRound.status !== 'DRAFT'" :class="['status-badge', `match-${match.status.toLowerCase()}`]">{{ matchStatusText[match.status] }}</span>
-            <div v-if="latestRound.status !== 'DRAFT' && match.player_b_id && !match.result_locked" class="row-actions"><button type="button" @click="resolveMatch(match, match.player_a_id)">判 A 胜</button><button type="button" @click="resolveMatch(match, match.player_b_id)">判 B 胜</button></div>
-          </article>
-          <p v-if="!filteredMatches.length" class="empty-state compact">该筛选下没有对局。</p>
-        </div>
+          </div>
 
-        <div class="swiss-admin-grid">
-          <section><div class="ranking-heading"><h2>瑞士轮排名</h2><span>第 {{ swissOverview?.ranking_round_no ?? 0 }} 轮快照</span></div><div class="ranking-table-wrap"><table class="ranking-table"><thead><tr><th>排名</th><th>选手</th><th>胜负</th><th>OMW(%)</th><th>LRS</th></tr></thead><tbody><tr v-for="item in swissOverview?.rankings" :key="item.participant_id"><td>{{ item.rank }}</td><td>{{ item.nickname }}</td><td>{{ item.wins }}-{{ item.losses }}</td><td>{{ (item.omw * 100).toFixed(2) }}</td><td>{{ item.loss_round_score }}</td></tr><tr v-if="!swissOverview?.rankings.length"><td colspan="5">尚无瑞士轮排名。</td></tr></tbody></table></div></section>
-          <section class="withdrawal-panel"><div><h2>退赛管理</h2><p>仅轮次结束且下一轮未发布时允许；未发布预览会被作废。</p></div><article v-for="item in participants" :key="item.id"><span><strong>{{ item.nickname_snapshot }}</strong><small>BYE {{ item.bye_count }} 次 · {{ item.status === 'ACTIVE' ? '参赛中' : '已退赛' }}</small></span><button v-if="item.status === 'ACTIVE'" type="button" :disabled="busy || !withdrawalOpen" @click="withdraw(item)">退赛</button></article></section>
-        </div>
+          <nav v-if="swissRounds.length" class="competition-round-tabs" role="tablist" aria-label="瑞士轮轮次">
+            <button v-for="round in swissRounds" :key="round.id" type="button" role="tab" :class="{ active: selectedSwissRound?.id === round.id }" :aria-selected="selectedSwissRound?.id === round.id" @click="selectedSwissRoundNo = round.round_no">第 {{ round.round_no }} 轮</button>
+          </nav>
+
+          <div v-if="selectedSwissRound" class="round-admin-heading">
+            <div><strong>第 {{ selectedSwissRound.round_no }} 轮</strong><span :class="['status-badge', `round-${selectedSwissRound.status.toLowerCase()}`]">{{ swissRoundStatusText[selectedSwissRound.status] }}</span></div>
+            <label v-if="selectedSwissRound.status !== 'DRAFT'">筛选
+              <select v-model="matchFilter"><option value="ALL">全部</option><option value="WAITING">未完成</option><option value="CONFLICT">赛果冲突</option><option value="COMPLETED">已完成</option></select>
+            </label>
+          </div>
+
+          <div v-if="selectedSwissRound?.id === latestRound?.id && selectedSwissRound?.status === 'DRAFT'" class="swap-panel">
+            <strong>交换选手 / 更换 BYE</strong>
+            <select v-model="swapFirst"><option value="">选择第一名选手</option><option v-for="item in draftParticipantIds" :key="item" :value="item">{{ participants.find((participant) => participant.id === item)?.nickname_snapshot }}</option></select>
+            <select v-model="swapSecond"><option value="">选择第二名选手</option><option v-for="item in draftParticipantIds" :key="item" :value="item">{{ participants.find((participant) => participant.id === item)?.nickname_snapshot }}</option></select>
+            <button class="button secondary small" type="button" :disabled="busy || !swapFirst || !swapSecond || swapFirst === swapSecond" @click="swapPlayers">交换位置</button>
+          </div>
+
+          <div v-if="selectedSwissRound" class="admin-match-list">
+            <template v-for="match in filteredMatches" :key="match.id">
+              <article :class="['admin-match-row', { 'admin-match-row-preview': selectedSwissRound.status === 'DRAFT' }]">
+                <span class="match-table-no">第 {{ match.table_no }} 桌</span>
+                <div class="admin-match-players">
+                  <span :class="['admin-match-player', 'admin-match-player-a', { winner: match.winner_id === match.player_a_id }]">
+                    <strong>{{ match.player_a_nickname }}</strong><small v-if="match.winner_id === match.player_a_id" class="winner-mark">胜</small><em v-if="selectedSwissRound.status === 'DRAFT'">（{{ swissRecord(match.player_a_id) }}）</em>
+                  </span>
+                  <i class="admin-match-versus">{{ match.player_b_id ? 'VS' : 'BYE' }}</i>
+                  <span :class="['admin-match-player', 'admin-match-player-b', { winner: match.winner_id === match.player_b_id }]">
+                    <strong>{{ match.player_b_nickname || '轮空' }}</strong><small v-if="match.winner_id === match.player_b_id" class="winner-mark">胜</small><em v-if="selectedSwissRound.status === 'DRAFT' && match.player_b_id">（{{ swissRecord(match.player_b_id) }}）</em>
+                  </span>
+                </div>
+                <small v-if="selectedSwissRound.status === 'DRAFT' && match.warnings.length" class="admin-match-warning">{{ match.warnings.join(' · ') }}</small>
+                <div v-if="selectedSwissRound.status !== 'DRAFT' && match.player_b_id && match.status !== 'COMPLETED'" class="submission-state"><span>{{ match.player_a_nickname }}：{{ match.player_a_result === 'WIN' ? '胜' : match.player_a_result === 'LOSS' ? '负' : '未提交' }}</span><span>{{ match.player_b_nickname }}：{{ match.player_b_result === 'WIN' ? '胜' : match.player_b_result === 'LOSS' ? '负' : '未提交' }}</span></div>
+                <span v-else-if="selectedSwissRound.status !== 'DRAFT' && !match.player_b_id" class="bye-auto-win">轮空自动获胜</span>
+                <div v-if="selectedSwissRound.status !== 'DRAFT'" class="admin-match-outcome">
+                  <span :class="['status-badge', `match-${match.status.toLowerCase()}`]">{{ matchStatusText[match.status] }}</span>
+                  <div v-if="tournament.status === 'SWISS' && match.player_b_id && !match.result_locked" class="row-actions"><button type="button" :disabled="busy" @click="requestMatchResolution(match)">{{ matchResolutionActionText(match) }}</button></div>
+                </div>
+              </article>
+              <section v-if="pendingSwissResolution?.match.id === match.id" class="forfeit-confirmation swiss-resolution-confirmation" role="dialog" :aria-labelledby="`swiss-resolution-title-${match.id}`">
+                <div class="match-resolution-toolbar">
+                  <strong :id="`swiss-resolution-title-${match.id}`">{{ matchResolutionTitle(match) }}</strong>
+                  <div class="match-resolution-winners">
+                    <button :class="['button', 'small', pendingSwissResolution.winnerId === match.player_a_id ? 'primary' : 'secondary']" type="button" :disabled="busy" @click="pendingSwissResolution.winnerId = match.player_a_id">判 {{ match.player_a_nickname }} 胜</button>
+                    <button :class="['button', 'small', pendingSwissResolution.winnerId === match.player_b_id ? 'primary' : 'secondary']" type="button" :disabled="busy" @click="pendingSwissResolution.winnerId = match.player_b_id">判 {{ match.player_b_nickname }} 胜</button>
+                  </div>
+                  <div class="form-actions swiss-resolution-actions">
+                    <button class="button secondary small" type="button" :disabled="busy" @click="cancelMatchResolution">取消</button>
+                    <button class="button primary small" type="button" :disabled="busy || !canConfirmResolution(pendingSwissResolution)" @click="confirmSwissResolution">确认裁定</button>
+                  </div>
+                </div>
+                <div class="match-resolution-meta">
+                  <small class="match-resolution-summary">{{ pendingSwissResolution.winnerId ? resolutionSummary(match, pendingSwissResolution.winnerId) : '请选择获胜者' }}</small>
+                  <button class="match-resolution-reason-toggle" type="button" :aria-expanded="pendingSwissResolution.reasonOpen" :aria-controls="`swiss-resolution-reason-${match.id}`" @click="pendingSwissResolution.reasonOpen = !pendingSwissResolution.reasonOpen">{{ pendingSwissResolution.reasonOpen ? '收起裁定原因' : '＋填写裁定原因（选填）' }}</button>
+                </div>
+                <label v-if="pendingSwissResolution.reasonOpen" :id="`swiss-resolution-reason-${match.id}`" class="match-resolution-reason"><span>裁定原因（选填）</span><input v-model.trim="pendingSwissResolution.reason" maxlength="500" placeholder="可不填" /></label>
+              </section>
+            </template>
+            <p v-if="!filteredMatches.length" class="empty-state compact">该筛选下没有对阵。</p>
+          </div>
+          <p v-else class="empty-state">尚未生成瑞士轮对阵。</p>
+        </template>
       </template>
-    </section>
 
-    <section v-if="tournament && section === 'playoffs'" class="playoff-admin">
-      <div v-if="!['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.status)" class="empty-state">完成瑞士轮后开放淘汰赛管理。</div>
-      <template v-else>
-        <div class="swiss-operation-bar">
-          <div><h2>淘汰赛签表</h2><p>Top N 按瑞士轮最终排名固定入位，不允许重新抽签或交换种子。</p></div>
-          <div class="form-actions">
-            <button v-if="tournament.status !== 'ENDED' && (!latestPlayoffRound || (latestPlayoffRound.status === 'COMPLETED' && latestPlayoffRound.bracket_size > 2))" class="button primary" type="button" :disabled="busy" @click="generatePlayoffStage">生成下一阶段</button>
-            <button v-if="latestPlayoffRound?.status === 'DRAFT'" class="button primary" type="button" :disabled="busy" @click="publishPlayoffStage">正式发布{{ latestPlayoffRound.name }}</button>
-            <button v-if="tournament.status === 'ELIMINATION' && playoff?.awaiting_tournament_end" class="button primary" type="button" :disabled="busy" @click="endTournament">结束赛事并锁定结果</button>
+      <template v-else-if="section === 'matches' && competitionStage === 'playoff'">
+        <div v-if="!['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.status)" class="empty-state">完成瑞士轮后开放淘汰赛管理。</div>
+        <template v-else>
+          <div class="swiss-operation-bar">
+            <div><h3>淘汰赛对阵</h3><p>按阶段查看和处理每场对局；Top N 按瑞士轮最终排名固定入位。</p></div>
+            <div class="form-actions">
+              <button v-if="tournament.status !== 'ENDED' && (!latestPlayoffRound || (latestPlayoffRound.status === 'COMPLETED' && latestPlayoffRound.bracket_size > 2))" class="button primary" type="button" :disabled="busy" @click="generatePlayoffStage">生成下一阶段</button>
+              <button v-if="latestPlayoffRound?.status === 'DRAFT'" class="button primary" type="button" :disabled="busy" @click="requestPlayoffStagePublish">正式发布{{ latestPlayoffRound.name }}</button>
+              <button v-if="tournament.status === 'ELIMINATION' && playoff?.awaiting_tournament_end" class="button primary" type="button" :disabled="busy" @click="endTournament">结束赛事并锁定结果</button>
+            </div>
           </div>
-        </div>
-        <div v-if="playoff?.champion_nickname" class="champion-strip"><span>CHAMPION</span><strong>{{ playoff.champion_nickname }}</strong><small>{{ playoff.awaiting_tournament_end ? '决赛已完成，等待主办方手动结束赛事。' : '赛事已结束，全部结果已永久锁定。' }}</small></div>
-        <label v-if="latestPlayoffRound?.status !== 'DRAFT'" class="forfeit-reason"><span>主办方判负原因</span><input v-model.trim="forfeitReason" maxlength="500" placeholder="填写选手无法继续参赛的原因" /></label>
-        <section v-if="pendingPlayoffForfeit" class="forfeit-confirmation" role="dialog" aria-labelledby="forfeit-confirmation-title">
-          <div>
-            <strong id="forfeit-confirmation-title">确认主办方裁定</strong>
-            <p>将判“{{ pendingPlayoffForfeit.loserNickname }}”负、“{{ pendingPlayoffForfeit.winnerNickname }}”胜，并覆盖双方当前提交的赛果。</p>
-            <small>判负原因：{{ pendingPlayoffForfeit.reason }}</small>
-          </div>
-          <div class="form-actions">
-            <button class="button secondary small" type="button" :disabled="busy" @click="cancelPlayoffForfeit">取消</button>
-            <button class="button primary small" type="button" :disabled="busy" @click="confirmPlayoffForfeit">确定判负</button>
+          <template v-if="playoff?.rounds.length">
+            <nav class="competition-round-tabs" role="tablist" aria-label="淘汰赛阶段">
+              <button v-for="round in playoff.rounds" :key="round.id" type="button" role="tab" :class="{ active: selectedPlayoffRound?.id === round.id }" :aria-selected="selectedPlayoffRound?.id === round.id" @click="selectedPlayoffRoundId = round.id">{{ round.name }}</button>
+            </nav>
+            <div v-if="selectedPlayoffRound" class="round-admin-heading">
+              <div><strong>{{ selectedPlayoffRound.name }}</strong><span :class="['status-badge', `round-${selectedPlayoffRound.status.toLowerCase()}`]">{{ swissRoundStatusText[selectedPlayoffRound.status] }}</span></div>
+              <label v-if="selectedPlayoffRound.status !== 'DRAFT'">筛选
+                <select v-model="matchFilter"><option value="ALL">全部</option><option value="WAITING">未完成</option><option value="CONFLICT">赛果冲突</option><option value="COMPLETED">已完成</option></select>
+              </label>
+            </div>
+            <div v-if="selectedPlayoffRound" class="admin-match-list playoff-match-list">
+              <template v-for="match in filteredPlayoffMatches" :key="match.id">
+                <article :class="['admin-match-row', { 'admin-match-row-preview': selectedPlayoffRound.status === 'DRAFT' }]">
+                  <span class="match-table-no">第 {{ match.table_no }} 桌</span>
+                  <div class="admin-match-players">
+                    <span :class="['admin-match-player', 'admin-match-player-a', { winner: match.winner_id === match.player_a_id }]">
+                      <strong>{{ match.player_a_nickname }}</strong><small v-if="match.winner_id === match.player_a_id" class="winner-mark">胜</small><em>（#{{ match.seed_a }}）</em>
+                    </span>
+                    <i class="admin-match-versus">VS</i>
+                    <span :class="['admin-match-player', 'admin-match-player-b', { winner: match.winner_id === match.player_b_id }]">
+                      <strong>{{ match.player_b_nickname }}</strong><small v-if="match.winner_id === match.player_b_id" class="winner-mark">胜</small><em>（#{{ match.seed_b }}）</em>
+                    </span>
+                  </div>
+                  <div v-if="selectedPlayoffRound.status !== 'DRAFT' && match.status !== 'COMPLETED'" class="submission-state"><span>{{ match.player_a_nickname }}：{{ match.player_a_result === 'WIN' ? '胜' : match.player_a_result === 'LOSS' ? '负' : '未提交' }}</span><span>{{ match.player_b_nickname }}：{{ match.player_b_result === 'WIN' ? '胜' : match.player_b_result === 'LOSS' ? '负' : '未提交' }}</span></div>
+                  <div v-if="selectedPlayoffRound.status !== 'DRAFT'" class="admin-match-outcome">
+                    <span :class="['status-badge', `match-${match.status.toLowerCase()}`]">{{ matchStatusText[match.status] }}</span>
+                    <div v-if="!match.result_locked" class="row-actions"><button type="button" :disabled="busy" @click="requestPlayoffResolution(match)">{{ matchResolutionActionText(match) }}</button></div>
+                  </div>
+                </article>
+                <section v-if="pendingPlayoffResolution?.match.id === match.id" class="forfeit-confirmation swiss-resolution-confirmation" role="dialog" :aria-labelledby="`playoff-resolution-title-${match.id}`">
+                  <div class="match-resolution-toolbar">
+                    <strong :id="`playoff-resolution-title-${match.id}`">{{ matchResolutionTitle(match) }}</strong>
+                    <div class="match-resolution-winners">
+                      <button :class="['button', 'small', pendingPlayoffResolution.winnerId === match.player_a_id ? 'primary' : 'secondary']" type="button" :disabled="busy" @click="pendingPlayoffResolution.winnerId = match.player_a_id">判 {{ match.player_a_nickname }} 胜</button>
+                      <button :class="['button', 'small', pendingPlayoffResolution.winnerId === match.player_b_id ? 'primary' : 'secondary']" type="button" :disabled="busy" @click="pendingPlayoffResolution.winnerId = match.player_b_id">判 {{ match.player_b_nickname }} 胜</button>
+                    </div>
+                    <div class="form-actions swiss-resolution-actions"><button class="button secondary small" type="button" :disabled="busy" @click="cancelPlayoffResolution">取消</button><button class="button primary small" type="button" :disabled="busy || !canConfirmResolution(pendingPlayoffResolution)" @click="confirmPlayoffResolution">确认裁定</button></div>
+                  </div>
+                  <div class="match-resolution-meta">
+                    <small class="match-resolution-summary">{{ pendingPlayoffResolution.winnerId ? resolutionSummary(match, pendingPlayoffResolution.winnerId) : '请选择获胜者' }}</small>
+                    <button class="match-resolution-reason-toggle" type="button" :aria-expanded="pendingPlayoffResolution.reasonOpen" :aria-controls="`playoff-resolution-reason-${match.id}`" @click="pendingPlayoffResolution.reasonOpen = !pendingPlayoffResolution.reasonOpen">{{ pendingPlayoffResolution.reasonOpen ? '收起裁定原因' : '＋填写裁定原因（选填）' }}</button>
+                  </div>
+                  <label v-if="pendingPlayoffResolution.reasonOpen" :id="`playoff-resolution-reason-${match.id}`" class="match-resolution-reason"><span>裁定原因（选填）</span><input v-model.trim="pendingPlayoffResolution.reason" maxlength="500" placeholder="可不填" /></label>
+                </section>
+              </template>
+              <p v-if="!filteredPlayoffMatches.length" class="empty-state compact">该筛选下没有对阵。</p>
+            </div>
+          </template>
+          <p v-else class="empty-state">全部瑞士轮完成后，点击“生成下一阶段”创建 Top {{ tournament.playoff_size }} 固定种子对阵。</p>
+        </template>
+      </template>
+
+      <template v-else-if="section === 'results' && competitionStage === 'swiss'">
+        <section class="swiss-ranking-section">
+          <div class="ranking-heading"><h3>瑞士轮排名</h3><span>第 {{ swissOverview?.ranking_round_no ?? 0 }} 轮快照</span></div>
+          <div class="ranking-table-wrap">
+            <table class="ranking-table">
+              <thead><tr><th>排名</th><th>选手</th><th>胜负</th><th>OMW(%)</th><th>LRS</th></tr></thead>
+              <tbody>
+                <template v-for="item in swissOverview?.rankings" :key="item.participant_id">
+                  <tr :class="{ 'ranking-row-selected': selectedRankingParticipantId === item.participant_id }">
+                    <td>{{ item.rank }}</td>
+                    <td><button class="ranking-player-button" type="button" :aria-expanded="selectedRankingParticipantId === item.participant_id" :aria-controls="`ranking-history-${item.participant_id}`" @click="toggleRankingHistory(item.participant_id)">{{ item.nickname }}<small v-if="item.participant_status === 'WITHDRAWN'">已退赛</small></button></td>
+                    <td>{{ item.wins }}-{{ item.losses }}</td><td>{{ (item.omw * 100).toFixed(2) }}</td><td>{{ item.loss_round_score }}</td>
+                  </tr>
+                  <tr v-if="selectedRankingParticipantId === item.participant_id" class="ranking-history-row"><td colspan="5"><div :id="`ranking-history-${item.participant_id}`" class="ranking-player-history"><MatchHistoryList :matches="selectedRankingHistory" :title="`${item.nickname}的历史对阵`" /></div></td></tr>
+                </template>
+                <tr v-if="!swissOverview?.rankings.length"><td colspan="5">尚无瑞士轮排名。</td></tr>
+              </tbody>
+            </table>
           </div>
         </section>
-        <div v-if="playoff?.rounds.length" class="playoff-bracket admin-bracket" :style="{ '--round-count': playoff.rounds.length }">
-          <section v-for="round in playoff.rounds" :key="round.id" class="bracket-round">
-            <header><strong>{{ round.name }}</strong><span>{{ swissRoundStatusText[round.status] }}</span></header>
-            <div class="bracket-match-list">
-              <article v-for="match in round.matches" :key="match.id" class="bracket-match admin-bracket-match">
-                <div :class="{ winner: match.winner_id === match.player_a_id }"><span>#{{ match.seed_a }}</span><strong>{{ match.player_a_nickname }}</strong><i>{{ match.player_a_result === 'WIN' ? '胜' : match.player_a_result === 'LOSS' ? '负' : '' }}</i></div>
-                <div :class="{ winner: match.winner_id === match.player_b_id }"><span>#{{ match.seed_b }}</span><strong>{{ match.player_b_nickname }}</strong><i>{{ match.player_b_result === 'WIN' ? '胜' : match.player_b_result === 'LOSS' ? '负' : '' }}</i></div>
-                <footer><span>{{ matchStatusText[match.status] }}</span><div v-if="round.status !== 'DRAFT' && !match.result_locked" class="row-actions"><button type="button" :disabled="busy" @click="requestPlayoffForfeit(match, match.player_a_id)">判 A 负</button><button type="button" :disabled="busy" @click="requestPlayoffForfeit(match, match.player_b_id)">判 B 负</button></div></footer>
-              </article>
-            </div>
-          </section>
-        </div>
-        <p v-else class="empty-state">全部瑞士轮完成后，点击“生成下一阶段”创建 Top {{ tournament.playoff_size }} 固定种子签表。</p>
       </template>
+
+      <PlayoffResultsTree v-else :overview="playoff" />
     </section>
 
     <section v-if="tournament && section === 'decks-report'" class="phase5-admin">
       <div v-if="tournament.status !== 'ENDED'" class="empty-state">赛事结束后开放四强卡组审核与周报发布。</div>
       <template v-else>
         <div class="swiss-operation-bar"><div><h2>四强卡组截图</h2><p>截图审核通过后即锁定；4/4 全部通过才允许生成周报。</p></div><strong>{{ deckSubmissions?.approved_count ?? 0 }} / 4 已通过</strong></div>
-        <label class="forfeit-reason"><span>退回原因</span><input v-model.trim="deckReturnReason" maxlength="500" placeholder="填写需要选手重新上传的原因" /></label>
         <div class="deck-review-grid">
           <article v-for="item in deckSubmissions?.items" :key="item.id" class="deck-review-card">
-            <header><span>第 {{ item.placement }} 名</span><strong>{{ item.nickname }}</strong><i :class="['status-badge', `deck-${item.status.toLowerCase()}`]">{{ deckStatusText[item.status] }}</i></header>
+            <header><span>{{ deckPlacementText(item.placement) }}</span><strong>{{ item.nickname }}</strong><i :class="['status-badge', `deck-${item.status.toLowerCase()}`]">{{ deckStatusText[item.status] }}</i></header>
             <img v-if="item.image_url" :src="item.image_url" :alt="`${item.nickname} 的卡组截图`" />
             <div v-else class="deck-image-empty">等待选手上传</div>
-            <p v-if="item.review_note">上次退回：{{ item.review_note }}</p>
-            <footer v-if="item.status === 'PENDING_REVIEW'" class="row-actions"><button type="button" :disabled="busy" @click="reviewDeck(item, 'approve')">审核通过</button><button type="button" :disabled="busy" @click="reviewDeck(item, 'return')">退回重传</button></footer>
+            <footer v-if="item.status === 'PENDING_REVIEW'" class="row-actions"><button type="button" :disabled="busy || !item.image_url" @click="openDeckPreview(item)">预览</button><button type="button" :disabled="busy" @click="reviewDeck(item, 'approve')">审核通过</button><button type="button" :disabled="busy" @click="reviewDeck(item, 'return')">退回重传</button></footer>
           </article>
         </div>
 
-        <div class="report-admin-heading"><div><p class="section-kicker">WEEKLY REPORT</p><h2>赛事周报</h2><p>固定模板只读取已锁定的赛事事实，不提供自由编辑。</p></div><div class="form-actions"><button v-if="!weeklyReport" class="button primary" type="button" :disabled="busy || deckSubmissions?.approved_count !== 4" @click="generateWeeklyReport">生成周报草稿</button><button v-if="weeklyReport?.status === 'DRAFT'" class="button primary" type="button" :disabled="busy" @click="publishWeeklyReport">发布周报</button><RouterLink v-if="weeklyReport?.status === 'PUBLISHED'" class="button secondary" :to="`/reports/${weeklyReport.id}`">查看已发布周报</RouterLink></div></div>
-        <WeeklyReportContent v-if="weeklyReport" :report="weeklyReport" />
-        <p v-else class="empty-state compact">四强截图 4/4 审核通过后可生成周报草稿。</p>
+        <div class="report-admin-heading"><div><p class="section-kicker">WEEKLY REPORT</p><h2>赛事周报</h2><p>四强截图全部审核通过后，一键生成并发布固定模板周报；当前不提供编辑或预览。</p></div><div class="form-actions"><button v-if="weeklyReport?.status !== 'PUBLISHED'" class="button primary" type="button" :disabled="busy || deckSubmissions?.approved_count !== 4" @click="generateWeeklyReport">生成周报</button><RouterLink v-if="weeklyReport?.status === 'PUBLISHED'" class="button secondary" :to="`/reports/${weeklyReport.id}`">查看已发布周报</RouterLink></div></div>
+        <p v-if="weeklyReport?.status !== 'PUBLISHED'" class="empty-state compact">四强截图 4/4 审核通过后可直接生成正式周报。</p>
       </template>
     </section>
 
@@ -679,7 +979,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
     <section v-if="tournament && section === 'audit'" class="audit-admin-section">
       <div class="settings-heading"><div><h2>操作日志</h2><p>本届赛事中影响公平性、审核结果和不可逆状态的关键操作。</p></div><strong>{{ auditLogs?.total ?? 0 }} 条</strong></div>
       <div v-if="auditLogs?.items.length" class="audit-list">
-        <article v-for="item in auditLogs.items" :key="item.id" class="audit-row"><time>{{ formatAuditTime(item.created_at) }}</time><div><strong>{{ item.action_type }}</strong><p>{{ item.operator_nickname }} · {{ item.target_type }} / {{ item.target_id }}</p></div><details><summary>数据变化</summary><pre>{{ JSON.stringify({ before: item.before_json, after: item.after_json }, null, 2) }}</pre></details></article>
+        <article v-for="item in auditLogs.items" :key="item.id" class="audit-row"><time>{{ formatAuditTime(item.created_at) }}</time><div><strong>{{ auditActionText(item.action_type) }}</strong><p>{{ item.operator_nickname }} · {{ item.target_type }} / {{ item.target_id }}</p></div><details><summary>数据变化</summary><pre>{{ JSON.stringify({ before: item.before_json, after: item.after_json }, null, 2) }}</pre></details></article>
       </div>
       <p v-else class="empty-state">尚无本届赛事审计记录。</p>
     </section>

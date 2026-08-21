@@ -5,7 +5,7 @@ import { apiGet, apiPost } from '@/api/client'
 import FormMessage from '@/components/FormMessage.vue'
 import MatchHistoryList from '@/components/MatchHistoryList.vue'
 import type { MatchHistoryItem, MySwissMatch, SubmittedResult, SwissOverview } from '@/types/tournament'
-import { matchStatusText, swissRoundStatusText } from '@/types/tournament'
+import { swissRoundStatusText } from '@/types/tournament'
 
 const props = withDefaults(defineProps<{
   tournamentId: string
@@ -22,22 +22,7 @@ const myMatches = ref<MySwissMatch[]>([])
 const busy = ref(false)
 const error = ref('')
 const message = ref('')
-const currentMatch = computed<MySwissMatch | null>(() =>
-  [...myMatches.value].reverse().find((item) => item.status !== 'COMPLETED') ?? null,
-)
-const currentMatchSides = computed(() => {
-  const match = currentMatch.value
-  if (!match) return null
-  const selfIsPlayerA = match.my_participant_id === match.player_a_id
-  return {
-    selfId: match.my_participant_id,
-    selfNickname: selfIsPlayerA ? match.player_a_nickname : match.player_b_nickname,
-    opponentId: selfIsPlayerA ? match.player_b_id : match.player_a_id,
-    opponentNickname: selfIsPlayerA ? match.player_b_nickname : match.player_a_nickname,
-  }
-})
-const historyMatches = computed<MatchHistoryItem[]>(() => myMatches.value
-  .filter((item) => item.status === 'COMPLETED')
+const playerMatches = computed<MatchHistoryItem[]>(() => myMatches.value
   .map((item) => ({
     id: item.id,
     stage: 'SWISS' as const,
@@ -52,6 +37,9 @@ const historyMatches = computed<MatchHistoryItem[]>(() => myMatches.value
     winner_id: item.winner_id,
     status: item.status,
     my_participant_id: item.my_participant_id,
+    my_submission: item.my_submission,
+    opponent_submission: item.opponent_submission,
+    opponent_submitted: item.opponent_submitted,
   }))
   .sort((a, b) => b.round_no - a.round_no || b.table_no - a.table_no))
 
@@ -60,17 +48,16 @@ async function load() {
   if (props.view === 'matches' && props.token && props.isPlayer) {
     myMatches.value = await apiGet<MySwissMatch[]>(
       `/tournaments/${props.tournamentId}/matches/me`, undefined, props.token,
-    ).catch(() => [])
+    )
   }
 }
 
-async function submit(result: SubmittedResult) {
-  if (!currentMatch.value) return
+async function submit(matchId: string, result: SubmittedResult) {
   busy.value = true
   error.value = ''
   message.value = ''
   try {
-    await apiPost(`/matches/${currentMatch.value.id}/submissions`, { result }, props.token)
+    await apiPost(`/matches/${matchId}/submissions`, { result }, props.token)
     message.value = `已提交${result === 'WIN' ? '胜' : '负'}。双方结果一致后系统会自动确认。`
     await load()
   } catch (caught) {
@@ -97,30 +84,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       <FormMessage v-if="message" type="success" :message="message" />
       <FormMessage v-if="error" :message="error" />
 
-      <section v-if="isPlayer" class="current-match-section">
-        <div class="match-section-heading"><h3>当前对阵</h3><span>本轮对局</span></div>
-        <article v-if="currentMatch && currentMatchSides" class="my-match-panel">
-          <div class="match-table-no">第 {{ currentMatch.round_no }} 轮瑞士轮 · {{ currentMatch.player_b_id ? `第 ${currentMatch.table_no} 桌` : '轮空' }}</div>
-          <div class="match-versus">
-            <strong :class="{ winner: currentMatch.winner_id === currentMatchSides.selfId }">{{ currentMatchSides.selfNickname }}</strong>
-            <span>{{ currentMatchSides.opponentId ? 'VS' : 'BYE' }}</span>
-            <strong v-if="currentMatchSides.opponentId" :class="{ winner: currentMatch.winner_id === currentMatchSides.opponentId }">{{ currentMatchSides.opponentNickname }}</strong>
-          </div>
-          <div class="match-meta">
-            <span>{{ matchStatusText[currentMatch.status] }}</span>
-            <span>对手{{ currentMatch.opponent_submitted ? '已提交' : '未提交' }}</span>
-            <span v-if="currentMatch.my_submission">我已提交：{{ currentMatch.my_submission === 'WIN' ? '胜' : '负' }}</span>
-          </div>
-          <div v-if="currentMatchSides.opponentId" class="result-actions">
-            <button class="button primary" type="button" aria-label="提交我获胜" :disabled="busy" @click="submit('WIN')">胜</button>
-            <button class="button secondary" type="button" aria-label="提交我落败" :disabled="busy" @click="submit('LOSS')">负</button>
-          </div>
-          <p v-else class="form-hint">本轮轮空，系统已自动记录胜场。</p>
-        </article>
-        <p v-else class="empty-state compact">当前没有进行中的个人对阵。</p>
-      </section>
-
-      <MatchHistoryList v-if="isPlayer" :matches="historyMatches" />
+      <MatchHistoryList v-if="isPlayer" :matches="playerMatches" :show-heading="false" interactive :busy="busy" empty-text="暂无个人对阵。" @submit="submit" />
     </template>
 
     <template v-else>

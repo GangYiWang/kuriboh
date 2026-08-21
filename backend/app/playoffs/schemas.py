@@ -28,6 +28,7 @@ class PlayoffMatchResponse(BaseModel):
 class MyPlayoffMatchResponse(PlayoffMatchResponse):
     my_participant_id: UUID
     my_submission: SubmittedResult | None
+    opponent_submission: SubmittedResult | None
     opponent_submitted: bool
 
 
@@ -56,4 +57,4 @@ class PlayoffSubmitResultRequest(BaseModel):
 
 class ForfeitRequest(BaseModel):
     loser_id: UUID
-    reason: str = Field(min_length=2, max_length=500)
+    reason: str | None = Field(default=None, max_length=500)

@@ -14,6 +14,7 @@ from app.registrations.models import ParticipantStatus, TournamentParticipant
 from app.swiss.algorithm import (
     MatchRecord,
     Pairing,
+    PairingUnavailableError,
     StandingInput,
     calculate_rankings,
     generate_swiss_pairings,
@@ -103,7 +104,14 @@ class SwissService:
             raise AppError("INSUFFICIENT_PARTICIPANTS", "至少需要 2 名有效选手才能生成配对", status_code=409)
 
         rng = Random(seed) if seed is not None else Random(SystemRandom().randrange(2**63))
-        pairings = generate_swiss_pairings(players, self._prior_pairs(tournament_id), rng)
+        try:
+            pairings = generate_swiss_pairings(players, self._prior_pairs(tournament_id), rng)
+        except PairingUnavailableError as exc:
+            raise AppError(
+                "SWISS_PAIRING_UNAVAILABLE",
+                "无法生成覆盖全部选手的无重复对阵，请检查退赛情况或调整瑞士轮配置",
+                status_code=409,
+            ) from exc
         round_item = SwissRound(
             tournament_id=tournament_id,
             round_no=round_no,
@@ -164,6 +172,7 @@ class SwissService:
         errors = validate_pairing_draft(
             [Pairing(item.player_a_id, item.player_b_id) for item in matches],
             {item.id for item in self.repository.active_participants(tournament_id)},
+            self._prior_pairs(tournament_id, round_item.round_no),
         )
         if errors:
             self.db.rollback()
@@ -190,7 +199,11 @@ class SwissService:
             raise AppError("ROUND_ALREADY_PUBLISHED", "轮次已经发布", status_code=409)
         active_ids = {item.id for item in self.repository.active_participants(tournament_id)}
         matches = self.repository.round_matches(round_id)
-        errors = validate_pairing_draft([Pairing(item.player_a_id, item.player_b_id) for item in matches], active_ids)
+        errors = validate_pairing_draft(
+            [Pairing(item.player_a_id, item.player_b_id) for item in matches],
+            active_ids,
+            self._prior_pairs(tournament_id, round_item.round_no),
+        )
         if errors:
             raise AppError("INVALID_PAIRING_DRAFT", "对阵预览未通过发布校验", details={"errors": errors})
 
@@ -256,7 +269,13 @@ class SwissService:
         self.db.commit()
         return self.my_match_response(match, participant.id)
 
-    def resolve_match(self, match_id: UUID, winner_id: UUID, operator_id: UUID) -> MatchResponse:
+    def resolve_match(
+        self,
+        match_id: UUID,
+        winner_id: UUID,
+        reason: str | None,
+        operator_id: UUID,
+    ) -> MatchResponse:
         match = self.repository.get_match(match_id, for_update=True)
         if match is None or match.stage != MatchStage.SWISS.value:
             raise AppError("MATCH_NOT_FOUND", "对局不存在", status_code=404)
@@ -267,6 +286,7 @@ class SwissService:
             raise AppError("MATCH_RESULT_LOCKED", "下一轮已发布，本轮赛果已锁定", status_code=409)
         if winner_id not in {match.player_a_id, match.player_b_id} or match.player_b_id is None:
             raise AppError("INVALID_MATCH_WINNER", "裁定胜者必须是本场选手", status_code=400)
+        normalized_reason = reason.strip() if reason and reason.strip() else None
         before = {"winner_id": str(match.winner_id) if match.winner_id else None, "status": match.status}
         match.winner_id = winner_id
         match.status = MatchStatus.COMPLETED.value
@@ -282,7 +302,7 @@ class SwissService:
             target_type="match",
             target_id=match.id,
             before=before,
-            after={"winner_id": str(winner_id), "status": match.status},
+            after={"winner_id": str(winner_id), "status": match.status, "reason": normalized_reason},
         )
         self.db.commit()
         return self.match_response(match, admin=True)
@@ -412,6 +432,7 @@ class SwissService:
             **base.model_dump(),
             my_participant_id=participant_id,
             my_submission=submissions.get(participant_id),
+            opponent_submission=submissions.get(opponent_id),
             opponent_submitted=opponent_id in submissions,
         )
 

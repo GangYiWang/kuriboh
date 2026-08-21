@@ -3,7 +3,6 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import { apiGet } from '@/api/client'
-import SystemStatus from '@/components/SystemStatus.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { Announcement, ListResponse } from '@/types/content'
 import type { MyTournamentListResponse } from '@/types/tournament'
@@ -28,7 +27,6 @@ onMounted(async () => {
   <div class="page-shell">
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">YU-GI-OH! MASTER DUEL 玩家赛事平台</p>
         <h1>每一场认真对局，<br /><span>都值得被好好记录。</span></h1>
         <p class="hero-description">
           从报名、瑞士轮到淘汰赛，一站完成栗子杯的参赛与追踪。规则清晰，赛程透明。
@@ -44,7 +42,6 @@ onMounted(async () => {
         <span class="emblem-ring ring-two" />
         <div class="emblem-core">
           <span class="core-seed" />
-          <strong>V1</strong>
           <small>KURIBOH CUP</small>
         </div>
         <span class="orbit-label label-a">SWISS</span>
@@ -61,15 +58,6 @@ onMounted(async () => {
       <div class="section-heading"><div><p class="section-kicker">MY CURRENT TOURNAMENT</p><h2 id="current-tournament-title">我的当前赛事</h2></div><span :class="['status-badge', `status-${currentTournament.status.toLowerCase()}`]">{{ tournamentStatusText[currentTournament.status] }}</span></div>
       <div class="current-tournament-main"><div><h3>{{ currentTournament.name }}</h3><p v-if="currentTournament.current_match">{{ currentTournament.current_match.stage === 'SWISS' ? `瑞士轮第 ${currentTournament.current_match.round_no} 轮` : '淘汰赛' }} · 第 {{ currentTournament.current_match.table_no }} 桌 · 对手 {{ currentTournament.current_match.opponent_nickname }}</p><p v-else>当前没有进行中的个人对阵。</p></div><RouterLink class="button primary" :to="`/tournaments/${currentTournament.id}`">进入赛事</RouterLink></div>
       <dl><div><dt>当前排名</dt><dd>{{ currentTournament.ranking ? `第 ${currentTournament.ranking.rank} 名` : '—' }}</dd></div><div><dt>当前战绩</dt><dd>{{ currentTournament.ranking ? `${currentTournament.ranking.wins}-${currentTournament.ranking.losses}` : '—' }}</dd></div></dl>
-    </section>
-
-    <section class="phase-panel" aria-labelledby="phase-title">
-      <div>
-        <p class="section-kicker">PLATFORM STATUS</p>
-        <h2 id="phase-title">栗子杯 V1 · 完整办赛流程</h2>
-        <p>从报名审核、瑞士轮和淘汰赛，到四强卡组与赛事周报，核心流程均已接入真实数据。</p>
-      </div>
-      <SystemStatus />
     </section>
 
     <section class="quick-section" aria-labelledby="quick-title">

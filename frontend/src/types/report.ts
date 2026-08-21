@@ -38,29 +38,10 @@ export interface ReportPodiumItem {
   image_url: string
 }
 
-export interface ReportRankingItem {
-  rank: number
-  nickname: string
-  wins: number
-  losses: number
-  omw: number
-  loss_round_score: number
-}
-
-export interface ReportPlayoffMatch {
-  seed_a: number
-  player_a: string
-  seed_b: number
-  player_b: string
-  winner: string
-}
-
 export interface ReportSnapshot {
   template_version: number
   tournament: ReportTournamentSnapshot
   podium: ReportPodiumItem[]
-  swiss_rankings: ReportRankingItem[]
-  playoff_rounds: Array<{ name: string; stage_no: number; matches: ReportPlayoffMatch[] }>
 }
 
 export interface WeeklyReport {
@@ -83,4 +64,10 @@ export const deckStatusText: Record<DeckSubmissionStatus, string> = {
   PENDING_REVIEW: '待管理员审核',
   REUPLOAD_REQUIRED: '需重新上传',
   APPROVED: '审核通过',
+}
+
+export function deckPlacementText(placement: number): '冠军' | '亚军' | '四强' {
+  if (placement === 1) return '冠军'
+  if (placement === 2) return '亚军'
+  return '四强'
 }

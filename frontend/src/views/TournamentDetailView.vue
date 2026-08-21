@@ -19,7 +19,8 @@ const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
 const message = ref('')
-const activeTab = ref<'info' | 'matches' | 'results'>('info')
+const activeTab = ref<'info' | 'matches' | 'results' | 'deck'>('info')
+const resultsStage = ref<'swiss' | 'playoff'>('swiss')
 const tournamentId = computed(() => String(route.params.id))
 const remaining = computed(() => Math.max(0, (tournament.value?.max_players ?? 0) - (tournament.value?.approved_count ?? 0)))
 const canReapply = computed(() => registration.value?.status === 'CANCELED' && !registration.value.reviewed_by_id)
@@ -30,6 +31,7 @@ function formatDate(value: string | null) {
 
 async function load() {
   tournament.value = await apiGet<Tournament>(`/tournaments/${tournamentId.value}`)
+  resultsStage.value = ['ELIMINATION', 'ENDED'].includes(tournament.value.status) ? 'playoff' : 'swiss'
   if (authStore.token) {
     registration.value = await apiGet<Registration>(
       `/tournaments/${tournamentId.value}/registrations/me`, undefined, authStore.token,
@@ -93,11 +95,12 @@ onMounted(async () => {
         <RouterLink v-if="authStore.user?.id === tournament.created_by_id" class="button secondary" :to="`/tournaments/${tournament.id}/manage/settings`">管理比赛</RouterLink>
       </div>
     </header>
-    <div class="page-shell tournament-detail-layout">
+    <div :class="['page-shell', 'tournament-detail-layout', { 'tournament-detail-layout-results': ['results', 'deck'].includes(activeTab) }]">
       <nav class="tournament-detail-tabs" aria-label="赛事页面内容">
         <button type="button" :class="{ active: activeTab === 'info' }" :aria-current="activeTab === 'info' ? 'page' : undefined" @click="activeTab = 'info'">赛事信息</button>
         <button type="button" :class="{ active: activeTab === 'matches' }" :aria-current="activeTab === 'matches' ? 'page' : undefined" @click="activeTab = 'matches'">对阵</button>
         <button type="button" :class="{ active: activeTab === 'results' }" :aria-current="activeTab === 'results' ? 'page' : undefined" @click="activeTab = 'results'">赛果</button>
+        <button v-if="tournament.status === 'ENDED' && authStore.isAuthenticated && authStore.token" type="button" :class="{ active: activeTab === 'deck' }" :aria-current="activeTab === 'deck' ? 'page' : undefined" @click="activeTab = 'deck'">卡组</button>
       </nav>
       <main>
         <section v-if="activeTab === 'info'" class="info-section">
@@ -133,40 +136,41 @@ onMounted(async () => {
         <section v-if="activeTab === 'matches' && ['DRAFT', 'REGISTRATION'].includes(tournament.status)" class="tournament-stage-empty">
           <p class="section-kicker">MATCHES</p><h2>对阵</h2><p class="empty-state compact">赛事开始并发布首轮后显示对阵。</p>
         </section>
-        <template v-if="activeTab === 'results'">
-          <SwissLivePanel
-            v-if="tournament.status === 'SWISS'"
-            :tournament-id="tournament.id"
-            :token="authStore.token"
-            :is-player="authStore.isAuthenticated"
-            view="results"
-          />
-          <template v-else-if="['ELIMINATION', 'ENDED'].includes(tournament.status)">
-            <PlayoffBracket
-              :tournament-id="tournament.id"
-              :token="authStore.token"
-              :is-player="authStore.isAuthenticated"
-              view="results"
-            />
+        <section v-if="activeTab === 'results' && ['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.status)" class="public-results-view">
+          <header class="swiss-progress-heading"><div><p class="section-kicker">RESULTS</p><h2>赛果</h2></div></header>
+          <nav class="competition-stage-tabs" role="tablist" aria-label="赛果阶段">
+            <button type="button" role="tab" :class="{ active: resultsStage === 'swiss' }" :aria-selected="resultsStage === 'swiss'" @click="resultsStage = 'swiss'">瑞士轮</button>
+            <button type="button" role="tab" :class="{ active: resultsStage === 'playoff' }" :aria-selected="resultsStage === 'playoff'" @click="resultsStage = 'playoff'">淘汰赛</button>
+          </nav>
+          <div role="tabpanel" class="public-results-panel">
             <SwissLivePanel
+              v-if="resultsStage === 'swiss'"
               :tournament-id="tournament.id"
               :token="authStore.token"
               :is-player="authStore.isAuthenticated"
               view="results"
               embedded
             />
-            <DeckSubmissionPanel
-              v-if="tournament.status === 'ENDED' && authStore.isAuthenticated && authStore.token"
+            <PlayoffBracket
+              v-else
               :tournament-id="tournament.id"
               :token="authStore.token"
+              :is-player="authStore.isAuthenticated"
+              view="results"
+              embedded
             />
-          </template>
-          <section v-else class="tournament-stage-empty">
-            <p class="section-kicker">RESULTS</p><h2>赛果</h2><p class="empty-state compact">赛事开始后显示排名与赛果。</p>
-          </section>
-        </template>
+          </div>
+        </section>
+        <section v-else-if="activeTab === 'results'" class="tournament-stage-empty">
+          <p class="section-kicker">RESULTS</p><h2>赛果</h2><p class="empty-state compact">赛事开始后显示排名与赛果。</p>
+        </section>
+        <DeckSubmissionPanel
+          v-if="activeTab === 'deck' && tournament.status === 'ENDED' && authStore.token"
+          :tournament-id="tournament.id"
+          :token="authStore.token"
+        />
       </main>
-      <aside class="signup-box">
+      <aside v-if="!['results', 'deck'].includes(activeTab)" class="signup-box">
         <p class="section-kicker">REGISTRATION</p>
         <h2>赛事报名</h2>
         <FormMessage v-if="message" type="success" :message="message" />
@@ -187,9 +191,7 @@ onMounted(async () => {
         </template>
         <template v-else>
           <p>赛事已开始，报名现已关闭。</p>
-          <p v-if="tournament.status === 'SWISS'" class="form-hint">选手可切换到“对阵”查看个人当前对阵并独立提交赛果。</p>
-          <p v-if="tournament.status === 'ELIMINATION'" class="form-hint">选手可切换到“对阵”查看淘汰赛对局并提交赛果。</p>
-          <p v-if="tournament.status === 'ENDED'" class="form-hint">赛事结果已经永久锁定。最终四强可在“赛果”中上传卡组截图。</p>
+          <p v-if="tournament.status === 'ENDED'" class="form-hint">赛事结果已经永久锁定。最终四强可在“卡组”中上传卡组截图。</p>
         </template>
       </aside>
     </div>

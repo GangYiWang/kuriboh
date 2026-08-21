@@ -105,6 +105,7 @@ export interface SwissMatch {
 export interface MySwissMatch extends SwissMatch {
   my_participant_id: string
   my_submission: SubmittedResult | null
+  opponent_submission: SubmittedResult | null
   opponent_submitted: boolean
 }
 
@@ -158,6 +159,7 @@ export interface PlayoffMatch {
 export interface MyPlayoffMatch extends PlayoffMatch {
   my_participant_id: string
   my_submission: SubmittedResult | null
+  opponent_submission: SubmittedResult | null
   opponent_submitted: boolean
 }
 
@@ -175,6 +177,9 @@ export interface MatchHistoryItem {
   winner_id: string | null
   status: MatchStatus
   my_participant_id: string
+  my_submission?: SubmittedResult | null
+  opponent_submission?: SubmittedResult | null
+  opponent_submitted?: boolean
 }
 
 export interface PlayoffRound {

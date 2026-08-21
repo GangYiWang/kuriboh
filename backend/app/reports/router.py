@@ -41,7 +41,7 @@ def admin_tournament_report(tournament_id: UUID, principal: Authenticated, db: A
     require_tournament_owner(db, tournament_id, principal.user_id)
     item = WeeklyReportRepository(db).for_tournament(tournament_id)
     if item is None:
-        raise AppError("REPORT_NOT_FOUND", "尚未生成周报草稿", status_code=404)
+        raise AppError("REPORT_NOT_FOUND", "尚未生成周报", status_code=404)
     return report_response(item)
 
 

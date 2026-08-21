@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
 from random import Random
 from uuid import UUID
+
+import networkx as nx
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,10 @@ class Ranking:
     losses: int
     omw: float
     loss_round_score: int
+
+
+class PairingUnavailableError(RuntimeError):
+    """Raised when the active field has no complete non-repeating pairing."""
 
 
 def choose_bye_player(players: list[StandingInput], rng: Random) -> StandingInput:
@@ -79,47 +84,57 @@ def generate_swiss_pairings(
         for right in field[index + 1 :]:
             random_noise[frozenset((left.participant_id, right.participant_id))] = rng.randrange(100)
 
+    pair_count = len(field) // 2
+    max_score_gap = max((player.wins for player in field), default=0) - min(
+        (player.wins for player in field),
+        default=0,
+    )
+    max_noise_total = pair_count * 99
+    score_gap_weight = max_noise_total + 1
+    cross_group_weight = pair_count * max_score_gap * score_gap_weight + max_noise_total + 1
+
     def pair_cost(left: StandingInput, right: StandingInput) -> int:
         pair = frozenset((left.participant_id, right.participant_id))
-        repeat_cost = 1_000_000 if pair in prior_pairs else 0
-        score_gap_cost = abs(left.wins - right.wins) * 10_000
-        return repeat_cost + score_gap_cost + random_noise[pair]
+        score_gap = abs(left.wins - right.wins)
+        return (
+            (cross_group_weight if score_gap else 0)
+            + score_gap * score_gap_weight
+            + random_noise[pair]
+        )
 
-    if len(field) <= 18:
-        @lru_cache(maxsize=None)
-        def solve(remaining: tuple[int, ...]) -> tuple[int, tuple[tuple[int, int], ...]]:
-            if not remaining:
-                return 0, ()
-            first = remaining[0]
-            best: tuple[int, tuple[tuple[int, int], ...]] | None = None
-            for position in range(1, len(remaining)):
-                second = remaining[position]
-                tail = remaining[1:position] + remaining[position + 1 :]
-                tail_cost, tail_pairs = solve(tail)
-                candidate = (pair_cost(field[first], field[second]) + tail_cost, ((first, second),) + tail_pairs)
-                if best is None or candidate[0] < best[0]:
-                    best = candidate
-            assert best is not None
-            return best
+    graph = nx.Graph()
+    graph.add_nodes_from(range(len(field)))
+    for left_index, left in enumerate(field):
+        for right_index in range(left_index + 1, len(field)):
+            right = field[right_index]
+            pair = frozenset((left.participant_id, right.participant_id))
+            if pair in prior_pairs:
+                continue
+            graph.add_edge(left_index, right_index, weight=pair_cost(left, right))
 
-        _, index_pairs = solve(tuple(range(len(field))))
-        matched = [(field[left], field[right]) for left, right in index_pairs]
-    else:
-        remaining_players = sorted(field, key=lambda player: (-player.wins, player.rank, player.nickname.casefold()))
-        matched: list[tuple[StandingInput, StandingInput]] = []
-        while remaining_players:
-            left = remaining_players.pop(0)
-            best_index = min(
-                range(len(remaining_players)),
-                key=lambda index: pair_cost(left, remaining_players[index]),
-            )
-            matched.append((left, remaining_players.pop(best_index)))
+    matching = nx.algorithms.matching.min_weight_matching(graph, weight="weight")
+    if len(matching) != pair_count:
+        raise PairingUnavailableError("没有可覆盖全部选手的无重复对阵方案")
+
+    matched: list[tuple[StandingInput, StandingInput]] = []
+    for first_index, second_index in matching:
+        left, right = field[first_index], field[second_index]
+        if (-right.wins, right.rank, right.nickname.casefold()) < (-left.wins, left.rank, left.nickname.casefold()):
+            left, right = right, left
+        matched.append((left, right))
+    matched.sort(
+        key=lambda pair: (
+            -max(pair[0].wins, pair[1].wins),
+            -min(pair[0].wins, pair[1].wins),
+            min(pair[0].rank, pair[1].rank),
+            pair[0].nickname.casefold(),
+            pair[1].nickname.casefold(),
+        )
+    )
 
     pairings: list[Pairing] = []
     for left, right in matched:
         warnings: list[str] = []
-        if frozenset((left.participant_id, right.participant_id)) in prior_pairs:
-            warnings.append("重复对手")
         if left.wins != right.wins:
             warnings.append("跨胜场组")
         pairings.append(Pairing(left.participant_id, right.participant_id, tuple(warnings)))
@@ -129,7 +144,11 @@ def generate_swiss_pairings(
     return pairings
 
 
-def validate_pairing_draft(pairings: list[Pairing], active_ids: set[UUID]) -> list[str]:
+def validate_pairing_draft(
+    pairings: list[Pairing],
+    active_ids: set[UUID],
+    prior_pairs: set[frozenset[UUID]] | None = None,
+) -> list[str]:
     seen: list[UUID] = []
     errors: list[str] = []
     for pairing in pairings:
@@ -137,6 +156,8 @@ def validate_pairing_draft(pairings: list[Pairing], active_ids: set[UUID]) -> li
         if pairing.player_b_id is not None:
             if pairing.player_a_id == pairing.player_b_id:
                 errors.append("存在选手与自己配对")
+            elif prior_pairs is not None and frozenset((pairing.player_a_id, pairing.player_b_id)) in prior_pairs:
+                errors.append("存在重复对手")
             seen.append(pairing.player_b_id)
     if len(seen) != len(set(seen)):
         errors.append("同一选手在本轮重复出现")

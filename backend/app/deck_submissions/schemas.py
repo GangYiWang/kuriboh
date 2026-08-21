@@ -28,4 +28,4 @@ class DeckSubmissionListResponse(BaseModel):
 
 
 class DeckReturnRequest(BaseModel):
-    reason: str = Field(min_length=2, max_length=500)
+    reason: str = Field(default="", max_length=500)

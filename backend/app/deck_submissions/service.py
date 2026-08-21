@@ -83,10 +83,8 @@ class DeckSubmissionService:
             item.status = DeckSubmissionStatus.APPROVED.value
             item.review_note = None
         elif action == "return":
-            if not reason or len(reason.strip()) < 2:
-                raise AppError("RETURN_REASON_REQUIRED", "退回时必须填写原因", status_code=400)
             item.status = DeckSubmissionStatus.REUPLOAD_REQUIRED.value
-            item.review_note = reason.strip()
+            item.review_note = (reason or "").strip()
         else:
             raise AppError("INVALID_REVIEW_ACTION", "不支持的卡组审核操作", status_code=404)
         item.reviewed_by_id = operator_id

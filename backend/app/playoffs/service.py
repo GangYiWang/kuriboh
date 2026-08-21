@@ -202,7 +202,13 @@ class PlayoffService:
         self.db.commit()
         return self.my_match_response(match, participant.id)
 
-    def forfeit(self, match_id: UUID, loser_id: UUID, reason: str, operator_id: UUID) -> PlayoffMatchResponse:
+    def forfeit(
+        self,
+        match_id: UUID,
+        loser_id: UUID,
+        reason: str | None,
+        operator_id: UUID,
+    ) -> PlayoffMatchResponse:
         match = self.db.scalar(select(Match).where(Match.id == match_id).with_for_update())
         if match is None or match.stage != MatchStage.ELIMINATION.value:
             raise AppError("MATCH_NOT_FOUND", "淘汰赛对局不存在", status_code=404)
@@ -213,6 +219,7 @@ class PlayoffService:
             raise AppError("MATCH_RESULT_LOCKED", "下一淘汰阶段已发布，本场赛果已锁定", status_code=409)
         if loser_id not in {match.player_a_id, match.player_b_id}:
             raise AppError("INVALID_FORFEIT_PLAYER", "被判负选手必须是本场选手", status_code=400)
+        normalized_reason = reason.strip() if reason and reason.strip() else None
         winner_id = match.player_b_id if loser_id == match.player_a_id else match.player_a_id
         before = {
             "winner_id": str(match.winner_id) if match.winner_id else None,
@@ -236,7 +243,7 @@ class PlayoffService:
             target_type="match",
             target_id=match.id,
             before=before,
-            after={"winner_id": str(winner_id), "loser_id": str(loser_id), "reason": reason.strip()},
+            after={"winner_id": str(winner_id), "loser_id": str(loser_id), "reason": normalized_reason},
         )
         self.db.commit()
         return self.match_response(match, admin=True)
@@ -325,6 +332,7 @@ class PlayoffService:
             **base.model_dump(),
             my_participant_id=participant_id,
             my_submission=submissions.get(participant_id),
+            opponent_submission=submissions.get(opponent_id),
             opponent_submitted=opponent_id in submissions,
         )
 

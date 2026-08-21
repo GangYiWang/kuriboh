@@ -22,6 +22,7 @@ class SubmitResultRequest(BaseModel):
 
 class ResolveMatchRequest(BaseModel):
     winner_id: UUID
+    reason: str | None = Field(default=None, max_length=500)
 
 
 class MatchResponse(BaseModel):
@@ -44,6 +45,7 @@ class MatchResponse(BaseModel):
 class MyMatchResponse(MatchResponse):
     my_participant_id: UUID
     my_submission: SubmittedResult | None
+    opponent_submission: SubmittedResult | None
     opponent_submitted: bool
 
 

@@ -22,7 +22,7 @@ onMounted(async () => {
 
 <template>
   <div class="page-shell content-list-page">
-    <header class="page-heading tournament-area-heading"><p class="section-kicker">TOURNAMENT CENTER</p><h1>赛事中心</h1><p>按发布时间查看已完成赛事的最终排名、淘汰赛结果与四强卡组。</p></header>
+    <header class="page-heading tournament-area-heading"><p class="section-kicker">TOURNAMENT CENTER</p><h1>赛事中心</h1><p>按发布时间查看已完成赛事的赛事概要与四强卡组。</p></header>
     <TournamentAreaNav />
     <p v-if="loading" class="empty-state">正在加载周报…</p>
     <p v-else-if="error" class="form-message">{{ error }}</p>
