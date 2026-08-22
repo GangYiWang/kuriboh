@@ -1,0 +1,33 @@
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	@api path /api/*
+	handle @api {
+		reverse_proxy api:8000
+	}
+
+	@uploads path /uploads/*
+	handle @uploads {
+		reverse_proxy api:8000
+	}
+
+	header /assets/* Cache-Control "public, max-age=31536000, immutable"
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

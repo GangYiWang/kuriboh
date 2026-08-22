@@ -20,6 +20,10 @@ Kuriboh/
 - Python 3.11 或更高版本
 - Docker Desktop（推荐，用于本地 PostgreSQL）或可访问的 PostgreSQL 17 实例
 
+## 生产部署
+
+项目提供 Ubuntu 24.04 单机 Docker Compose 部署：前端、FastAPI 和 PostgreSQL 分为独立服务，由一份 Compose 文件统一管理；数据库迁移会在 API 启动前自动执行。完整步骤见 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)。
+
 ## 首次启动
 
 以下命令均使用 Windows CMD 格式，并假设当前目录为项目根目录 `Kuriboh`。
