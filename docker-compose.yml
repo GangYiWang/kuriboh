@@ -1,10 +1,13 @@
-name: lizibei
+name: kuriboh
 
 services:
   postgres:
     image: postgres:17.10-alpine3.24
     ports:
-      - "127.0.0.1:5432:5432"
+      - target: 5432
+        published: "5432"
+        host_ip: "127.0.0.1"
+        protocol: tcp
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
@@ -29,7 +32,7 @@ services:
         max-file: "5"
 
   migrate:
-    image: lizibei-api:${IMAGE_TAG:-local}
+    image: kuriboh-api:${IMAGE_TAG:-local}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -62,7 +65,7 @@ services:
         max-file: "3"
 
   api:
-    image: lizibei-api:${IMAGE_TAG:-local}
+    image: kuriboh-api:${IMAGE_TAG:-local}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -95,7 +98,7 @@ services:
         max-file: "5"
 
   web:
-    image: lizibei-web:${IMAGE_TAG:-local}
+    image: kuriboh-web:${IMAGE_TAG:-local}
     build:
       context: ./frontend
       dockerfile: Dockerfile

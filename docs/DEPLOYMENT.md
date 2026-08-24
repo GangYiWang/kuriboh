@@ -50,12 +50,48 @@ docker --version
 docker compose version
 ```
 
-## 2. 获取代码并配置环境
+## 2. 从旧部署清理并统一为 Kuriboh
+
+本节只适用于服务器上曾经运行过 `lizibei-*` 或旧版 `kuriboh-*` 容器的情况。全新服务器可跳到下一节。
+
+先查看现有容器和数据卷：
+
+```bash
+docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+docker volume ls
+```
+
+如果已有正式数据，必须先按本文“备份”章节备份数据库和上传文件。以下命令只清理两个 Compose 项目的容器和网络，不删除数据卷：
+
+```bash
+cd ~/Kuriboh
+docker compose -p lizibei --env-file .env.production down --remove-orphans
+docker compose -p kuriboh --env-file .env.production down --remove-orphans
+```
+
+不要使用 `docker rm -f $(docker ps -aq)`、`docker volume prune` 或 `docker system prune --volumes`，这些命令可能误删服务器上的其他项目或业务数据。
+
+如确认这是全新部署，数据库、管理员账号和上传文件均不需要保留，可在人工核对 `docker volume ls` 后，单独删除已经确认属于旧部署的数据卷。不要使用通配符或批量清理命令。
+
+新版 Compose 统一使用 `kuriboh` 项目名。重新启动后，资源名称应为：
+
+```text
+kuriboh-postgres-1
+kuriboh-migrate-1
+kuriboh-api-1
+kuriboh-web-1
+kuriboh_postgres-data
+kuriboh_uploads-data
+kuriboh_caddy-data
+kuriboh_caddy-config
+```
+
+## 3. 获取代码并配置环境
 
 ```bash
 git clone https://github.com/GangYiWang/kuriboh.git Kuriboh
 cd Kuriboh
-cp .env.example .env.production
+cp .env.production.example .env.production
 chmod 600 .env.production
 ```
 
@@ -73,7 +109,7 @@ SITE_ADDRESS=:80
 HTTP_PORT=80
 HTTPS_PORT=443
 
-CORS_ORIGINS=["http://服务器公网IP"]
+CORS_ORIGINS=["http://121.196.218.234"]
 
 QQ_OAUTH_APP_ID=
 QQ_OAUTH_APP_KEY=
@@ -90,13 +126,15 @@ QQ_OAUTH_REDIRECT_URI=
 
 `.env.production` 包含生产密钥，不得提交 Git，也不要发送到聊天、工单或公开日志。
 
-## 3. 校验并启动
+## 4. 校验并启动
 
 ```bash
 docker compose --env-file .env.production config --quiet
 docker compose --env-file .env.production up -d --build
 docker compose --env-file .env.production ps
 ```
+
+正常情况下，Compose 只会创建以 `kuriboh-` 开头的容器和以 `kuriboh_` 开头的数据卷。PostgreSQL 仅映射到云服务器回环地址 `127.0.0.1:5432`，供 SSH 隧道使用；不要在云安全组开放 5432。
 
 `migrate` 容器执行 `alembic upgrade head` 并正常退出后，API 才会启动。当前 `SITE_ADDRESS=:80`，Caddy 只提供 HTTP，不会申请 HTTPS 证书。
 
@@ -112,12 +150,12 @@ curl -fsS http://121.196.218.234/api/health
 浏览器访问：
 
 ```text
-http://服务器公网IP
+http://121.196.218.234
 ```
 
 健康检查应返回包含 `"status":"ok"` 和 `"database":"ok"` 的 JSON。`migrate` 显示 `Exited (0)` 是正常状态，不表示部署失败。
 
-## 4. 创建初始管理员
+## 5. 创建初始管理员
 
 确认 API 健康后执行：
 
@@ -128,7 +166,7 @@ docker compose --env-file .env.production exec api \
 
 按提示交互输入密码，避免将管理员密码写入终端历史。
 
-## 5. 更新版本
+## 6. 更新版本
 
 更新前先完成数据库和上传文件备份：
 
@@ -141,7 +179,7 @@ docker compose --env-file .env.production ps
 
 Compose 会先运行数据库迁移，再重建需要更新的服务。更新后检查 `http://服务器公网IP/api/health`，并人工验证登录、图片访问和后台页面。
 
-## 6. 备份
+## 7. 备份
 
 Docker 卷用于持久化，不等于异地备份。创建仅管理员可读的备份目录：
 
@@ -162,7 +200,7 @@ docker compose --env-file .env.production exec -T postgres \
 
 ```bash
 docker run --rm \
-  -v lizibei_uploads-data:/source:ro \
+  -v kuriboh_uploads-data:/source:ro \
   -v "$PWD/backups:/backup" \
   alpine:3.23 \
   tar -czf "/backup/uploads-$(date +%F-%H%M%S).tar.gz" -C /source .
@@ -170,7 +208,7 @@ docker run --rm \
 
 至少每天备份一次，并将备份同步到服务器之外。应定期在独立环境验证恢复流程。
 
-## 7. 以后绑定域名并启用 HTTPS
+## 8. 以后绑定域名并启用 HTTPS
 
 1. 将域名 A 记录解析到服务器公网 IP。
 2. 等待 DNS 生效，确认域名能够解析到该服务器。
@@ -193,7 +231,7 @@ curl -fsS https://你的正式域名/api/health
 
 Caddy 会自动申请和续期 HTTPS 证书，不需要重新构建前端或后端镜像。
 
-## 8. 常用运维命令
+## 9. 常用运维命令
 
 ```bash
 # 查看服务
