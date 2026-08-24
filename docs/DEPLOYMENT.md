@@ -84,6 +84,7 @@ kuriboh_postgres-data
 kuriboh_uploads-data
 kuriboh_caddy-data
 kuriboh_caddy-config
+kuriboh_host-access
 ```
 
 ## 3. 获取代码并配置环境
@@ -134,7 +135,15 @@ docker compose --env-file .env.production up -d --build
 docker compose --env-file .env.production ps
 ```
 
-正常情况下，Compose 只会创建以 `kuriboh-` 开头的容器和以 `kuriboh_` 开头的数据卷。PostgreSQL 仅映射到云服务器回环地址 `127.0.0.1:5432`，供 SSH 隧道使用；不要在云安全组开放 5432。
+正常情况下，Compose 只会创建以 `kuriboh-` 开头的容器和以 `kuriboh_` 开头的数据卷及网络。PostgreSQL 继续通过内部 `backend` 网络与 API 通信，同时加入仅用于宿主机端口发布的 `host-access` 桥接网络。这是为了兼容 Docker Engine 29.x 对“仅连接内部网络的容器不实际发布端口”的行为。
+
+PostgreSQL 仍然只映射到云服务器回环地址 `127.0.0.1:5432`，供 SSH 隧道使用；不要在云安全组开放 5432。验证映射：
+
+```bash
+docker inspect kuriboh-postgres-1 \
+  --format 'configured={{json .HostConfig.PortBindings}} active={{json .NetworkSettings.Ports}}'
+sudo ss -lntp | grep '127.0.0.1:5432'
+```
 
 `migrate` 容器执行 `alembic upgrade head` 并正常退出后，API 才会启动。当前 `SITE_ADDRESS=:80`，Caddy 只提供 HTTP，不会申请 HTTPS 证书。
 
