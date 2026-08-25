@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { BanlistVersion, ListResponse } from '@/types/content'
 import type { Tournament, TournamentListResponse } from '@/types/tournament'
 import { tournamentStatusText } from '@/types/tournament'
+import { combineLocalDateAndTime } from '@/utils/dateTime'
 
 const authStore = useAuthStore()
 const tournaments = ref<Tournament[]>([])
@@ -19,14 +20,15 @@ const pendingDraftId = ref('')
 const pendingDraftName = ref('')
 const tournamentNameInput = ref<HTMLInputElement | null>(null)
 const form = reactive({
-  name: '', description: '', planned_start_at: '', max_players: 32, swiss_rounds: 5,
+  name: '', description: '', planned_start_date: '', planned_start_time: '', max_players: 32, swiss_rounds: 5,
   playoff_size: 8, banlist_version_id: '',
 })
 
 function resetForm() {
   form.name = ''
   form.description = ''
-  form.planned_start_at = ''
+  form.planned_start_date = ''
+  form.planned_start_time = ''
   form.max_players = 32
   form.swiss_rounds = 5
   form.playoff_size = 8
@@ -64,9 +66,10 @@ async function createTournament() {
 
   if (!pendingDraftId.value) {
     try {
+      const { planned_start_date, planned_start_time, ...payload } = form
       const item = await apiPost<Tournament>('/admin/tournaments', {
-        ...form,
-        planned_start_at: new Date(form.planned_start_at).toISOString(),
+        ...payload,
+        planned_start_at: combineLocalDateAndTime(planned_start_date, planned_start_time),
       }, authStore.token)
       pendingDraftId.value = item.id
       pendingDraftName.value = item.name
@@ -120,7 +123,10 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       </div>
       <label><span>赛事名称</span><input ref="tournamentNameInput" v-model.trim="form.name" maxlength="120" required /></label>
       <label><span>赛事说明</span><textarea v-model.trim="form.description" rows="4" maxlength="10000" /></label>
-      <label><span>预计比赛开始时间</span><input v-model="form.planned_start_at" type="datetime-local" required /></label>
+      <div class="date-time-field-grid">
+        <label><span>开赛日期</span><input v-model="form.planned_start_date" type="date" required /></label>
+        <label><span>开赛时间</span><input v-model="form.planned_start_time" type="time" required /></label>
+      </div>
       <div class="form-field-grid">
         <label><span>最大参赛人数</span><input v-model.number="form.max_players" type="number" min="2" max="1024" required /></label>
         <label><span>瑞士轮轮数</span><input v-model.number="form.swiss_rounds" type="number" min="1" max="20" required /></label>

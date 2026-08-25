@@ -7,6 +7,7 @@ import FormMessage from '@/components/FormMessage.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { BanlistVersion, ListResponse } from '@/types/content'
 import type { Tournament } from '@/types/tournament'
+import { combineLocalDateAndTime } from '@/utils/dateTime'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -16,7 +17,7 @@ const busy = ref(false)
 const error = ref('')
 const copyMessage = ref('')
 const form = reactive({
-  name: '', description: '', planned_start_at: '', max_players: 32,
+  name: '', description: '', planned_start_date: '', planned_start_time: '', max_players: 32,
   swiss_rounds: 5, playoff_size: 8, banlist_version_id: '',
 })
 
@@ -24,9 +25,10 @@ async function publishTournament() {
   busy.value = true
   error.value = ''
   try {
+    const { planned_start_date, planned_start_time, ...payload } = form
     published.value = await apiPost<Tournament>('/tournaments', {
-      ...form,
-      planned_start_at: new Date(form.planned_start_at).toISOString(),
+      ...payload,
+      planned_start_at: combineLocalDateAndTime(planned_start_date, planned_start_time),
     }, authStore.token)
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '比赛发布失败'
@@ -76,7 +78,10 @@ onMounted(async () => {
       <FormMessage v-if="error" :message="error" />
       <label><span>赛事名称 *</span><input v-model.trim="form.name" maxlength="120" required autofocus /></label>
       <label><span>赛事说明</span><textarea v-model.trim="form.description" rows="6" maxlength="10000" placeholder="说明比赛安排、报名要求或其他注意事项" /></label>
-      <label><span>预计比赛开始时间 *</span><input v-model="form.planned_start_at" type="datetime-local" required /></label>
+      <div class="date-time-field-grid">
+        <label><span>开赛日期 *</span><input v-model="form.planned_start_date" type="date" required /></label>
+        <label><span>开赛时间 *</span><input v-model="form.planned_start_time" type="time" required /></label>
+      </div>
       <div class="form-field-grid">
         <label><span>最大参赛人数 *</span><input v-model.number="form.max_players" type="number" min="2" max="1024" required /></label>
         <label><span>瑞士轮轮数 *</span><input v-model.number="form.swiss_rounds" type="number" min="1" max="20" required /></label>

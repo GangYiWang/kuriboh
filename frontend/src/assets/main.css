@@ -568,7 +568,8 @@ input {
 
 .auth-form label,
 .settings-form label,
-.content-form > label {
+.content-form > label,
+.date-time-field-grid label {
   display: grid;
   gap: 8px;
   color: var(--color-muted);
@@ -1012,6 +1013,7 @@ input {
 .created-tournament-list { margin-top: 0; }
 .admin-page > .form-message { margin-top: 24px; }
 .form-field-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.date-time-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .admin-tournament-list { margin-top: 36px; border-top: 1px solid var(--color-line-strong); padding-top: 22px; }
 .admin-tournament-row { min-height: 88px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--color-line); }
 .admin-tournament-row > div:first-child { display: grid; gap: 6px; }
@@ -1522,6 +1524,7 @@ input {
   .info-grid { grid-template-columns: 1fr; }
   .info-grid div:nth-child(odd) { margin-right: 0; }
   .form-field-grid { grid-template-columns: 1fr; }
+  .date-time-field-grid { grid-template-columns: 1fr; }
   .tournament-form { padding: 22px 18px; }
   .tournament-form-heading { align-items: stretch; flex-direction: column; gap: 14px; }
   .tournament-form .form-actions { align-items: stretch; flex-direction: column; }
