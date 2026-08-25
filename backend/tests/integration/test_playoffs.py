@@ -171,6 +171,12 @@ def test_player_submissions_complete_playoff_match(client, make_user, session_fa
         json={"result": "LOSS"},
     )
     assert first.json()["status"] == "WAITING"
+    waiting_opponent_view = client.get(
+        f"/api/tournaments/{tournament_id}/playoffs/matches/me",
+        headers=auth(tokens[UUID(match["player_b_id"])]),
+    ).json()
+    assert waiting_opponent_view[0]["opponent_submitted"] is True
+    assert waiting_opponent_view[0]["opponent_submission"] == "WIN"
     assert second.json()["status"] == "COMPLETED"
     overview = client.get(f"/api/tournaments/{tournament_id}/playoffs")
     assert overview.json()["awaiting_tournament_end"] is True
@@ -196,7 +202,7 @@ def test_admin_forfeit_overrides_conflicting_player_submissions(client, make_use
     resolved = client.post(
         f"/api/admin/playoffs/matches/{match['id']}/forfeit",
         headers=auth(admin_token),
-        json={"loser_id": match["player_b_id"], "reason": "管理员确认实际胜负"},
+        json={"loser_id": match["player_b_id"]},
     )
     assert resolved.status_code == 200, resolved.json()
     assert resolved.json()["status"] == "COMPLETED"
@@ -227,7 +233,7 @@ def test_next_stage_publication_locks_previous_results(client, make_user, sessio
     corrected = client.post(
         f"/api/admin/playoffs/matches/{correction_match['id']}/forfeit",
         headers=auth(admin_token),
-        json={"loser_id": correction_match["player_a_id"], "reason": "管理员纠正赛果"},
+        json={"loser_id": correction_match["player_a_id"]},
     )
     assert corrected.status_code == 200
     assert len(client.get(
@@ -326,9 +332,11 @@ def test_phase5_end_decks_and_immutable_weekly_report(client, make_user, session
             returned = client.post(
                 f"/api/admin/deck-submissions/{submission['id']}/return",
                 headers=admin_headers,
-                json={"reason": "截图信息不完整，请重新上传"},
+                json={"reason": ""},
             )
+            assert returned.status_code == 200, returned.json()
             assert returned.json()["status"] == "REUPLOAD_REQUIRED"
+            assert returned.json()["review_note"] == ""
             reuploaded = client.post(
                 f"/api/tournaments/{tournament_id}/deck-submission",
                 headers=auth(tokens[participant_id]),
@@ -360,25 +368,22 @@ def test_phase5_end_decks_and_immutable_weekly_report(client, make_user, session
         f"/api/admin/tournaments/{tournament_id}/reports/generate", headers=admin_headers
     )
     assert generated.status_code == 200, generated.json()
-    assert generated.json()["status"] == "DRAFT"
+    assert generated.json()["status"] == "PUBLISHED"
+    assert generated.json()["published_at"] is not None
     snapshot = generated.json()["snapshot_content"]
+    assert snapshot["template_version"] == 2
     assert len(snapshot["podium"]) == 4
     assert snapshot["tournament"]["format"] == "BO1"
-    assert len(snapshot["playoff_rounds"]) == 3
+    assert "swiss_rankings" not in snapshot
+    assert "playoff_rounds" not in snapshot
+    assert client.get("/api/reports").json()["total"] == 1
+    assert client.get(f"/api/reports/{generated.json()['id']}").status_code == 200
 
     player_forbidden = client.post(
         f"/api/admin/reports/{generated.json()['id']}/publish",
         headers=auth(next(iter(tokens.values()))),
     )
     assert player_forbidden.status_code == 403
-
-    published = client.post(
-        f"/api/admin/reports/{generated.json()['id']}/publish", headers=admin_headers
-    )
-    assert published.status_code == 200
-    assert published.json()["status"] == "PUBLISHED"
-    assert client.get("/api/reports").json()["total"] == 1
-    assert client.get(f"/api/reports/{generated.json()['id']}").status_code == 200
 
     regenerate = client.post(
         f"/api/admin/tournaments/{tournament_id}/reports/generate", headers=admin_headers

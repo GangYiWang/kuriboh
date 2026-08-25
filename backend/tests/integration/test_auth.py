@@ -43,8 +43,8 @@ def test_register_by_phone_login_profile_and_change_password(
         headers={"Authorization": f"Bearer {token}"},
         json={
             "current_password": "secure123",
-            "new_password": "new-secure123",
-            "confirm_password": "new-secure123",
+            "new_password": "654321",
+            "confirm_password": "654321",
         },
     )
     assert changed.status_code == 204
@@ -54,7 +54,7 @@ def test_register_by_phone_login_profile_and_change_password(
     ).status_code == 401
     assert client.post(
         "/api/auth/login",
-        json={"identifier": "13800138000", "password": "new-secure123"},
+        json={"identifier": "13800138000", "password": "654321"},
     ).status_code == 200
 
 
@@ -117,6 +117,27 @@ def test_invalid_phone_registration_is_rejected(client) -> None:
 
     assert response.status_code == 422
     assert response.json()["code"] == "VALIDATION_ERROR"
+
+
+def test_password_requires_at_least_six_characters(client) -> None:
+    accepted = client.post(
+        "/api/auth/register",
+        json=registration_payload(password="123456", confirm_password="123456"),
+    )
+    rejected = client.post(
+        "/api/auth/register",
+        json=registration_payload(
+            identifier_type="QQ",
+            identifier="987654321",
+            nickname="短密码测试",
+            password="12345",
+            confirm_password="12345",
+        ),
+    )
+
+    assert accepted.status_code == 201, accepted.json()
+    assert rejected.status_code == 422
+    assert rejected.json()["code"] == "VALIDATION_ERROR"
 
 
 def test_legacy_qq_account_can_still_login(client, make_user) -> None:

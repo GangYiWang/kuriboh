@@ -101,8 +101,8 @@ function closePasswordForm() {
         <h2>修改密码</h2>
         <FormMessage v-if="error" :message="error" />
         <label><span>当前密码</span><input v-model="form.current" type="password" autocomplete="current-password" required /></label>
-        <label><span>新密码</span><input v-model="form.next" type="password" minlength="8" autocomplete="new-password" required /></label>
-        <label><span>确认新密码</span><input v-model="form.confirm" type="password" minlength="8" autocomplete="new-password" required /></label>
+        <label><span>新密码</span><input v-model="form.next" type="password" minlength="6" autocomplete="new-password" required /></label>
+        <label><span>确认新密码</span><input v-model="form.confirm" type="password" minlength="6" autocomplete="new-password" required /></label>
         <div class="form-actions password-form-actions">
           <button class="button primary" type="submit">保存新密码</button>
           <button class="button secondary" type="button" @click="closePasswordForm">取消</button>

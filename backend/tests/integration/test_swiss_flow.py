@@ -5,6 +5,7 @@ import pytest
 
 from app.auth.roles import Role
 from app.content.models import BanlistVersion
+from app.matches.models import Match
 from app.registrations.models import Registration, RegistrationStatus, TournamentParticipant
 from app.tournaments.models import Tournament, TournamentStatus
 
@@ -175,6 +176,31 @@ def test_all_four_submission_combinations(
     assert second.json()["winner_id"] == (match[winner_slot] if winner_slot else None)
 
 
+def test_waiting_match_can_be_resolved_by_admin(client, make_user, session_factory) -> None:
+    tournament_id, admin_token, _ = seed_swiss_tournament(
+        session_factory, make_user, player_count=2, swiss_rounds=1
+    )
+    match = generate_and_publish(client, tournament_id, admin_token)["matches"][0]
+
+    resolved = client.post(
+        f"/api/admin/matches/{match['id']}/resolve",
+        headers=auth(admin_token),
+        json={"winner_id": match["player_a_id"]},
+    )
+    assert resolved.status_code == 200
+    assert resolved.json()["status"] == "COMPLETED"
+    assert resolved.json()["result_source"] == "ADMIN"
+
+    audit = client.get(
+        f"/api/admin/audit-logs?tournament_id={tournament_id}&action_type=SWISS_MATCH_RESOLVED",
+        headers=auth(admin_token),
+    )
+    assert audit.status_code == 200
+    resolution_log = next(item for item in audit.json()["items"] if item["target_id"] == match["id"])
+    assert resolution_log["after_json"]["winner_id"] == match["player_a_id"]
+    assert resolution_log["after_json"]["reason"] is None
+
+
 def test_independent_submissions_conflict_resolution_and_ranking_snapshot(client, make_user, session_factory) -> None:
     tournament_id, admin_token, participant_tokens = seed_swiss_tournament(session_factory, make_user)
     round_data = generate_and_publish(client, tournament_id, admin_token)
@@ -183,6 +209,14 @@ def test_independent_submissions_conflict_resolution_and_ranking_snapshot(client
     first_submission, _ = submit_for_match(client, first_match, participant_tokens, "WIN")
     assert first_submission.json()["status"] == "WAITING"
     assert first_submission.json()["opponent_submitted"] is False
+    assert first_submission.json()["opponent_submission"] is None
+    opponent_view = client.get(
+        f"/api/tournaments/{tournament_id}/matches/me",
+        headers=auth(participant_tokens[UUID(first_match["player_b_id"])]),
+    ).json()
+    opponent_match = next(item for item in opponent_view if item["id"] == first_match["id"])
+    assert opponent_match["opponent_submitted"] is True
+    assert opponent_match["opponent_submission"] == "WIN"
     _, agreed = submit_for_match(client, first_match, participant_tokens, "WIN", "LOSS")
     assert agreed.json()["status"] == "COMPLETED"
     assert agreed.json()["winner_id"] == first_match["player_a_id"]
@@ -244,6 +278,65 @@ def test_preview_does_not_lock_previous_result_but_publish_does(client, make_use
     )
     assert locked.status_code == 409
     assert locked.json()["code"] == "MATCH_RESULT_LOCKED"
+
+
+def test_swap_and_publish_reject_historical_rematches(client, make_user, session_factory) -> None:
+    tournament_id, admin_token, participant_tokens = seed_swiss_tournament(session_factory, make_user)
+    round_one = generate_and_publish(client, tournament_id, admin_token)
+    for match in round_one["matches"]:
+        submit_for_match(client, match, participant_tokens, "WIN", "LOSS")
+
+    preview = client.post(
+        f"/api/admin/tournaments/{tournament_id}/swiss/rounds/generate",
+        headers=auth(admin_token),
+        json={"seed": 41},
+    ).json()
+    previous_pair = round_one["matches"][0]
+    player_a_id = previous_pair["player_a_id"]
+    player_b_id = previous_pair["player_b_id"]
+    player_a_match = next(
+        item for item in preview["matches"] if player_a_id in {item["player_a_id"], item["player_b_id"]}
+    )
+    player_a_opponent_id = (
+        player_a_match["player_b_id"]
+        if player_a_match["player_a_id"] == player_a_id
+        else player_a_match["player_a_id"]
+    )
+
+    rejected_swap = client.post(
+        f"/api/admin/tournaments/{tournament_id}/swiss/rounds/{preview['id']}/swap",
+        headers=auth(admin_token),
+        json={
+            "first_participant_id": player_a_opponent_id,
+            "second_participant_id": player_b_id,
+        },
+    )
+    assert rejected_swap.status_code == 400
+    assert rejected_swap.json()["code"] == "INVALID_PAIRING_DRAFT"
+    assert "存在重复对手" in rejected_swap.json()["details"]["errors"]
+
+    participant_ids = {
+        participant_id
+        for match in preview["matches"]
+        for participant_id in (match["player_a_id"], match["player_b_id"])
+        if participant_id
+    }
+    remaining_ids = participant_ids - {player_a_id, player_b_id}
+    with session_factory() as db:
+        first_match = db.get(Match, UUID(preview["matches"][0]["id"]))
+        second_match = db.get(Match, UUID(preview["matches"][1]["id"]))
+        first_match.player_a_id = UUID(player_a_id)
+        first_match.player_b_id = UUID(player_b_id)
+        second_match.player_a_id, second_match.player_b_id = map(UUID, remaining_ids)
+        db.commit()
+
+    rejected_publish = client.post(
+        f"/api/admin/tournaments/{tournament_id}/swiss/rounds/{preview['id']}/publish",
+        headers=auth(admin_token),
+    )
+    assert rejected_publish.status_code == 400
+    assert rejected_publish.json()["code"] == "INVALID_PAIRING_DRAFT"
+    assert "存在重复对手" in rejected_publish.json()["details"]["errors"]
 
 
 def test_withdrawal_discards_unpublished_preview(client, make_user, session_factory) -> None:

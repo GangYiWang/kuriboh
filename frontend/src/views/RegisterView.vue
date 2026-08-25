@@ -61,8 +61,8 @@ async function submit() {
         <small>{{ form.identifier_type === 'PHONE' ? '请输入 11 位中国大陆手机号' : '请输入 5～20 位 QQ 号' }}</small>
       </label>
       <label><span>昵称</span><input v-model.trim="form.nickname" autocomplete="nickname" minlength="2" maxlength="30" required /></label>
-      <label><span>密码</span><input v-model="form.password" type="password" autocomplete="new-password" minlength="8" required /><small>至少 8 个字符</small></label>
-      <label><span>确认密码</span><input v-model="form.confirm_password" type="password" autocomplete="new-password" minlength="8" required /></label>
+      <label><span>密码</span><input v-model="form.password" type="password" autocomplete="new-password" minlength="6" required /><small>至少 6 个字符</small></label>
+      <label><span>确认密码</span><input v-model="form.confirm_password" type="password" autocomplete="new-password" minlength="6" required /></label>
       <button class="button primary full" type="submit" :disabled="submitting">{{ submitting ? '正在创建…' : '注册并登录' }}</button>
       <p class="form-switch">已有账号？<RouterLink to="/login">返回登录</RouterLink></p>
     </form>

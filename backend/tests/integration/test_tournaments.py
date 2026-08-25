@@ -280,9 +280,9 @@ def test_player_cannot_manage_tournaments(client, make_user) -> None:
     assert response.status_code == 403
 
 
-def test_admin_cannot_register_as_player(client, make_user, session_factory) -> None:
+def test_admin_can_register_as_player(client, make_user, session_factory) -> None:
     admin, admin_token = make_user(
-        qq_number="80000013", nickname="只办赛管理员", role=Role.TOURNAMENT_ADMIN
+        qq_number="80000013", nickname="参赛管理员", role=Role.TOURNAMENT_ADMIN
     )
     banlist_id = seed_banlist(session_factory, admin.id)
     tournament_id = create_and_publish(client, admin_token, banlist_id)
@@ -293,4 +293,14 @@ def test_admin_cannot_register_as_player(client, make_user, session_factory) -> 
         json={"nickname_matches_game": True, "accepts_rules": True},
     )
 
-    assert response.status_code == 403
+    assert response.status_code == 201
+    assert response.json()["user_id"] == str(admin.id)
+    assert response.json()["status"] == RegistrationStatus.PENDING.value
+
+    with session_factory() as db:
+        registration = db.scalar(select(Registration).where(
+            Registration.tournament_id == UUID(tournament_id),
+            Registration.user_id == admin.id,
+        ))
+    assert registration is not None
+    assert registration.status == RegistrationStatus.PENDING.value

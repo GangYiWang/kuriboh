@@ -156,7 +156,7 @@ cd /d backend
 .venv\Scripts\python.exe -m app.cli create-admin --phone 你的手机号 --nickname 你的昵称
 ```
 
-也可以将 `--phone` 替换为 `--qq`，使用 QQ 号创建管理员。程序会提示输入至少 8 个字符的密码；已有手机号、QQ 号或昵称不会被覆盖。
+也可以将 `--phone` 替换为 `--qq`，使用 QQ 号创建管理员。程序会提示输入至少 6 个字符的密码；已有手机号、QQ 号或昵称不会被覆盖。
 
 ## Phase 1～6 接口
 

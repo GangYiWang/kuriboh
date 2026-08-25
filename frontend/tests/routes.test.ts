@@ -14,6 +14,9 @@ describe('formal route skeleton', () => {
       '/tournaments/:id',
       '/tournaments/:id/matches',
       '/tournaments/:id/results',
+      '/tournaments/:id/manage/registrations',
+      '/tournaments/:id/manage/playoffs',
+      '/tournaments/:id/manage/:section(settings|players|matches|results|decks-report|notifications|audit)',
       '/reports',
       '/reports/:id',
       '/announcements',
@@ -36,7 +39,8 @@ describe('formal route skeleton', () => {
     expect(byPath.get('/admin')?.meta?.requiresAdmin).toBe(true)
     expect(byPath.get('/admin/banlists')?.meta?.requiresAdmin).toBe(true)
     expect(byPath.get('/admin/tournaments')?.meta?.requiresAdmin).toBe(true)
-    expect(byPath.get('/admin/tournaments/:id/:section(settings|registrations|matches|playoffs|decks-report|notifications|audit)')?.meta?.requiresAdmin).toBe(true)
+    expect(byPath.get('/admin/tournaments/:id/playoffs')?.meta?.requiresAdmin).toBe(true)
+    expect(byPath.get('/admin/tournaments/:id/:section(settings|players|matches|results|decks-report|notifications|audit)')?.meta?.requiresAdmin).toBe(true)
     expect(byPath.get('/admin/messages')?.meta?.requiresAdmin).toBe(true)
     expect(byPath.get('/admin/audit')?.meta?.requiresAdmin).toBe(true)
     expect(byPath.get('/announcements')?.meta?.requiresAuth).not.toBe(true)

@@ -21,8 +21,8 @@ def create_admin(identifier_type: IdentifierType, identifier: str, nickname: str
     if identifier_type == "QQ" and re.fullmatch(r"[1-9][0-9]{4,19}", identifier) is None:
         raise SystemExit("QQ 号必须是 5～20 位数字且不能以 0 开头")
     chosen_password = password or getpass("管理员密码：")
-    if len(chosen_password) < 8:
-        raise SystemExit("密码至少需要 8 个字符")
+    if len(chosen_password) < 6:
+        raise SystemExit("密码至少需要 6 个字符")
     with SessionLocal() as db:
         repository = UserRepository(db)
         existing = repository.find_registration_conflict(identifier, nickname)

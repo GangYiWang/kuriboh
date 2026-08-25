@@ -9,8 +9,8 @@ class RegisterRequest(BaseModel):
     identifier_type: Literal["PHONE", "QQ"]
     identifier: str = Field(min_length=5, max_length=20, pattern=r"^[1-9][0-9]+$")
     nickname: str = Field(min_length=2, max_length=30)
-    password: str = Field(min_length=8, max_length=128)
-    confirm_password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=6, max_length=128)
+    confirm_password: str = Field(min_length=6, max_length=128)
 
     @field_validator("nickname")
     @classmethod
@@ -44,8 +44,8 @@ class LoginRequest(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=1, max_length=128)
-    new_password: str = Field(min_length=8, max_length=128)
-    confirm_password: str = Field(min_length=8, max_length=128)
+    new_password: str = Field(min_length=6, max_length=128)
+    confirm_password: str = Field(min_length=6, max_length=128)
 
     @model_validator(mode="after")
     def passwords_match(self) -> "ChangePasswordRequest":
