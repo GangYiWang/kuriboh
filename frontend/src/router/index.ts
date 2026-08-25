@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { routes } from './routes'
+import { MESSAGING_ENABLED } from '@/config/features'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
@@ -15,6 +16,8 @@ router.afterEach((to) => {
 })
 
 router.beforeEach(async (to) => {
+  if (!MESSAGING_ENABLED && (to.name === 'messages' || to.name === 'admin-messages')) return '/'
+
   const authStore = useAuthStore()
   await authStore.ensureProfile()
   if (to.meta.guestOnly && authStore.isAuthenticated) return '/profile'

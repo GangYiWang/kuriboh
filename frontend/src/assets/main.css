@@ -3,16 +3,18 @@
 }
 
 html {
-  min-width: 320px;
   scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
+  overflow-x: clip;
   color: var(--color-ink);
   background: var(--color-paper);
   font-family: var(--font-sans);
+  text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
 }
 
 a {
@@ -1404,7 +1406,7 @@ input {
   .user-nav { gap: 8px; }
 
   .main-nav {
-    height: 58px;
+    height: calc(58px + env(safe-area-inset-bottom));
     position: fixed;
     right: 0;
     bottom: 0;
@@ -1412,6 +1414,7 @@ input {
     z-index: 30;
     justify-content: space-around;
     gap: 0;
+    padding-bottom: env(safe-area-inset-bottom);
     border-top: 1px solid var(--color-line);
     background: var(--color-surface);
   }
@@ -1424,11 +1427,26 @@ input {
   .hero {
     min-height: auto;
     display: block;
+    overflow: visible;
     padding: 50px 0 36px;
   }
 
-  .hero h1 { font-size: 35px; }
-  .hero-description { font-size: 14px; }
+  .hero-copy { min-width: 0; }
+  .hero h1 {
+    font-size: clamp(29px, 9vw, 35px);
+    overflow-wrap: anywhere;
+  }
+  .hero h1 br { display: none; }
+  .hero-description {
+    width: 100%;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+  .hero-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .hero-actions .button { min-width: 0; }
   .hero-emblem { display: none; }
 
   .pinned-announcement { grid-template-columns: auto minmax(0, 1fr); gap: 8px 12px; }
@@ -1442,7 +1460,7 @@ input {
   .quick-links a:nth-child(odd) { margin-right: 0; }
 
   .placeholder-page { min-height: calc(100vh - 180px); }
-  .site-footer { margin-bottom: 58px; }
+  .site-footer { margin-bottom: calc(58px + env(safe-area-inset-bottom)); }
 
   .page-heading { padding-top: 38px; }
   .page-heading h1 { font-size: 31px; }
@@ -1534,4 +1552,8 @@ input {
   .report-row { grid-template-columns: 1fr 18px; gap: 10px; padding: 14px 0; }
   .report-row > span { grid-column: 1 / -1; }
   .report-hero h1 { font-size: 31px; }
+}
+
+@media (max-width: 359px) {
+  .hero-actions { grid-template-columns: 1fr; }
 }

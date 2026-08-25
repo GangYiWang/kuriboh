@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
 import BrandMark from './BrandMark.vue'
+import { MESSAGING_ENABLED } from '@/config/features'
 import { useAuthStore } from '@/stores/auth'
 import { useMessageStore } from '@/stores/messages'
 
@@ -13,7 +14,7 @@ const baseNavigation = [
   { label: '首页', to: '/' },
   { label: '赛事中心', to: '/tournaments' },
   { label: '平台公告', to: '/announcements' },
-  { label: '消息', to: '/messages', hasDot: true },
+  ...(MESSAGING_ENABLED ? [{ label: '消息', to: '/messages', hasDot: true }] : []),
 ]
 const navigation = computed(() => authStore.isPlatformAdmin
   ? [...baseNavigation, { label: '管理后台', to: '/admin', hasDot: false }]
@@ -21,7 +22,9 @@ const navigation = computed(() => authStore.isPlatformAdmin
 
 onMounted(async () => {
   await authStore.ensureProfile()
-  await messageStore.refresh(authStore.token).catch(() => undefined)
+  if (MESSAGING_ENABLED) {
+    await messageStore.refresh(authStore.token).catch(() => undefined)
+  }
 })
 
 async function logout() {

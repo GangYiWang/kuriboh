@@ -6,6 +6,7 @@ import { apiGet } from '@/api/client'
 import FormMessage from '@/components/FormMessage.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { QqOAuthStatus } from '@/types/auth'
+import { prepareViewportForNavigation } from '@/utils/mobileViewport'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -31,6 +32,7 @@ async function submit() {
       await authStore.bindQq(pendingBinding)
       sessionStorage.removeItem('lizibei_qq_binding_token')
     }
+    await prepareViewportForNavigation()
     await router.push(typeof route.query.redirect === 'string' ? route.query.redirect : '/')
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '登录失败'

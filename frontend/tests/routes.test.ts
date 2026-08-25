@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { MESSAGING_ENABLED } from '../src/config/features'
 import { routes } from '../src/router/routes'
 
 describe('formal route skeleton', () => {
@@ -46,5 +47,13 @@ describe('formal route skeleton', () => {
     expect(byPath.get('/announcements')?.meta?.requiresAuth).not.toBe(true)
     expect(byPath.get('/reports')?.meta?.requiresAuth).not.toBe(true)
     expect(byPath.get('/reports/:id')?.meta?.requiresAuth).not.toBe(true)
+  })
+
+  it('keeps message routes available while their navigation entry is disabled', () => {
+    const paths = routes.map((route) => route.path)
+
+    expect(MESSAGING_ENABLED).toBe(false)
+    expect(paths).toContain('/messages')
+    expect(paths).toContain('/admin/messages')
   })
 })

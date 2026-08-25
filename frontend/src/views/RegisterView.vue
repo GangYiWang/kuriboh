@@ -4,6 +4,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import FormMessage from '@/components/FormMessage.vue'
 import { useAuthStore } from '@/stores/auth'
+import { prepareViewportForNavigation } from '@/utils/mobileViewport'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -23,6 +24,7 @@ async function submit() {
   error.value = ''
   try {
     await authStore.register(form)
+    await prepareViewportForNavigation()
     await router.push(typeof route.query.redirect === 'string' ? route.query.redirect : '/')
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '注册失败'
