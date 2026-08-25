@@ -13,7 +13,7 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
   let profileRequest: Promise<void> | null = null
   const isAuthenticated = computed(() => Boolean(token.value && user.value))
-  const isAdmin = computed(() => user.value?.role === 'TOURNAMENT_ADMIN')
+  const isPlatformAdmin = computed(() => user.value?.role === 'PLATFORM_ADMIN')
 
   function acceptSession(session: TokenResponse) {
     token.value = session.access_token
@@ -77,7 +77,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     loading,
     isAuthenticated,
-    isAdmin,
+    isPlatformAdmin,
     acceptSession,
     login,
     register,

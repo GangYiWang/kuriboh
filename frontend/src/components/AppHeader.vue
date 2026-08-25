@@ -15,7 +15,7 @@ const baseNavigation = [
   { label: '平台公告', to: '/announcements' },
   { label: '消息', to: '/messages', hasDot: true },
 ]
-const navigation = computed(() => authStore.isAdmin
+const navigation = computed(() => authStore.isPlatformAdmin
   ? [...baseNavigation, { label: '管理后台', to: '/admin', hasDot: false }]
   : baseNavigation)
 

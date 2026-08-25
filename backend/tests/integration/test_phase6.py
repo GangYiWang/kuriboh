@@ -11,7 +11,7 @@ def auth(token: str) -> dict[str, str]:
 
 def setup_started_tournament(client, make_user, session_factory):
     admin, admin_token = make_user(
-        qq_number="96000000", nickname="Phase6管理员", role=Role.TOURNAMENT_ADMIN
+        qq_number="96000000", nickname="Phase6管理员", role=Role.USER
     )
     _, token_a = make_user(qq_number="96000001", nickname="Phase6选手甲")
     _, token_b = make_user(qq_number="96000002", nickname="Phase6选手乙")
@@ -106,7 +106,7 @@ def test_phase6_messages_my_tournaments_audit_and_deduplication(client, make_use
     assert client.get("/api/messages", headers=auth(token_a)).json()["total"] == 2
 
     audit = client.get(
-        f"/api/admin/audit-logs?tournament_id={tournament_id}&limit=100",
+        f"/api/tournaments/{tournament_id}/audit-logs?limit=100",
         headers=auth(admin_token),
     )
     assert audit.status_code == 200
@@ -121,7 +121,7 @@ def test_phase6_messages_my_tournaments_audit_and_deduplication(client, make_use
 
 def test_platform_notice_targets_registered_accounts(client, make_user) -> None:
     _, admin_token = make_user(
-        qq_number="96000100", nickname="平台通知管理员", role=Role.TOURNAMENT_ADMIN
+        qq_number="96000100", nickname="平台通知管理员", role=Role.PLATFORM_ADMIN
     )
     _, player_token = make_user(qq_number="96000101", nickname="平台通知选手")
     response = client.post("/api/admin/messages/platform", headers=auth(admin_token), json={

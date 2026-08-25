@@ -36,14 +36,14 @@ describe('authentication profile loading', () => {
       phone_number: '13800138000',
       qq_number: '10000002',
       nickname: '测试管理员',
-      role: 'TOURNAMENT_ADMIN',
+      role: 'PLATFORM_ADMIN',
       qq_bound: false,
       created_at: '2026-08-13T00:00:00Z',
     }), { status: 200 }))
 
     await Promise.all([headerRequest, guardRequest])
     expect(authStore.isAuthenticated).toBe(true)
-    expect(authStore.isAdmin).toBe(true)
+    expect(authStore.isPlatformAdmin).toBe(true)
   })
 
   it('sends compatible phone and QQ identifiers to the authentication API', async () => {
@@ -55,7 +55,7 @@ describe('authentication profile loading', () => {
         phone_number: '13800138000',
         qq_number: null,
         nickname: '测试选手',
-        role: 'PLAYER',
+        role: 'USER',
         qq_bound: false,
         created_at: '2026-08-24T00:00:00Z',
       },

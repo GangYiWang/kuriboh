@@ -18,7 +18,7 @@ def auth(token: str) -> dict[str, str]:
 
 def seed_ready_playoff(session_factory, make_user, *, playoff_size: int = 4):
     admin, admin_token = make_user(
-        qq_number=f"940000{playoff_size:02d}", nickname=f"Top{playoff_size}管理员", role=Role.TOURNAMENT_ADMIN
+        qq_number=f"940000{playoff_size:02d}", nickname=f"Top{playoff_size}管理员", role=Role.USER
     )
     players = [
         make_user(qq_number=f"94{playoff_size:02d}{index:04d}", nickname=f"种子{index}")

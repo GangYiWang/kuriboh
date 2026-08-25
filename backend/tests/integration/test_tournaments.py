@@ -58,7 +58,7 @@ def create_and_publish(client, admin_token, banlist_id, **overrides):
 
 def test_draft_is_private_and_publish_opens_registration(client, make_user, session_factory) -> None:
     admin, admin_token = make_user(
-        qq_number="80000001", nickname="赛事管理员", role=Role.TOURNAMENT_ADMIN
+        qq_number="80000001", nickname="赛事管理员", role=Role.USER
     )
     banlist_id = seed_banlist(session_factory, admin.id)
     created = client.post(
@@ -81,7 +81,7 @@ def test_draft_is_private_and_publish_opens_registration(client, make_user, sess
 
 def test_draft_can_be_incomplete_but_publish_requires_core_fields(client, make_user) -> None:
     _, admin_token = make_user(
-        qq_number="80000002", nickname="草稿管理员", role=Role.TOURNAMENT_ADMIN
+        qq_number="80000002", nickname="草稿管理员", role=Role.USER
     )
     created = client.post(
         "/api/admin/tournaments",
@@ -100,7 +100,7 @@ def test_draft_can_be_incomplete_but_publish_requires_core_fields(client, make_u
 
 def test_registration_capacity_review_and_duplicate_boundary(client, make_user, session_factory) -> None:
     admin, admin_token = make_user(
-        qq_number="80000003", nickname="审核管理员", role=Role.TOURNAMENT_ADMIN
+        qq_number="80000003", nickname="审核管理员", role=Role.USER
     )
     player_a, token_a = make_user(qq_number="80000004", nickname="玩家甲")
     _, token_b = make_user(qq_number="80000005", nickname="玩家乙")
@@ -155,7 +155,7 @@ def test_registration_capacity_review_and_duplicate_boundary(client, make_user, 
 
 def test_cancel_reject_and_restore_transitions(client, make_user, session_factory) -> None:
     admin, admin_token = make_user(
-        qq_number="80000007", nickname="恢复管理员", role=Role.TOURNAMENT_ADMIN
+        qq_number="80000007", nickname="恢复管理员", role=Role.USER
     )
     _, player_token = make_user(qq_number="80000008", nickname="恢复玩家")
     banlist_id = seed_banlist(session_factory, admin.id)
@@ -217,7 +217,7 @@ def test_cancel_reject_and_restore_transitions(client, make_user, session_factor
 
 def test_start_blocks_pending_snapshots_approved_and_locks_core_config(client, make_user, session_factory) -> None:
     admin, admin_token = make_user(
-        qq_number="80000009", nickname="开赛管理员", role=Role.TOURNAMENT_ADMIN
+        qq_number="80000009", nickname="开赛管理员", role=Role.USER
     )
     player, player_token = make_user(qq_number="80000010", nickname="正式选手")
     banlist_id = seed_banlist(session_factory, admin.id)
@@ -268,21 +268,29 @@ def test_start_blocks_pending_snapshots_approved_and_locks_core_config(client, m
     assert tournament.status == TournamentStatus.SWISS.value
 
 
-def test_player_cannot_manage_tournaments(client, make_user) -> None:
-    _, player_token = make_user(qq_number="80000011", nickname="普通玩家")
+def test_user_can_create_draft_but_cannot_manage_another_users_tournament(client, make_user) -> None:
+    _, owner_token = make_user(qq_number="80000011", nickname="普通用户")
+    _, other_token = make_user(qq_number="80000012", nickname="其他用户")
 
-    response = client.post(
+    created = client.post(
         "/api/admin/tournaments",
-        headers=auth(player_token),
-        json={"name": "越权赛事"},
+        headers=auth(owner_token),
+        json={"name": "普通用户草稿赛事"},
+    )
+    forbidden = client.get(
+        f"/api/admin/tournaments/{created.json()['id']}",
+        headers=auth(other_token),
     )
 
-    assert response.status_code == 403
+    assert created.status_code == 201
+    assert created.json()["status"] == "DRAFT"
+    assert forbidden.status_code == 403
+    assert forbidden.json()["code"] == "TOURNAMENT_OWNER_REQUIRED"
 
 
-def test_admin_can_register_as_player(client, make_user, session_factory) -> None:
+def test_tournament_owner_can_also_register_as_player(client, make_user, session_factory) -> None:
     admin, admin_token = make_user(
-        qq_number="80000013", nickname="参赛管理员", role=Role.TOURNAMENT_ADMIN
+        qq_number="80000013", nickname="参赛管理员", role=Role.USER
     )
     banlist_id = seed_banlist(session_factory, admin.id)
     tournament_id = create_and_publish(client, admin_token, banlist_id)

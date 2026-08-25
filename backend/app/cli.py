@@ -33,7 +33,7 @@ def create_admin(identifier_type: IdentifierType, identifier: str, nickname: str
             qq_number=identifier if identifier_type == "QQ" else None,
             nickname=nickname.strip(),
             password_hash=hash_password(chosen_password),
-            role=Role.TOURNAMENT_ADMIN.value,
+            role=Role.PLATFORM_ADMIN.value,
         )
         try:
             repository.add(user)
@@ -41,13 +41,13 @@ def create_admin(identifier_type: IdentifierType, identifier: str, nickname: str
         except IntegrityError as exc:
             db.rollback()
             raise SystemExit("手机号、QQ 号或昵称已经存在") from exc
-        print(f"已创建管理员：{user.nickname} ({identifier})")
+        print(f"已创建平台管理员：{user.nickname} ({identifier})")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="栗子杯后台管理命令")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    create_admin_parser = subparsers.add_parser("create-admin", help="创建初始赛事管理员")
+    create_admin_parser = subparsers.add_parser("create-admin", help="创建初始平台管理员")
     identifier_group = create_admin_parser.add_mutually_exclusive_group(required=True)
     identifier_group.add_argument("--phone", dest="phone_number")
     identifier_group.add_argument("--qq", dest="qq_number")

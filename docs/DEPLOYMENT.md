@@ -147,7 +147,7 @@ sudo ss -lntp | grep '127.0.0.1:5432'
 
 `migrate` 容器执行 `alembic upgrade head` 并正常退出后，API 才会启动。当前 `SITE_ADDRESS=:80`，Caddy 只提供 HTTP，不会申请 HTTPS 证书。
 
-账号迁移 `20260824_0009` 会新增手机号登录字段，同时保留原有 QQ 号。已有账号仍可直接使用 QQ 号和原密码登录，不需要清空数据库或重新创建管理员；新账号可选择手机号或 QQ 号注册。
+账号迁移 `20260824_0009` 会新增手机号登录字段，同时保留原有 QQ 号。已有账号仍可直接使用 QQ 号和原密码登录，不需要清空数据库或重新创建平台管理员；新账号可选择手机号或 QQ 号注册。角色迁移 `20260825_0010` 会把现有 `PLAYER` 转换为 `USER`、`TOURNAMENT_ADMIN` 转换为 `PLATFORM_ADMIN`；赛事所有权和报名记录不受影响。
 
 查看状态和日志：
 
@@ -166,7 +166,7 @@ http://121.196.218.234
 
 健康检查应返回包含 `"status":"ok"` 和 `"database":"ok"` 的 JSON。`migrate` 显示 `Exited (0)` 是正常状态，不表示部署失败。
 
-## 5. 创建初始管理员
+## 5. 创建初始平台管理员
 
 确认 API 健康后执行：
 
@@ -175,7 +175,7 @@ docker compose --env-file .env.production exec api \
   python -m app.cli create-admin --phone 你的手机号 --nickname 你的昵称
 ```
 
-也可以将 `--phone` 替换为 `--qq`，使用 QQ 号创建管理员。按提示交互输入密码，避免将管理员密码写入终端历史。
+也可以将 `--phone` 替换为 `--qq`，使用 QQ 号创建平台管理员。按提示交互输入密码，避免将平台管理员密码写入终端历史。
 
 ## 6. 更新版本
 

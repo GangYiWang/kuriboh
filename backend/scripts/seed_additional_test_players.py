@@ -39,7 +39,7 @@ def main() -> None:
                 qq_number=qq_number,
                 nickname=nickname,
                 password_hash=hash_password(PASSWORD),
-                role=Role.PLAYER.value,
+                role=Role.USER.value,
             ))
             created.append(qq_number)
         db.commit()

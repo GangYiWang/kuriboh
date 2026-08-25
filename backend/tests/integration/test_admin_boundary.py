@@ -15,7 +15,7 @@ def test_admin_endpoint_requires_authentication(client: TestClient) -> None:
 def test_player_cannot_access_admin_endpoint(client: TestClient) -> None:
     app.dependency_overrides[get_current_principal] = lambda: CurrentPrincipal(
         user_id="player-1",
-        role=Role.PLAYER,
+        role=Role.USER,
     )
 
     response = client.get("/api/admin/health")
@@ -27,10 +27,10 @@ def test_player_cannot_access_admin_endpoint(client: TestClient) -> None:
 def test_admin_can_pass_the_role_boundary(client: TestClient) -> None:
     app.dependency_overrides[get_current_principal] = lambda: CurrentPrincipal(
         user_id="admin-1",
-        role=Role.TOURNAMENT_ADMIN,
+        role=Role.PLATFORM_ADMIN,
     )
 
     response = client.get("/api/admin/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "role": "TOURNAMENT_ADMIN"}
+    assert response.json() == {"status": "ok", "role": "PLATFORM_ADMIN"}

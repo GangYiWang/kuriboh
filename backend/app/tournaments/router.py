@@ -4,8 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import CurrentPrincipal, get_current_principal, require_roles
-from app.auth.roles import Role
+from app.auth.dependencies import CurrentPrincipal, get_current_principal
 from app.core.errors import AppError
 from app.db.session import get_db
 from app.registrations.repository import RegistrationRepository
@@ -31,7 +30,6 @@ from app.tournaments.service import TournamentService, tournament_response
 router = APIRouter(tags=["tournaments"])
 admin_router = APIRouter(prefix="/admin", tags=["admin-tournaments"])
 Authenticated = Annotated[CurrentPrincipal, Depends(get_current_principal)]
-PlatformAdmin = Annotated[CurrentPrincipal, Depends(require_roles(Role.TOURNAMENT_ADMIN))]
 
 
 def serialize_tournament(repository: TournamentRepository, item) -> TournamentResponse:
@@ -157,7 +155,7 @@ def admin_list_tournaments(
 @admin_router.post("/tournaments", response_model=TournamentResponse, status_code=status.HTTP_201_CREATED)
 def create_tournament(
     request: TournamentCreateRequest,
-    principal: PlatformAdmin,
+    principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> TournamentResponse:
     service = TournamentService(db)

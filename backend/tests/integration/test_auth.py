@@ -24,7 +24,7 @@ def test_register_by_phone_login_profile_and_change_password(
     registered = client.post("/api/auth/register", json=registration_payload())
     assert registered.status_code == 201, registered.json()
     token = registered.json()["access_token"]
-    assert registered.json()["user"]["role"] == "PLAYER"
+    assert registered.json()["user"]["role"] == "USER"
     assert registered.json()["user"]["phone_number"] == "13800138000"
     assert registered.json()["user"]["qq_number"] is None
 

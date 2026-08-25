@@ -21,7 +21,7 @@ class User(TimestampMixin, Base):
     __tablename__ = "users"
     __table_args__ = (
         CheckConstraint(
-            "role in ('PLAYER', 'TOURNAMENT_ADMIN')",
+            "role in ('USER', 'PLATFORM_ADMIN')",
             name="ck_users_role",
         ),
         CheckConstraint(
@@ -41,7 +41,7 @@ class User(TimestampMixin, Base):
     nickname: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     qq_openid: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True)
-    role: Mapped[str] = mapped_column(String(32), nullable=False, default=Role.PLAYER.value)
+    role: Mapped[str] = mapped_column(String(32), nullable=False, default=Role.USER.value)
 
     banlist_versions: Mapped[list[BanlistVersion]] = relationship(back_populates="created_by")
     announcements: Mapped[list[Announcement]] = relationship(back_populates="author")

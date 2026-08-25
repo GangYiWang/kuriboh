@@ -21,7 +21,7 @@ from app.tournaments.ownership import require_tournament_owner
 router = APIRouter(tags=["messages"])
 admin_router = APIRouter(prefix="/admin", tags=["admin-messages"])
 Authenticated = Annotated[CurrentPrincipal, Depends(get_current_principal)]
-Admin = Annotated[CurrentPrincipal, Depends(require_roles(Role.TOURNAMENT_ADMIN))]
+PlatformAdmin = Annotated[CurrentPrincipal, Depends(require_roles(Role.PLATFORM_ADMIN))]
 
 
 @router.get("/messages", response_model=MessageListResponse)
@@ -70,7 +70,7 @@ def send_tournament_notice(
 @admin_router.post("/messages/platform", response_model=MessageSendResponse)
 def send_platform_notice(
     request: MessageSendRequest,
-    principal: Admin,
+    principal: PlatformAdmin,
     db: Annotated[Session, Depends(get_db)],
 ):
     return MessageService(db).send_platform_notice(

@@ -16,7 +16,7 @@ def auth(token: str) -> dict[str, str]:
 
 def seed_swiss_tournament(session_factory, make_user, *, player_count: int = 4, swiss_rounds: int = 3):
     admin, admin_token = make_user(
-        qq_number="91000000", nickname="瑞士轮管理员", role=Role.TOURNAMENT_ADMIN
+        qq_number="91000000", nickname="瑞士轮管理员", role=Role.USER
     )
     players = [
         make_user(qq_number=f"9100000{index + 1}", nickname=f"瑞士选手{index + 1}")
@@ -192,7 +192,7 @@ def test_waiting_match_can_be_resolved_by_admin(client, make_user, session_facto
     assert resolved.json()["result_source"] == "ADMIN"
 
     audit = client.get(
-        f"/api/admin/audit-logs?tournament_id={tournament_id}&action_type=SWISS_MATCH_RESOLVED",
+        f"/api/tournaments/{tournament_id}/audit-logs?action_type=SWISS_MATCH_RESOLVED",
         headers=auth(admin_token),
     )
     assert audit.status_code == 200

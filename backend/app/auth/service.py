@@ -37,7 +37,7 @@ class AuthService:
             qq_number=request.identifier if request.identifier_type == "QQ" else None,
             nickname=request.nickname,
             password_hash=hash_password(request.password),
-            role=Role.PLAYER.value,
+            role=Role.USER.value,
         )
         try:
             self.users.add(user)

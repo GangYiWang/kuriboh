@@ -25,7 +25,7 @@ from app.db.session import get_db
 
 router = APIRouter(tags=["content"])
 admin_router = APIRouter(prefix="/admin", tags=["admin-content"])
-Admin = Annotated[CurrentPrincipal, Depends(require_roles(Role.TOURNAMENT_ADMIN))]
+PlatformAdmin = Annotated[CurrentPrincipal, Depends(require_roles(Role.PLATFORM_ADMIN))]
 
 
 @router.get("/banlists", response_model=BanlistListResponse)
@@ -75,7 +75,7 @@ def get_announcement(item_id: UUID, db: Annotated[Session, Depends(get_db)]) -> 
 @admin_router.post("/banlists", response_model=BanlistResponse, status_code=status.HTTP_201_CREATED)
 def publish_banlist(
     request: BanlistCreateRequest,
-    principal: Admin,
+    principal: PlatformAdmin,
     db: Annotated[Session, Depends(get_db)],
 ) -> BanlistResponse:
     return BanlistResponse.model_validate(BanlistService(db).publish(
@@ -88,7 +88,7 @@ def publish_banlist(
 @admin_router.post("/announcements", response_model=AnnouncementResponse, status_code=status.HTTP_201_CREATED)
 def publish_announcement(
     request: AnnouncementCreateRequest,
-    principal: Admin,
+    principal: PlatformAdmin,
     db: Annotated[Session, Depends(get_db)],
 ) -> AnnouncementResponse:
     return AnnouncementResponse.model_validate(AnnouncementService(db).publish(
@@ -103,7 +103,7 @@ def publish_announcement(
 def update_announcement(
     item_id: UUID,
     request: AnnouncementUpdateRequest,
-    principal: Admin,
+    principal: PlatformAdmin,
     db: Annotated[Session, Depends(get_db)],
 ) -> AnnouncementResponse:
     service = AnnouncementService(db)
@@ -121,7 +121,7 @@ def update_announcement(
 
 @admin_router.post("/uploads/images", response_model=ImageUploadResponse)
 async def upload_image(
-    _: Admin,
+    _: PlatformAdmin,
     image: Annotated[UploadFile, File()],
 ) -> ImageUploadResponse:
     content = await image.read(get_settings().upload_max_bytes + 1)

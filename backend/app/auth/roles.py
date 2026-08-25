@@ -2,5 +2,5 @@ from enum import StrEnum
 
 
 class Role(StrEnum):
-    PLAYER = "PLAYER"
-    TOURNAMENT_ADMIN = "TOURNAMENT_ADMIN"
+    USER = "USER"
+    PLATFORM_ADMIN = "PLATFORM_ADMIN"

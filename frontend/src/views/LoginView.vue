@@ -43,7 +43,7 @@ async function submit() {
 <template>
   <div class="auth-page page-shell">
     <section class="auth-intro">
-      <p class="section-kicker">PLAYER ACCOUNT</p>
+      <p class="section-kicker">USER ACCOUNT</p>
       <h1>登录栗子杯</h1>
       <p>使用注册时填写的 QQ 号或手机号登录。</p>
     </section>

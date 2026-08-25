@@ -14,7 +14,7 @@ from app.tournaments.ownership import require_tournament_owner
 
 router = APIRouter(prefix="/admin", tags=["admin-audit"])
 organizer_router = APIRouter(tags=["tournament-audit"])
-Admin = Annotated[CurrentPrincipal, Depends(require_roles(Role.TOURNAMENT_ADMIN))]
+PlatformAdmin = Annotated[CurrentPrincipal, Depends(require_roles(Role.PLATFORM_ADMIN))]
 Authenticated = Annotated[CurrentPrincipal, Depends(get_current_principal)]
 
 
@@ -35,7 +35,7 @@ def audit_response(item) -> AuditLogResponse:
 
 @router.get("/audit-logs", response_model=AuditLogListResponse)
 def list_audit_logs(
-    _: Admin,
+    _: PlatformAdmin,
     db: Annotated[Session, Depends(get_db)],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,

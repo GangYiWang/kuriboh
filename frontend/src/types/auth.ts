@@ -1,4 +1,4 @@
-export type Role = 'PLAYER' | 'TOURNAMENT_ADMIN'
+export type Role = 'USER' | 'PLATFORM_ADMIN'
 
 export interface User {
   id: string

@@ -73,7 +73,7 @@ function closePasswordForm() {
           <div><dt>昵称</dt><dd>{{ authStore.user.nickname }}</dd></div>
           <div v-if="authStore.user.phone_number"><dt>手机号</dt><dd>{{ authStore.user.phone_number }}</dd></div>
           <div v-if="authStore.user.qq_number"><dt>QQ 号</dt><dd>{{ authStore.user.qq_number }}</dd></div>
-          <div><dt>角色</dt><dd>{{ authStore.isAdmin ? '赛事管理员' : '参赛选手' }}</dd></div>
+          <div><dt>全局角色</dt><dd>{{ authStore.isPlatformAdmin ? '平台管理员' : '用户' }}</dd></div>
           <div><dt>QQ 授权</dt><dd>{{ authStore.user.qq_bound ? '已绑定' : '未绑定' }}</dd></div>
         </dl>
         <p class="form-hint">登录账号和昵称当前不可修改。</p>

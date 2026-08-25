@@ -18,10 +18,10 @@ router.beforeEach(async (to) => {
   const authStore = useAuthStore()
   await authStore.ensureProfile()
   if (to.meta.guestOnly && authStore.isAuthenticated) return '/profile'
-  if ((to.meta.requiresAuth || to.meta.requiresAdmin) && !authStore.isAuthenticated) {
+  if ((to.meta.requiresAuth || to.meta.requiresPlatformAdmin) && !authStore.isAuthenticated) {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
-  if (to.meta.requiresAdmin && !authStore.isAdmin) return '/'
+  if (to.meta.requiresPlatformAdmin && !authStore.isPlatformAdmin) return '/'
 })
 
 export default router

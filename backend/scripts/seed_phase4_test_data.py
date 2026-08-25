@@ -44,14 +44,14 @@ def main() -> None:
             qq_number=ADMIN_QQ,
             nickname="Phase4测试管理员",
             password_hash=hash_password(PASSWORD),
-            role=Role.TOURNAMENT_ADMIN.value,
+            role=Role.PLATFORM_ADMIN.value,
         )
         players = [
             User(
                 qq_number=qq,
                 nickname=f"Phase4测试选手{index:02d}",
                 password_hash=hash_password(PASSWORD),
-                role=Role.PLAYER.value,
+                role=Role.USER.value,
             )
             for index, qq in enumerate(PLAYER_QQS, start=1)
         ]

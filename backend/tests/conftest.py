@@ -62,7 +62,7 @@ def make_user(session_factory: sessionmaker[Session]):
         phone_number: str | None = None,
         nickname: str = "测试玩家",
         password: str = "password123",
-        role: Role = Role.PLAYER,
+        role: Role = Role.USER,
         qq_openid: str | None = None,
     ) -> tuple[User, str]:
         with session_factory() as db:

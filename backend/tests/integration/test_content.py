@@ -17,7 +17,7 @@ def test_player_cannot_publish_content(client, make_user) -> None:
 
 
 def test_admin_publishes_sanitized_versioned_content(client, make_user) -> None:
-    _, token = make_user(role=Role.TOURNAMENT_ADMIN)
+    _, token = make_user(role=Role.PLATFORM_ADMIN)
     headers = {"Authorization": f"Bearer {token}"}
 
     first = client.post(
@@ -41,7 +41,7 @@ def test_admin_publishes_sanitized_versioned_content(client, make_user) -> None:
 
 
 def test_announcement_publication_and_update_are_sanitized(client, make_user) -> None:
-    _, token = make_user(role=Role.TOURNAMENT_ADMIN)
+    _, token = make_user(role=Role.PLATFORM_ADMIN)
     headers = {"Authorization": f"Bearer {token}"}
     created = client.post(
         "/api/admin/announcements",
@@ -64,7 +64,7 @@ def test_announcement_publication_and_update_are_sanitized(client, make_user) ->
 
 
 def test_image_upload_validates_and_reencodes_images(client, make_user) -> None:
-    _, token = make_user(role=Role.TOURNAMENT_ADMIN)
+    _, token = make_user(role=Role.PLATFORM_ADMIN)
     headers = {"Authorization": f"Bearer {token}"}
     image_buffer = BytesIO()
     Image.new("RGB", (12, 8), color=(141, 61, 45)).save(image_buffer, format="PNG")

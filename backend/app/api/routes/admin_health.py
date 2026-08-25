@@ -10,7 +10,6 @@ router = APIRouter()
 
 @router.get("/health")
 def admin_health(
-    principal: Annotated[CurrentPrincipal, Depends(require_roles(Role.TOURNAMENT_ADMIN))],
+    principal: Annotated[CurrentPrincipal, Depends(require_roles(Role.PLATFORM_ADMIN))],
 ) -> dict[str, str]:
     return {"status": "ok", "role": principal.role.value}
-
