@@ -1393,6 +1393,12 @@ input {
 @media (max-width: 680px) {
   :root { --layout-gutter: 14px; }
 
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
   .site-header {
     height: 64px;
     backdrop-filter: none;
@@ -1419,7 +1425,14 @@ input {
     background: var(--color-surface);
   }
 
-  .nav-link { flex: 1; }
+  .nav-link {
+    min-width: 0;
+    flex: 1;
+    padding-right: 4px;
+    padding-left: 4px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
   .nav-link::after { top: -1px; bottom: auto; }
   .has-dot::before { top: 13px; right: calc(50% - 22px); }
   .unread-badge { top: 7px; right: calc(50% - 29px); }
