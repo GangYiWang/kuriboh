@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import FormMessage from '@/components/FormMessage.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const form = reactive({
   identifier_type: 'QQ' as 'PHONE' | 'QQ',
   identifier: '',
@@ -22,7 +23,7 @@ async function submit() {
   error.value = ''
   try {
     await authStore.register(form)
-    await router.push('/profile')
+    await router.push(typeof route.query.redirect === 'string' ? route.query.redirect : '/')
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '注册失败'
   } finally {
@@ -64,7 +65,7 @@ async function submit() {
       <label><span>密码</span><input v-model="form.password" type="password" autocomplete="new-password" minlength="6" required /><small>至少 6 个字符</small></label>
       <label><span>确认密码</span><input v-model="form.confirm_password" type="password" autocomplete="new-password" minlength="6" required /></label>
       <button class="button primary full" type="submit" :disabled="submitting">{{ submitting ? '正在创建…' : '注册并登录' }}</button>
-      <p class="form-switch">已有账号？<RouterLink to="/login">返回登录</RouterLink></p>
+      <p class="form-switch">已有账号？<RouterLink :to="{ path: '/login', query: typeof route.query.redirect === 'string' ? { redirect: route.query.redirect } : {} }">返回登录</RouterLink></p>
     </form>
   </div>
 </template>

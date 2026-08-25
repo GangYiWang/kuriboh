@@ -31,7 +31,7 @@ async function submit() {
       await authStore.bindQq(pendingBinding)
       sessionStorage.removeItem('lizibei_qq_binding_token')
     }
-    await router.push(typeof route.query.redirect === 'string' ? route.query.redirect : '/profile')
+    await router.push(typeof route.query.redirect === 'string' ? route.query.redirect : '/')
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '登录失败'
   } finally {
@@ -54,7 +54,7 @@ async function submit() {
       <label><span>密码</span><input v-model="password" type="password" autocomplete="current-password" required /></label>
       <button class="button primary full" type="submit" :disabled="submitting">{{ submitting ? '正在登录…' : '登录' }}</button>
       <a v-if="qqStatus?.configured" class="button secondary full" :href="qqStatus.authorization_url ?? '#'">使用 QQ 授权登录</a>
-      <p class="form-switch">还没有账号？<RouterLink to="/register">立即注册</RouterLink></p>
+      <p class="form-switch">还没有账号？<RouterLink :to="{ path: '/register', query: typeof route.query.redirect === 'string' ? { redirect: route.query.redirect } : {} }">立即注册</RouterLink></p>
     </form>
   </div>
 </template>
