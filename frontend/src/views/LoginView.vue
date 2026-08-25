@@ -10,7 +10,7 @@ import type { QqOAuthStatus } from '@/types/auth'
 const authStore = useAuthStore()
 const router = useRouter()
 const route = useRoute()
-const qqNumber = ref('')
+const identifier = ref('')
 const password = ref('')
 const submitting = ref(false)
 const message = ref(route.query.qq === 'bind' ? 'QQ 授权成功，请先登录现有账号完成绑定。' : '')
@@ -25,7 +25,7 @@ async function submit() {
   submitting.value = true
   error.value = ''
   try {
-    await authStore.login(qqNumber.value, password.value)
+    await authStore.login(identifier.value, password.value)
     const pendingBinding = sessionStorage.getItem('lizibei_qq_binding_token')
     if (pendingBinding) {
       await authStore.bindQq(pendingBinding)
@@ -45,16 +45,15 @@ async function submit() {
     <section class="auth-intro">
       <p class="section-kicker">PLAYER ACCOUNT</p>
       <h1>登录栗子杯</h1>
-      <p>使用注册时填写的 QQ 号和密码登录。QQ 快捷登录需要先与本地账号绑定。</p>
+      <p>使用注册时填写的 QQ 号或手机号登录。</p>
     </section>
     <form class="auth-form" @submit.prevent="submit">
       <FormMessage v-if="message" type="success" :message="message" />
       <FormMessage v-if="error" :message="error" />
-      <label><span>QQ 号</span><input v-model.trim="qqNumber" inputmode="numeric" autocomplete="username" required /></label>
+      <label><span>QQ 号或手机号</span><input v-model.trim="identifier" type="tel" inputmode="numeric" autocomplete="username" minlength="5" maxlength="20" required /></label>
       <label><span>密码</span><input v-model="password" type="password" autocomplete="current-password" required /></label>
       <button class="button primary full" type="submit" :disabled="submitting">{{ submitting ? '正在登录…' : '登录' }}</button>
       <a v-if="qqStatus?.configured" class="button secondary full" :href="qqStatus.authorization_url ?? '#'">使用 QQ 授权登录</a>
-      <p v-else class="form-hint">QQ 授权尚未配置，可先使用本地账号登录。</p>
       <p class="form-switch">还没有账号？<RouterLink to="/register">立即注册</RouterLink></p>
     </form>
   </div>

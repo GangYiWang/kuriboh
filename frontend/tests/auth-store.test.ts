@@ -33,6 +33,7 @@ describe('authentication profile loading', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
     resolveFetch(new Response(JSON.stringify({
       id: 'admin-1',
+      phone_number: '13800138000',
       qq_number: '10000002',
       nickname: '测试管理员',
       role: 'TOURNAMENT_ADMIN',
@@ -43,5 +44,47 @@ describe('authentication profile loading', () => {
     await Promise.all([headerRequest, guardRequest])
     expect(authStore.isAuthenticated).toBe(true)
     expect(authStore.isAdmin).toBe(true)
+  })
+
+  it('sends compatible phone and QQ identifiers to the authentication API', async () => {
+    const session = {
+      access_token: 'new-token',
+      token_type: 'bearer',
+      user: {
+        id: 'player-1',
+        phone_number: '13800138000',
+        qq_number: null,
+        nickname: '测试选手',
+        role: 'PLAYER',
+        qq_bound: false,
+        created_at: '2026-08-24T00:00:00Z',
+      },
+    }
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(
+      new Response(JSON.stringify(session), { status: 200 }),
+    ))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const authStore = useAuthStore()
+    await authStore.login('13800138000', 'password123')
+    await authStore.register({
+      identifier_type: 'QQ',
+      identifier: '123456789',
+      nickname: '测试选手',
+      password: 'password123',
+      confirm_password: 'password123',
+    })
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({
+      identifier: '13800138000',
+      password: 'password123',
+    })
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+      identifier_type: 'QQ',
+      identifier: '123456789',
+      nickname: '测试选手',
+      password: 'password123',
+      confirm_password: 'password123',
+    })
   })
 })

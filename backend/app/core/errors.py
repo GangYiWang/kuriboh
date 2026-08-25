@@ -1,6 +1,7 @@
 from typing import Any
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -64,7 +65,7 @@ def install_error_handlers(app: FastAPI) -> None:
             status_code=422,
             code="VALIDATION_ERROR",
             message="请求参数不符合要求",
-            details=exc.errors(),
+            details=jsonable_encoder(exc.errors()),
         )
 
     @app.exception_handler(StarletteHTTPException)
@@ -82,4 +83,3 @@ def install_error_handlers(app: FastAPI) -> None:
             code="INTERNAL_ERROR",
             message="服务暂时不可用",
         )
-

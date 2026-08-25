@@ -7,7 +7,8 @@ from app.users.models import User
 
 def registration_payload(**overrides: str) -> dict[str, str]:
     payload = {
-        "qq_number": "123456789",
+        "identifier_type": "PHONE",
+        "identifier": "13800138000",
         "nickname": "海盐栗子",
         "password": "secure123",
         "confirm_password": "secure123",
@@ -16,14 +17,19 @@ def registration_payload(**overrides: str) -> dict[str, str]:
     return payload
 
 
-def test_register_login_profile_and_change_password(client, session_factory: sessionmaker[Session]) -> None:
+def test_register_by_phone_login_profile_and_change_password(
+    client,
+    session_factory: sessionmaker[Session],
+) -> None:
     registered = client.post("/api/auth/register", json=registration_payload())
-    assert registered.status_code == 201
+    assert registered.status_code == 201, registered.json()
     token = registered.json()["access_token"]
     assert registered.json()["user"]["role"] == "PLAYER"
+    assert registered.json()["user"]["phone_number"] == "13800138000"
+    assert registered.json()["user"]["qq_number"] is None
 
     with session_factory() as db:
-        user = db.scalar(select(User).where(User.qq_number == "123456789"))
+        user = db.scalar(select(User).where(User.phone_number == "13800138000"))
         assert user is not None
         assert user.password_hash != "secure123"
         assert verify_password("secure123", user.password_hash)
@@ -42,35 +48,87 @@ def test_register_login_profile_and_change_password(client, session_factory: ses
         },
     )
     assert changed.status_code == 204
-    assert client.post("/api/auth/login", json={"qq_number": "123456789", "password": "secure123"}).status_code == 401
-    assert client.post("/api/auth/login", json={"qq_number": "123456789", "password": "new-secure123"}).status_code == 200
+    assert client.post(
+        "/api/auth/login",
+        json={"identifier": "13800138000", "password": "secure123"},
+    ).status_code == 401
+    assert client.post(
+        "/api/auth/login",
+        json={"identifier": "13800138000", "password": "new-secure123"},
+    ).status_code == 200
 
 
-def test_duplicate_qq_number_and_nickname_are_rejected(client) -> None:
+def test_register_and_login_by_qq_number(client) -> None:
+    registered = client.post(
+        "/api/auth/register",
+        json=registration_payload(
+            identifier_type="QQ",
+            identifier="123456789",
+            nickname="栗子选手",
+        ),
+    )
+
+    assert registered.status_code == 201, registered.json()
+    assert registered.json()["user"]["phone_number"] is None
+    assert registered.json()["user"]["qq_number"] == "123456789"
+    login = client.post(
+        "/api/auth/login",
+        json={"identifier": "123456789", "password": "secure123"},
+    )
+    assert login.status_code == 200
+
+
+def test_duplicate_identifiers_and_nickname_are_rejected(client) -> None:
     assert client.post("/api/auth/register", json=registration_payload()).status_code == 201
 
-    duplicate_qq = client.post(
+    duplicate_phone = client.post(
         "/api/auth/register",
         json=registration_payload(nickname="另一位玩家"),
     )
+    cross_type_duplicate = client.post(
+        "/api/auth/register",
+        json=registration_payload(
+            identifier_type="QQ",
+            identifier="13800138000",
+            nickname="第三位玩家",
+        ),
+    )
     duplicate_nickname = client.post(
         "/api/auth/register",
-        json=registration_payload(qq_number="987654321"),
+        json=registration_payload(
+            identifier_type="QQ",
+            identifier="987654321",
+        ),
     )
 
-    assert duplicate_qq.status_code == 409
-    assert duplicate_qq.json()["code"] == "QQ_NUMBER_EXISTS"
+    assert duplicate_phone.status_code == 409
+    assert duplicate_phone.json()["code"] == "PHONE_NUMBER_EXISTS"
+    assert cross_type_duplicate.status_code == 409
+    assert cross_type_duplicate.json()["code"] == "QQ_NUMBER_EXISTS"
     assert duplicate_nickname.status_code == 409
     assert duplicate_nickname.json()["code"] == "NICKNAME_EXISTS"
 
 
-def test_login_accepts_short_development_qq_number(client, make_user) -> None:
-    make_user(qq_number="111", password="123")
+def test_invalid_phone_registration_is_rejected(client) -> None:
+    response = client.post(
+        "/api/auth/register",
+        json=registration_payload(identifier="12345678901"),
+    )
 
-    response = client.post("/api/auth/login", json={"qq_number": "111", "password": "123"})
+    assert response.status_code == 422
+    assert response.json()["code"] == "VALIDATION_ERROR"
+
+
+def test_legacy_qq_account_can_still_login(client, make_user) -> None:
+    make_user(qq_number="12345678", password="password123")
+
+    response = client.post(
+        "/api/auth/login",
+        json={"identifier": "12345678", "password": "password123"},
+    )
 
     assert response.status_code == 200
-    assert response.json()["user"]["role"] == "PLAYER"
+    assert response.json()["user"]["qq_number"] == "12345678"
 
 
 def test_unbound_qq_flow_never_creates_a_second_account(client, make_user, session_factory: sessionmaker[Session]) -> None:

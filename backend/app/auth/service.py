@@ -22,14 +22,19 @@ class AuthService:
         self.users = UserRepository(db)
 
     def register(self, request: RegisterRequest) -> TokenResponse:
-        conflict = self.users.find_conflict(request.qq_number, request.nickname)
+        conflict = self.users.find_registration_conflict(request.identifier, request.nickname)
         if conflict is not None:
-            if conflict.qq_number == request.qq_number:
+            if request.identifier_type == "PHONE" and (
+                conflict.phone_number == request.identifier or conflict.qq_number == request.identifier
+            ):
+                raise AppError("PHONE_NUMBER_EXISTS", "该手机号已经注册", status_code=409)
+            if conflict.phone_number == request.identifier or conflict.qq_number == request.identifier:
                 raise AppError("QQ_NUMBER_EXISTS", "该 QQ 号已经注册", status_code=409)
             raise AppError("NICKNAME_EXISTS", "该昵称已经使用", status_code=409)
 
         user = User(
-            qq_number=request.qq_number,
+            phone_number=request.identifier if request.identifier_type == "PHONE" else None,
+            qq_number=request.identifier if request.identifier_type == "QQ" else None,
             nickname=request.nickname,
             password_hash=hash_password(request.password),
             role=Role.PLAYER.value,
@@ -40,15 +45,15 @@ class AuthService:
             self.db.refresh(user)
         except IntegrityError as exc:
             self.db.rollback()
-            raise AppError("ACCOUNT_EXISTS", "QQ 号或昵称已经使用", status_code=409) from exc
+            raise AppError("ACCOUNT_EXISTS", "手机号、QQ 号或昵称已经使用", status_code=409) from exc
         return self._token_response(user)
 
     def login(self, request: LoginRequest) -> TokenResponse:
-        user = self.users.get_by_qq_number(request.qq_number)
+        user = self.users.get_by_identifier(request.identifier)
         password_hash = user.password_hash if user else DUMMY_PASSWORD_HASH
         valid = verify_password(request.password, password_hash)
         if user is None or not valid:
-            raise AppError("INVALID_CREDENTIALS", "QQ 号或密码错误", status_code=401)
+            raise AppError("INVALID_CREDENTIALS", "手机号、QQ 号或密码错误", status_code=401)
         return self._token_response(user)
 
     def change_password(self, user: User, request: ChangePasswordRequest) -> None:

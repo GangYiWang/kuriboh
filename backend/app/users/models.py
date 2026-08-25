@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, String
+from sqlalchemy import CheckConstraint, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.auth.roles import Role
@@ -24,10 +24,20 @@ class User(TimestampMixin, Base):
             "role in ('PLAYER', 'TOURNAMENT_ADMIN')",
             name="ck_users_role",
         ),
+        CheckConstraint(
+            "phone_number is not null or qq_number is not null",
+            name="ck_users_login_identifier",
+        ),
+        Index(
+            "ux_users_login_identifier",
+            text("COALESCE(phone_number, qq_number)"),
+            unique=True,
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    qq_number: Mapped[str] = mapped_column(String(20), unique=True, index=True, nullable=False)
+    phone_number: Mapped[str | None] = mapped_column(String(20), unique=True, index=True, nullable=True)
+    qq_number: Mapped[str | None] = mapped_column(String(20), unique=True, index=True, nullable=True)
     nickname: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     qq_openid: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True)

@@ -21,12 +21,13 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem(TOKEN_KEY, session.access_token)
   }
 
-  async function login(qqNumber: string, password: string) {
-    acceptSession(await apiPost<TokenResponse>('/auth/login', { qq_number: qqNumber, password }))
+  async function login(identifier: string, password: string) {
+    acceptSession(await apiPost<TokenResponse>('/auth/login', { identifier, password }))
   }
 
   async function register(payload: {
-    qq_number: string
+    identifier_type: 'PHONE' | 'QQ'
+    identifier: string
     nickname: string
     password: string
     confirm_password: string

@@ -2,7 +2,8 @@ export type Role = 'PLAYER' | 'TOURNAMENT_ADMIN'
 
 export interface User {
   id: string
-  qq_number: string
+  phone_number: string | null
+  qq_number: string | null
   nickname: string
   role: Role
   qq_bound: boolean

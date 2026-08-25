@@ -58,7 +58,8 @@ def client(session_factory: sessionmaker[Session], tmp_path: Path) -> Generator[
 def make_user(session_factory: sessionmaker[Session]):
     def factory(
         *,
-        qq_number: str = "12345678",
+        qq_number: str | None = "12345678",
+        phone_number: str | None = None,
         nickname: str = "测试玩家",
         password: str = "password123",
         role: Role = Role.PLAYER,
@@ -66,6 +67,7 @@ def make_user(session_factory: sessionmaker[Session]):
     ) -> tuple[User, str]:
         with session_factory() as db:
             user = User(
+                phone_number=phone_number,
                 qq_number=qq_number,
                 nickname=nickname,
                 password_hash=hash_password(password),

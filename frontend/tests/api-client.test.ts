@@ -19,14 +19,14 @@ describe('API client error handling', () => {
   it('preserves the structured error returned by the API', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       code: 'INVALID_CREDENTIALS',
-      message: 'QQ 号或密码错误',
+      message: '手机号、QQ 号或密码错误',
       details: null,
       request_id: 'request-1',
     }), { status: 401 })))
 
     await expect(apiPost('/auth/login', {})).rejects.toMatchObject({
       status: 401,
-      message: 'QQ 号或密码错误',
+      message: '手机号、QQ 号或密码错误',
     })
   })
 })

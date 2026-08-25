@@ -1,10 +1,13 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.users.schemas import UserResponse
 
 
 class RegisterRequest(BaseModel):
-    qq_number: str = Field(min_length=5, max_length=20, pattern=r"^[1-9][0-9]+$")
+    identifier_type: Literal["PHONE", "QQ"]
+    identifier: str = Field(min_length=5, max_length=20, pattern=r"^[1-9][0-9]+$")
     nickname: str = Field(min_length=2, max_length=30)
     password: str = Field(min_length=8, max_length=128)
     confirm_password: str = Field(min_length=8, max_length=128)
@@ -18,6 +21,16 @@ class RegisterRequest(BaseModel):
         return normalized
 
     @model_validator(mode="after")
+    def identifier_matches_type(self) -> "RegisterRequest":
+        if self.identifier_type == "PHONE" and not (
+            len(self.identifier) == 11
+            and self.identifier.startswith("1")
+            and self.identifier[1] in "3456789"
+        ):
+            raise ValueError("请输入有效的中国大陆手机号")
+        return self
+
+    @model_validator(mode="after")
     def passwords_match(self) -> "RegisterRequest":
         if self.password != self.confirm_password:
             raise ValueError("两次输入的密码不一致")
@@ -25,9 +38,7 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    # Login accepts legacy/development accounts with short numeric identifiers.
-    # New registrations still require a QQ number of at least five digits.
-    qq_number: str = Field(min_length=1, max_length=20)
+    identifier: str = Field(min_length=5, max_length=20, pattern=r"^[1-9][0-9]+$")
     password: str = Field(min_length=1, max_length=128)
 
 

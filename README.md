@@ -145,16 +145,18 @@ npm run build
 
 角色常量仅包含已确认的 `PLAYER` 与 `TOURNAMENT_ADMIN`。角色表示后台权限范围，不限制参赛资格：`TOURNAMENT_ADMIN` 可以按与普通用户相同的流程报名赛事，仍需经过审核并受赛事容量和报名状态约束；报名不会改变或降低其管理员权限。密码使用 Argon2 哈希，登录凭证使用带有效期的 JWT；管理员权限由后端依赖统一校验。
 
+本地账号可选择中国大陆手机号或 QQ 号注册，登录时两种标识使用同一输入框。手机号与 QQ 号跨字段保持唯一，既有 QQ 账号继续有效；QQ OAuth 的 OpenID 绑定仍与本地登录标识分开保存。
+
 ## 创建初始管理员
 
 先完成迁移，再使用交互式命令创建管理员，避免把密码留在终端历史中：
 
 ```bat
 cd /d backend
-.venv\Scripts\python.exe -m app.cli create-admin --qq 你的QQ号 --nickname 你的昵称
+.venv\Scripts\python.exe -m app.cli create-admin --phone 你的手机号 --nickname 你的昵称
 ```
 
-程序会提示输入至少 8 个字符的密码。已有 QQ 号或昵称不会被覆盖。
+也可以将 `--phone` 替换为 `--qq`，使用 QQ 号创建管理员。程序会提示输入至少 8 个字符的密码；已有手机号、QQ 号或昵称不会被覆盖。
 
 ## Phase 1～6 接口
 

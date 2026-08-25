@@ -71,11 +71,12 @@ function closePasswordForm() {
         <h2>账号资料</h2>
         <dl class="definition-list">
           <div><dt>昵称</dt><dd>{{ authStore.user.nickname }}</dd></div>
-          <div><dt>QQ 号</dt><dd>{{ authStore.user.qq_number }}</dd></div>
+          <div v-if="authStore.user.phone_number"><dt>手机号</dt><dd>{{ authStore.user.phone_number }}</dd></div>
+          <div v-if="authStore.user.qq_number"><dt>QQ 号</dt><dd>{{ authStore.user.qq_number }}</dd></div>
           <div><dt>角色</dt><dd>{{ authStore.isAdmin ? '赛事管理员' : '参赛选手' }}</dd></div>
           <div><dt>QQ 授权</dt><dd>{{ authStore.user.qq_bound ? '已绑定' : '未绑定' }}</dd></div>
         </dl>
-        <p class="form-hint">QQ 号和昵称在 V1 中不可修改。</p>
+        <p class="form-hint">登录账号和昵称当前不可修改。</p>
         <a v-if="!authStore.user.qq_bound && qqStatus?.configured" class="button secondary qq-bind-button" :href="qqStatus.authorization_url ?? '#'">绑定 QQ 授权</a>
         <section class="security-settings" aria-labelledby="security-settings-title">
           <div>
