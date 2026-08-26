@@ -170,7 +170,8 @@ onMounted(async () => {
           :token="authStore.token"
         />
       </main>
-      <aside v-if="!['results', 'deck'].includes(activeTab)" class="signup-box">
+      <aside v-if="activeTab === 'matches'" aria-hidden="true" />
+      <aside v-else-if="activeTab === 'info'" class="signup-box">
         <p class="section-kicker">REGISTRATION</p>
         <h2>赛事报名</h2>
         <FormMessage v-if="message" type="success" :message="message" />
