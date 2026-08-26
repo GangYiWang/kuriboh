@@ -15,7 +15,7 @@ import { deckPlacementText, deckStatusText } from '@/types/report'
 import type { AuditLogListResponse, MessageSendResponse } from '@/types/message'
 import { auditActionText } from '@/types/message'
 import type {
-  MatchHistoryItem, Participant, PlayoffMatch, PlayoffOverview, PlayoffRound, Registration, RegistrationBulkApproveResponse, RegistrationListResponse, SwissMatch, SwissOverview, SwissRound, Tournament,
+  MatchHistoryItem, Participant, PlayoffMatch, PlayoffOverview, PlayoffRound, Registration, RegistrationBulkApproveResponse, RegistrationListResponse, SubmittedResult, SwissMatch, SwissOverview, SwissRound, Tournament,
 } from '@/types/tournament'
 import { matchStatusText, registrationStatusText, swissRoundStatusText, tournamentStatusText } from '@/types/tournament'
 
@@ -425,6 +425,22 @@ function matchResolutionActionText(match: SwissMatch | PlayoffMatch) {
   return '处理未提交'
 }
 
+function displayedMatchResult(match: SwissMatch | PlayoffMatch, participantId: string | null): SubmittedResult | null {
+  if (!participantId) return null
+  if (match.status === 'COMPLETED') {
+    if (!match.winner_id) return null
+    return match.winner_id === participantId ? 'WIN' : 'LOSS'
+  }
+  if (match.player_a_id === participantId) return match.player_a_result
+  if (match.player_b_id === participantId) return match.player_b_result
+  return null
+}
+
+function displayedMatchResultText(match: SwissMatch | PlayoffMatch, participantId: string | null): string {
+  const result = displayedMatchResult(match, participantId)
+  return result === 'WIN' ? '胜' : result === 'LOSS' ? '负' : ''
+}
+
 function matchResolutionTitle(match: SwissMatch | PlayoffMatch) {
   if (match.status === 'COMPLETED') return `纠正第 ${match.table_no} 桌赛果`
   if (match.status === 'CONFLICT') return `处理第 ${match.table_no} 桌冲突`
@@ -822,16 +838,14 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
                 <span class="match-table-no">第 {{ match.table_no }} 桌</span>
                 <div class="admin-match-players">
                   <span :class="['admin-match-player', 'admin-match-player-a', { winner: match.winner_id === match.player_a_id }]">
-                    <strong>{{ match.player_a_nickname }}</strong><small v-if="match.winner_id === match.player_a_id" class="winner-mark">胜</small><em v-if="selectedSwissRound.status === 'DRAFT'">（{{ swissRecord(match.player_a_id) }}）</em>
+                    <strong>{{ match.player_a_nickname }}</strong><small v-if="displayedMatchResult(match, match.player_a_id)" :class="['admin-result-mark', `submission-${displayedMatchResult(match, match.player_a_id)?.toLowerCase()}`]">{{ displayedMatchResultText(match, match.player_a_id) }}</small><em v-if="selectedSwissRound.status === 'DRAFT'">（{{ swissRecord(match.player_a_id) }}）</em>
                   </span>
                   <i class="admin-match-versus">{{ match.player_b_id ? 'VS' : 'BYE' }}</i>
                   <span :class="['admin-match-player', 'admin-match-player-b', { winner: match.winner_id === match.player_b_id }]">
-                    <strong>{{ match.player_b_nickname || '轮空' }}</strong><small v-if="match.winner_id === match.player_b_id" class="winner-mark">胜</small><em v-if="selectedSwissRound.status === 'DRAFT' && match.player_b_id">（{{ swissRecord(match.player_b_id) }}）</em>
+                    <small v-if="displayedMatchResult(match, match.player_b_id)" :class="['admin-result-mark', `submission-${displayedMatchResult(match, match.player_b_id)?.toLowerCase()}`]">{{ displayedMatchResultText(match, match.player_b_id) }}</small><strong>{{ match.player_b_nickname || '轮空' }}</strong><em v-if="selectedSwissRound.status === 'DRAFT' && match.player_b_id">（{{ swissRecord(match.player_b_id) }}）</em>
                   </span>
                 </div>
                 <small v-if="selectedSwissRound.status === 'DRAFT' && match.warnings.length" class="admin-match-warning">{{ match.warnings.join(' · ') }}</small>
-                <div v-if="selectedSwissRound.status !== 'DRAFT' && match.player_b_id && match.status !== 'COMPLETED'" class="submission-state"><span>{{ match.player_a_nickname }}：{{ match.player_a_result === 'WIN' ? '胜' : match.player_a_result === 'LOSS' ? '负' : '未提交' }}</span><span>{{ match.player_b_nickname }}：{{ match.player_b_result === 'WIN' ? '胜' : match.player_b_result === 'LOSS' ? '负' : '未提交' }}</span></div>
-                <span v-else-if="selectedSwissRound.status !== 'DRAFT' && !match.player_b_id" class="bye-auto-win">轮空自动获胜</span>
                 <div v-if="selectedSwissRound.status !== 'DRAFT'" class="admin-match-outcome">
                   <span :class="['status-badge', `match-${match.status.toLowerCase()}`]">{{ matchStatusText[match.status] }}</span>
                   <div v-if="tournament.status === 'SWISS' && match.player_b_id && !match.result_locked" class="row-actions"><button type="button" :disabled="busy" @click="requestMatchResolution(match)">{{ matchResolutionActionText(match) }}</button></div>
@@ -889,14 +903,13 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
                   <span class="match-table-no">第 {{ match.table_no }} 桌</span>
                   <div class="admin-match-players">
                     <span :class="['admin-match-player', 'admin-match-player-a', { winner: match.winner_id === match.player_a_id }]">
-                      <strong>{{ match.player_a_nickname }}</strong><small v-if="match.winner_id === match.player_a_id" class="winner-mark">胜</small><em>（#{{ match.seed_a }}）</em>
+                      <strong>{{ match.player_a_nickname }}</strong><small v-if="displayedMatchResult(match, match.player_a_id)" :class="['admin-result-mark', `submission-${displayedMatchResult(match, match.player_a_id)?.toLowerCase()}`]">{{ displayedMatchResultText(match, match.player_a_id) }}</small><em>（#{{ match.seed_a }}）</em>
                     </span>
                     <i class="admin-match-versus">VS</i>
                     <span :class="['admin-match-player', 'admin-match-player-b', { winner: match.winner_id === match.player_b_id }]">
-                      <strong>{{ match.player_b_nickname }}</strong><small v-if="match.winner_id === match.player_b_id" class="winner-mark">胜</small><em>（#{{ match.seed_b }}）</em>
+                      <small v-if="displayedMatchResult(match, match.player_b_id)" :class="['admin-result-mark', `submission-${displayedMatchResult(match, match.player_b_id)?.toLowerCase()}`]">{{ displayedMatchResultText(match, match.player_b_id) }}</small><strong>{{ match.player_b_nickname }}</strong><em>（#{{ match.seed_b }}）</em>
                     </span>
                   </div>
-                  <div v-if="selectedPlayoffRound.status !== 'DRAFT' && match.status !== 'COMPLETED'" class="submission-state"><span>{{ match.player_a_nickname }}：{{ match.player_a_result === 'WIN' ? '胜' : match.player_a_result === 'LOSS' ? '负' : '未提交' }}</span><span>{{ match.player_b_nickname }}：{{ match.player_b_result === 'WIN' ? '胜' : match.player_b_result === 'LOSS' ? '负' : '未提交' }}</span></div>
                   <div v-if="selectedPlayoffRound.status !== 'DRAFT'" class="admin-match-outcome">
                     <span :class="['status-badge', `match-${match.status.toLowerCase()}`]">{{ matchStatusText[match.status] }}</span>
                     <div v-if="!match.result_locked" class="row-actions"><button type="button" :disabled="busy" @click="requestPlayoffResolution(match)">{{ matchResolutionActionText(match) }}</button></div>
