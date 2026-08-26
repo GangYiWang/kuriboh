@@ -19,7 +19,7 @@ const formatDate = (value: string) => new Intl.DateTimeFormat('zh-CN', { dateSty
 <template>
   <div class="page-shell content-list-page">
     <header class="page-heading split-heading">
-      <div><p class="section-kicker">BANLIST ARCHIVE</p><h1>禁卡表</h1><p>查看当前版本与历史版本，已发布内容永久保留。</p></div>
+      <div><h1>禁卡表</h1><p>查看当前版本与历史版本，已发布内容永久保留。</p></div>
       <span v-if="data?.items.length" class="current-version">当前 {{ data.items[0].version }}</span>
     </header>
     <p v-if="error" class="form-message error">{{ error }}</p>

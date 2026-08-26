@@ -16,7 +16,7 @@ const formatDate = (value: string) => new Intl.DateTimeFormat('zh-CN', { dateSty
 
 <template>
   <div class="page-shell content-list-page">
-    <header class="page-heading"><p class="section-kicker">PLATFORM NOTICE</p><h1>平台公告</h1><p>栗子杯规则、维护和运营通知。</p></header>
+    <header class="page-heading"><h1>平台公告</h1><p>栗子杯规则、维护和运营通知。</p></header>
     <p v-if="error" class="form-message error">{{ error }}</p>
     <div v-else-if="data?.items.length" class="document-list">
       <RouterLink v-for="item in data.items" :key="item.id" :to="`/announcements/${item.id}`" class="document-row">

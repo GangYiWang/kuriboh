@@ -37,7 +37,6 @@ async function submit() {
 <template>
   <div class="auth-page page-shell">
     <section class="auth-intro">
-      <p class="section-kicker">CREATE ACCOUNT</p>
       <h1>创建参赛账号</h1>
       <p>网站昵称应与 Master Duel 游戏内昵称保持一致。</p>
     </section>

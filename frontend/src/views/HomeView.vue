@@ -55,7 +55,7 @@ onMounted(async () => {
     </RouterLink>
 
     <section v-if="currentTournament" class="current-tournament-panel" aria-labelledby="current-tournament-title">
-      <div class="section-heading"><div><p class="section-kicker">MY CURRENT TOURNAMENT</p><h2 id="current-tournament-title">我的当前赛事</h2></div><span :class="['status-badge', `status-${currentTournament.status.toLowerCase()}`]">{{ tournamentStatusText[currentTournament.status] }}</span></div>
+      <div class="section-heading"><div><h2 id="current-tournament-title">我的当前赛事</h2></div><span :class="['status-badge', `status-${currentTournament.status.toLowerCase()}`]">{{ tournamentStatusText[currentTournament.status] }}</span></div>
       <div class="current-tournament-main"><div><h3>{{ currentTournament.name }}</h3><p v-if="currentTournament.current_match">{{ currentTournament.current_match.stage === 'SWISS' ? `瑞士轮第 ${currentTournament.current_match.round_no} 轮` : '淘汰赛' }} · 第 {{ currentTournament.current_match.table_no }} 桌 · 对手 {{ currentTournament.current_match.opponent_nickname }}</p><p v-else>当前没有进行中的个人对阵。</p></div><RouterLink class="button primary" :to="`/tournaments/${currentTournament.id}`">进入赛事</RouterLink></div>
       <dl><div><dt>当前排名</dt><dd>{{ currentTournament.ranking ? `第 ${currentTournament.ranking.rank} 名` : '—' }}</dd></div><div><dt>当前战绩</dt><dd>{{ currentTournament.ranking ? `${currentTournament.ranking.wins}-${currentTournament.ranking.losses}` : '—' }}</dd></div></dl>
     </section>
@@ -63,7 +63,6 @@ onMounted(async () => {
     <section class="quick-section" aria-labelledby="quick-title">
       <div class="section-heading">
         <div>
-          <p class="section-kicker">QUICK ACCESS</p>
           <h2 id="quick-title">基础入口</h2>
         </div>
       </div>

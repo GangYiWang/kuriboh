@@ -19,7 +19,7 @@ onMounted(() => apiGet<AuditLogListResponse>('/admin/audit-logs', undefined, aut
 
 <template>
   <div class="page-shell admin-page">
-    <header class="page-heading"><p class="section-kicker">AUDIT TRAIL</p><h1>操作审计</h1><p>查看影响赛事公平性、审核结果和不可逆发布的关键操作。</p></header>
+    <header class="page-heading"><h1>操作审计</h1><p>查看影响赛事公平性、审核结果和不可逆发布的关键操作。</p></header>
     <FormMessage v-if="error" :message="error" />
     <div v-if="data?.items.length" class="audit-list">
       <article v-for="item in data.items" :key="item.id" class="audit-row"><time>{{ formatTime(item.created_at) }}</time><div><strong>{{ auditActionText(item.action_type) }}</strong><p>{{ item.operator_nickname }} · {{ item.target_type }} / {{ item.target_id }}</p></div><details><summary>数据变化</summary><pre>{{ JSON.stringify({ before: item.before_json, after: item.after_json }, null, 2) }}</pre></details></article>

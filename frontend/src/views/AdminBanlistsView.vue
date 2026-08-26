@@ -65,7 +65,7 @@ async function save() {
 
 <template>
   <div class="page-shell admin-page">
-    <header class="page-heading split-heading"><div><p class="section-kicker">BANLIST MANAGEMENT</p><h1>禁卡表版本</h1><p>发布新版本或点击历史版本修改内容；版本号保持不变，历史版本不会删除。</p></div><span class="current-version">{{ editingId ? `正在修改 ${editingVersion}` : `下一版本 ${nextVersion}` }}</span></header>
+    <header class="page-heading split-heading"><div><h1>禁卡表版本</h1><p>发布新版本或点击历史版本修改内容；版本号保持不变，历史版本不会删除。</p></div><span class="current-version">{{ editingId ? `正在修改 ${editingVersion}` : `下一版本 ${nextVersion}` }}</span></header>
     <div class="admin-editor-layout">
       <form class="content-form" @submit.prevent="save">
         <FormMessage v-if="message" type="success" :message="message" />

@@ -50,7 +50,7 @@ async function save() {
 
 <template>
   <div class="page-shell admin-page">
-    <header class="page-heading"><p class="section-kicker">ANNOUNCEMENT MANAGEMENT</p><h1>平台公告</h1><p>发布规则、维护和平台信息；内容输出会经过安全清洗。</p></header>
+    <header class="page-heading"><h1>平台公告</h1><p>发布规则、维护和平台信息；内容输出会经过安全清洗。</p></header>
     <div class="admin-editor-layout">
       <form class="content-form" @submit.prevent="save">
         <FormMessage v-if="message" type="success" :message="message" />

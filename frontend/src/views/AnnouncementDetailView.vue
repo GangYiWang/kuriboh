@@ -19,7 +19,7 @@ onMounted(async () => {
     <RouterLink class="back-link-light" to="/announcements">← 返回平台公告</RouterLink>
     <p v-if="error" class="form-message error">{{ error }}</p>
     <article v-else-if="item">
-      <header class="article-heading"><p class="section-kicker">{{ item.is_pinned ? 'PINNED NOTICE' : 'PLATFORM NOTICE' }}</p><h1>{{ item.title }}</h1><time>{{ new Date(item.published_at).toLocaleString('zh-CN') }} 发布</time></header>
+      <header class="article-heading"><h1>{{ item.title }}</h1><time>{{ new Date(item.published_at).toLocaleString('zh-CN') }} 发布</time></header>
       <div class="rich-content article-body" v-html="item.content_html" />
     </article>
   </div>
