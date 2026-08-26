@@ -914,20 +914,29 @@ input {
 }
 
 .version-history li,
-.version-history li button {
+.version-history li button,
+.version-history li a {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
 }
 
-.version-history li button {
+.version-history li button,
+.version-history li a {
   min-height: 48px;
   padding: 0;
   border: 0;
   text-align: left;
   background: transparent;
   cursor: pointer;
+}
+
+.version-history li button:hover span,
+.version-history li a:hover span,
+.version-history li button:focus-visible span,
+.version-history li a:focus-visible span {
+  color: var(--color-brand);
 }
 
 .version-history strong { min-width: 42px; color: var(--color-brand); font-size: 11px; }

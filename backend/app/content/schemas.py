@@ -9,6 +9,11 @@ class BanlistCreateRequest(BaseModel):
     content_html: str = Field(min_length=1, max_length=100_000)
 
 
+class BanlistUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=120)
+    content_html: str | None = Field(default=None, min_length=1, max_length=100_000)
+
+
 class BanlistResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

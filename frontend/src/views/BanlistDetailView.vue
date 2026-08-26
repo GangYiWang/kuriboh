@@ -8,6 +8,7 @@ import type { BanlistVersion } from '@/types/content'
 const route = useRoute()
 const item = ref<BanlistVersion | null>(null)
 const error = ref('')
+
 onMounted(async () => {
   try { item.value = await apiGet(`/banlists/${route.params.id}`) }
   catch (caught) { error.value = caught instanceof Error ? caught.message : '禁卡表加载失败' }

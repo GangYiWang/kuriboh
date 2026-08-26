@@ -56,6 +56,35 @@ class BanlistService:
             raise AppError("VERSION_CONFLICT", "版本生成冲突，请重试", status_code=409) from exc
         return item
 
+    def update(
+        self,
+        item: BanlistVersion,
+        *,
+        title: str | None,
+        content_html: str | None,
+        operator_id: UUID,
+    ) -> BanlistVersion:
+        before = {"version": item.version, "title": item.title}
+        if title is not None:
+            item.title = title.strip()
+        if content_html is not None:
+            clean_content = sanitize_rich_text(content_html)
+            if not clean_content:
+                raise AppError("EMPTY_CONTENT", "禁卡表内容不能为空")
+            item.content_html = clean_content
+        add_audit_log(
+            self.db,
+            operator_id=operator_id,
+            action_type="BANLIST_UPDATED",
+            target_type="banlist_version",
+            target_id=item.id,
+            before=before,
+            after={"version": item.version, "title": item.title},
+        )
+        self.db.commit()
+        self.db.refresh(item)
+        return item
+
 
 class AnnouncementService:
     def __init__(self, db: Session) -> None:

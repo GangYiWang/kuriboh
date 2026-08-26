@@ -91,6 +91,7 @@ const auditActionTypeText: Record<string, string> = {
   TOURNAMENT_NOTICE_SENT: '发送赛事通知',
   PLATFORM_NOTICE_SENT: '发送平台通知',
   BANLIST_PUBLISHED: '发布禁卡表',
+  BANLIST_UPDATED: '更新禁卡表',
   ANNOUNCEMENT_PUBLISHED: '发布平台公告',
   ANNOUNCEMENT_UPDATED: '更新平台公告',
 }

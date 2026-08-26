@@ -15,6 +15,7 @@ from app.content.schemas import (
     BanlistCreateRequest,
     BanlistListResponse,
     BanlistResponse,
+    BanlistUpdateRequest,
     ImageUploadResponse,
 )
 from app.content.service import AnnouncementService, BanlistService
@@ -82,6 +83,25 @@ def publish_banlist(
         title=request.title,
         content_html=request.content_html,
         user_id=principal.user_id,
+    ))
+
+
+@admin_router.patch("/banlists/{item_id}", response_model=BanlistResponse)
+def update_banlist(
+    item_id: UUID,
+    request: BanlistUpdateRequest,
+    principal: PlatformAdmin,
+    db: Annotated[Session, Depends(get_db)],
+) -> BanlistResponse:
+    service = BanlistService(db)
+    item = service.repository.get(item_id)
+    if item is None:
+        raise AppError("BANLIST_NOT_FOUND", "禁卡表版本不存在", status_code=404)
+    return BanlistResponse.model_validate(service.update(
+        item,
+        title=request.title,
+        content_html=request.content_html,
+        operator_id=principal.user_id,
     ))
 
 
