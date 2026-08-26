@@ -1,7 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { routes } from './routes'
-import { MESSAGING_ENABLED } from '@/config/features'
+import {
+  MESSAGING_ENABLED,
+  TOURNAMENT_AUDIT_VIEW_ENABLED,
+  TOURNAMENT_NOTIFICATIONS_ENABLED,
+} from '@/config/features'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
@@ -17,6 +21,13 @@ router.afterEach((to) => {
 
 router.beforeEach(async (to) => {
   if (!MESSAGING_ENABLED && (to.name === 'messages' || to.name === 'admin-messages')) return '/'
+  const tournamentSection = typeof to.params.section === 'string' ? to.params.section : ''
+  if (
+    (!TOURNAMENT_NOTIFICATIONS_ENABLED && tournamentSection === 'notifications')
+    || (!TOURNAMENT_AUDIT_VIEW_ENABLED && tournamentSection === 'audit')
+  ) {
+    return `/tournaments/${String(to.params.id)}/manage/settings`
+  }
 
   const authStore = useAuthStore()
   await authStore.ensureProfile()

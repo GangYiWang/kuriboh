@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { MESSAGING_ENABLED } from '../src/config/features'
+import {
+  MESSAGING_ENABLED,
+  TOURNAMENT_AUDIT_VIEW_ENABLED,
+  TOURNAMENT_NOTIFICATIONS_ENABLED,
+} from '../src/config/features'
 import { routes } from '../src/router/routes'
 
 describe('formal route skeleton', () => {
@@ -55,5 +59,13 @@ describe('formal route skeleton', () => {
     expect(MESSAGING_ENABLED).toBe(false)
     expect(paths).toContain('/messages')
     expect(paths).toContain('/admin/messages')
+  })
+
+  it('keeps tournament notice and audit sections implemented while their views are disabled', () => {
+    const manageRoute = routes.find((route) => route.name === 'tournament-manage')
+
+    expect(TOURNAMENT_NOTIFICATIONS_ENABLED).toBe(false)
+    expect(TOURNAMENT_AUDIT_VIEW_ENABLED).toBe(false)
+    expect(manageRoute?.path).toContain('notifications|audit')
   })
 })

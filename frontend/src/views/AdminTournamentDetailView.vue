@@ -7,6 +7,7 @@ import ConfirmFormDialog from '@/components/ConfirmFormDialog.vue'
 import FormMessage from '@/components/FormMessage.vue'
 import MatchHistoryList from '@/components/MatchHistoryList.vue'
 import PlayoffResultsTree from '@/components/PlayoffResultsTree.vue'
+import { TOURNAMENT_AUDIT_VIEW_ENABLED, TOURNAMENT_NOTIFICATIONS_ENABLED } from '@/config/features'
 import { useAuthStore } from '@/stores/auth'
 import type { BanlistVersion, ListResponse } from '@/types/content'
 import type { DeckSubmission, DeckSubmissionList, WeeklyReport } from '@/types/report'
@@ -622,8 +623,8 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       <RouterLink :to="`/tournaments/${tournamentId}/manage/matches`">对阵</RouterLink>
       <RouterLink :to="`/tournaments/${tournamentId}/manage/results`">赛果</RouterLink>
       <RouterLink :to="`/tournaments/${tournamentId}/manage/decks-report`">卡组与周报</RouterLink>
-      <RouterLink :to="`/tournaments/${tournamentId}/manage/notifications`">赛事通知</RouterLink>
-      <RouterLink :to="`/tournaments/${tournamentId}/manage/audit`">操作日志</RouterLink>
+      <RouterLink v-if="TOURNAMENT_NOTIFICATIONS_ENABLED" :to="`/tournaments/${tournamentId}/manage/notifications`">赛事通知</RouterLink>
+      <RouterLink v-if="TOURNAMENT_AUDIT_VIEW_ENABLED" :to="`/tournaments/${tournamentId}/manage/audit`">操作日志</RouterLink>
     </nav>
     <FormMessage v-if="message" type="success" :message="message" />
     <FormMessage v-if="error" :message="error" />
@@ -641,7 +642,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
     <ConfirmFormDialog
       v-if="bulkApprovalOpen && tournament"
       title="批量通过报名"
-      :description="`将一次通过全部 ${tournament.pending_count} 名待审核选手，并向他们发送审核通过通知。`"
+      :description="`将一次通过全部 ${tournament.pending_count} 名待审核选手。`"
       confirm-text="确认批量通过"
       :busy="busy"
       :error="error"
