@@ -984,9 +984,9 @@ input {
 .tournament-detail-tabs button:focus-visible { background: var(--color-brand-pale); }
 .tournament-detail-tabs button.active { color: var(--color-ink); }
 .tournament-detail-tabs button.active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: var(--color-brand); content: ''; }
-.tournament-stage-empty h2 { margin: 7px 0 10px; font-size: 22px; }
+.tournament-stage-empty h2 { margin: 0 0 10px; font-size: 22px; }
 .info-section + .info-section { margin-top: 46px; }
-.info-section h2 { margin: 7px 0 22px; font-size: 22px; }
+.info-section h2 { margin: 0 0 22px; font-size: 22px; }
 .info-grid { display: grid; grid-template-columns: 1fr 1fr; margin: 0; border-top: 1px solid var(--color-line-strong); }
 .info-grid div { min-height: 68px; display: grid; align-content: center; gap: 7px; border-bottom: 1px solid var(--color-line); }
 .info-grid div:nth-child(odd) { margin-right: 28px; }
@@ -999,7 +999,7 @@ input {
 .link-tone { color: var(--color-brand); }
 .long-copy { color: var(--color-muted); line-height: 1.9; }
 .signup-box { position: sticky; top: 92px; align-self: start; padding: 26px; border: 1px solid var(--color-line-strong); background: var(--color-surface); }
-.signup-box h2 { margin: 8px 0 22px; }
+.signup-box h2 { margin: 0 0 22px; }
 .signup-box > p:not(.section-kicker) { color: var(--color-muted); font-size: 12px; line-height: 1.7; }
 .signup-box small { display: block; margin-top: 12px; color: var(--color-muted); line-height: 1.6; }
 .capacity-copy { display: flex; justify-content: space-between; font-size: 12px; }
@@ -1089,6 +1089,9 @@ input {
 .swiss-live.swiss-live-embedded { margin-top: 24px; }
 .swiss-progress-heading, .ranking-heading, .swiss-operation-bar, .round-admin-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 .swiss-progress-heading h2, .ranking-heading h2, .swiss-operation-bar h2 { margin: 7px 0 10px; font-size: 22px; }
+.swiss-live > .swiss-progress-heading h2,
+.playoff-live > .swiss-progress-heading h2,
+.public-results-view > .swiss-progress-heading h2 { margin-top: 0; }
 .round-progress { height: 6px; overflow: hidden; margin: 18px 0 10px; background: var(--color-line); }
 .round-progress i { display: block; height: 100%; background: var(--color-brand); }
 .my-match-panel { margin: 30px 0 38px; padding: 22px 0; border-top: 1px solid var(--color-line-strong); border-bottom: 1px solid var(--color-line-strong); }

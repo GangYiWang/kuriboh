@@ -71,7 +71,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
 <template>
   <section :class="['swiss-live', { 'swiss-live-embedded': embedded }]">
     <div v-if="!embedded" class="swiss-progress-heading">
-      <div><p class="section-kicker">{{ view === 'matches' ? 'SWISS MATCHES' : 'RESULTS' }}</p><h2>{{ view === 'matches' ? '对阵' : '赛果' }}</h2></div>
+      <div><h2>{{ view === 'matches' ? '对阵' : '赛果' }}</h2></div>
       <span v-if="overview?.current_round_status" class="status-badge status-swiss">
         第 {{ overview.current_round_no }} 轮 · {{ swissRoundStatusText[overview.current_round_status] }}
       </span>

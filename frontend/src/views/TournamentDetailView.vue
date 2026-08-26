@@ -104,7 +104,6 @@ onMounted(async () => {
       </nav>
       <main>
         <section v-if="activeTab === 'info'" class="info-section">
-          <p class="section-kicker">TOURNAMENT INFO</p>
           <h2>赛事信息</h2>
           <dl class="info-grid">
             <div><dt>预计开赛时间</dt><dd>{{ formatDate(tournament.planned_start_at) }}</dd></div>
@@ -134,10 +133,10 @@ onMounted(async () => {
           view="matches"
         />
         <section v-if="activeTab === 'matches' && ['DRAFT', 'REGISTRATION'].includes(tournament.status)" class="tournament-stage-empty">
-          <p class="section-kicker">MATCHES</p><h2>对阵</h2><p class="empty-state compact">赛事开始并发布首轮后显示对阵。</p>
+          <h2>对阵</h2><p class="empty-state compact">赛事开始并发布首轮后显示对阵。</p>
         </section>
         <section v-if="activeTab === 'results' && ['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.status)" class="public-results-view">
-          <header class="swiss-progress-heading"><div><p class="section-kicker">RESULTS</p><h2>赛果</h2></div></header>
+          <header class="swiss-progress-heading"><div><h2>赛果</h2></div></header>
           <nav class="competition-stage-tabs" role="tablist" aria-label="赛果阶段">
             <button type="button" role="tab" :class="{ active: resultsStage === 'swiss' }" :aria-selected="resultsStage === 'swiss'" @click="resultsStage = 'swiss'">瑞士轮</button>
             <button type="button" role="tab" :class="{ active: resultsStage === 'playoff' }" :aria-selected="resultsStage === 'playoff'" @click="resultsStage = 'playoff'">淘汰赛</button>
@@ -162,7 +161,7 @@ onMounted(async () => {
           </div>
         </section>
         <section v-else-if="activeTab === 'results'" class="tournament-stage-empty">
-          <p class="section-kicker">RESULTS</p><h2>赛果</h2><p class="empty-state compact">赛事开始后显示排名与赛果。</p>
+          <h2>赛果</h2><p class="empty-state compact">赛事开始后显示排名与赛果。</p>
         </section>
         <DeckSubmissionPanel
           v-if="activeTab === 'deck' && tournament.status === 'ENDED' && authStore.token"
@@ -172,7 +171,6 @@ onMounted(async () => {
       </main>
       <aside v-if="activeTab === 'matches'" aria-hidden="true" />
       <aside v-else-if="activeTab === 'info'" class="signup-box">
-        <p class="section-kicker">REGISTRATION</p>
         <h2>赛事报名</h2>
         <FormMessage v-if="message" type="success" :message="message" />
         <FormMessage v-if="error" :message="error" />

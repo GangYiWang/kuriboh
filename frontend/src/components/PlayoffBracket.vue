@@ -97,7 +97,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
 
 <template>
   <section :class="['playoff-live', { 'playoff-live-embedded': embedded }]">
-    <div v-if="!embedded" class="swiss-progress-heading"><div><p class="section-kicker">{{ view === 'matches' ? 'PLAYOFF MATCHES' : 'RESULTS' }}</p><h2>{{ view === 'matches' ? '对阵' : '赛果' }}</h2></div><span v-if="overview" class="status-badge status-elimination">Top {{ overview.playoff_size }}</span></div>
+    <div v-if="!embedded" class="swiss-progress-heading"><div><h2>{{ view === 'matches' ? '对阵' : '赛果' }}</h2></div><span v-if="overview" class="status-badge status-elimination">Top {{ overview.playoff_size }}</span></div>
     <FormMessage v-if="view === 'matches' && message" type="success" :message="message" />
     <FormMessage v-if="error" :message="error" />
 
