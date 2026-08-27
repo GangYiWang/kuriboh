@@ -1,4 +1,5 @@
 from io import BytesIO
+from pathlib import Path
 
 from PIL import Image
 
@@ -111,6 +112,13 @@ def test_image_upload_validates_and_reencodes_images(client, make_user) -> None:
     Image.new("RGB", (12, 8), color=(141, 61, 45)).save(image_buffer, format="PNG")
     jpeg_buffer = BytesIO()
     Image.new("RGB", (12, 8), color=(141, 61, 45)).save(jpeg_buffer, format="JPEG")
+    mpo_buffer = BytesIO()
+    Image.new("RGB", (12, 8), color=(141, 61, 45)).save(
+        mpo_buffer,
+        format="MPO",
+        save_all=True,
+        append_images=[Image.new("L", (6, 4), color=128)],
+    )
 
     valid = client.post(
         "/api/admin/uploads/images",
@@ -126,6 +134,11 @@ def test_image_upload_validates_and_reencodes_images(client, make_user) -> None:
         "/api/admin/uploads/images",
         headers=headers,
         files={"image": ("sample.jpeg", jpeg_buffer.getvalue(), "image/jpeg")},
+    )
+    mpo = client.post(
+        "/api/admin/uploads/images",
+        headers=headers,
+        files={"image": ("iphone-hdr.jpg", mpo_buffer.getvalue(), "image/jpeg")},
     )
     settings = get_settings()
     too_large = client.post(
@@ -143,6 +156,12 @@ def test_image_upload_validates_and_reencodes_images(client, make_user) -> None:
     assert jpeg.status_code == 200
     assert jpeg.json()["content_type"] == "image/jpeg"
     assert jpeg.json()["url"].endswith(".jpg")
+    assert mpo.status_code == 200
+    assert mpo.json()["content_type"] == "image/jpeg"
+    assert mpo.json()["url"].endswith(".jpg")
+    with Image.open(get_settings().upload_dir / Path(mpo.json()["url"]).name) as stored_mpo:
+        assert stored_mpo.format == "JPEG"
+        assert getattr(stored_mpo, "n_frames", 1) == 1
     assert too_large.status_code == 413
     assert too_large.json()["code"] == "INVALID_IMAGE_SIZE"
     assert too_large.json()["message"] == "图片为空或超过 20MB"

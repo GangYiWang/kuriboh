@@ -8,9 +8,10 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 
 FORMAT_CONFIG = {
-    "JPEG": ("jpg", "image/jpeg"),
-    "PNG": ("png", "image/png"),
-    "WEBP": ("webp", "image/webp"),
+    "JPEG": ("jpg", "image/jpeg", "JPEG"),
+    "MPO": ("jpg", "image/jpeg", "JPEG"),
+    "PNG": ("png", "image/png", "PNG"),
+    "WEBP": ("webp", "image/webp", "WEBP"),
 }
 
 
@@ -33,20 +34,33 @@ class LocalImageStorage:
             source = Image.open(BytesIO(content))
             source.load()
         except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
-            raise AppError("INVALID_IMAGE", "仅支持有效的 JPG、JPEG、PNG 或 WEBP 图片", status_code=400) from exc
+            raise AppError(
+                "INVALID_IMAGE",
+                "仅支持有效的 JPG、JPEG、iPhone HDR 照片、PNG 或 WEBP 图片",
+                status_code=400,
+            ) from exc
         if source.format not in FORMAT_CONFIG:
-            raise AppError("INVALID_IMAGE_TYPE", "仅支持 JPG、JPEG、PNG 或 WEBP 图片", status_code=400)
+            raise AppError(
+                "INVALID_IMAGE_TYPE",
+                "仅支持 JPG、JPEG、iPhone HDR 照片、PNG 或 WEBP 图片",
+                status_code=400,
+            )
         width, height = source.size
         if width > 6000 or height > 6000:
             raise AppError("IMAGE_TOO_LARGE", "图片尺寸不能超过 6000×6000", status_code=400)
-        extension, content_type = FORMAT_CONFIG[source.format]
+        source_format = source.format
+        extension, content_type, output_format = FORMAT_CONFIG[source_format]
         self.root.mkdir(parents=True, exist_ok=True)
         filename = f"{uuid4().hex}.{extension}"
         target = (self.root / filename).resolve()
         if target.parent != self.root:
             raise AppError("INVALID_UPLOAD_PATH", "上传路径无效", status_code=400)
-        save_image = source
-        if source.format == "JPEG" and source.mode not in ("RGB", "L"):
-            save_image = source.convert("RGB")
-        save_image.save(target, format=source.format, optimize=True)
+        if source_format == "MPO":
+            source.seek(0)
+            save_image = source.copy()
+        else:
+            save_image = source
+        if output_format == "JPEG" and save_image.mode not in ("RGB", "L"):
+            save_image = save_image.convert("RGB")
+        save_image.save(target, format=output_format, optimize=True)
         return f"/uploads/{filename}", width, height, content_type
