@@ -64,7 +64,6 @@ const busy = ref(false)
 const bulkApprovalOpen = ref(false)
 const startTournamentOpen = ref(false)
 const publishSwissRoundOpen = ref(false)
-const publishPlayoffStageOpen = ref(false)
 const tournamentId = computed(() => String(route.params.id))
 const section = computed(() => String(route.params.section || 'settings'))
 const coreLocked = computed(() => tournament.value ? ['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.value.status) : false)
@@ -493,41 +492,14 @@ async function generatePlayoffStage() {
   busy.value = true
   error.value = ''
   try {
-    await apiPost(`/admin/tournaments/${tournamentId.value}/playoffs/generate`, {}, authStore.token)
-    message.value = '淘汰阶段固定种子签表预览已生成。'
-    await loadPlayoffs()
+    const generated = await apiPost<PlayoffRound>(
+      `/admin/tournaments/${tournamentId.value}/playoffs/generate`, {}, authStore.token,
+    )
+    message.value = `${generated.name}对阵已生成并发布。`
+    await Promise.all([loadPlayoffs(), loadTournamentSummary()])
     selectedPlayoffRoundId.value = latestPlayoffRound.value?.id ?? null
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '淘汰阶段生成失败'
-  } finally { busy.value = false }
-}
-
-function requestPlayoffStagePublish() {
-  if (!latestPlayoffRound.value || latestPlayoffRound.value.status !== 'DRAFT') return
-  error.value = ''
-  publishPlayoffStageOpen.value = true
-}
-
-function cancelPlayoffStagePublish() {
-  if (!busy.value) publishPlayoffStageOpen.value = false
-}
-
-async function publishPlayoffStage() {
-  if (!latestPlayoffRound.value || latestPlayoffRound.value.status !== 'DRAFT') {
-    publishPlayoffStageOpen.value = false
-    return
-  }
-  busy.value = true
-  error.value = ''
-  try {
-    await apiPost(
-      `/admin/tournaments/${tournamentId.value}/playoffs/rounds/${latestPlayoffRound.value.id}/publish`, {}, authStore.token,
-    )
-    message.value = `${latestPlayoffRound.value.name}已正式发布。`
-    await Promise.all([loadPlayoffs(), loadTournamentSummary()])
-    publishPlayoffStageOpen.value = false
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : '淘汰阶段发布失败'
   } finally { busy.value = false }
 }
 
@@ -685,17 +657,6 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       @cancel="cancelSwissRoundPublish"
       @confirm="publishSwissRound"
     />
-    <ConfirmFormDialog
-      v-if="publishPlayoffStageOpen && latestPlayoffRound"
-      :title="`正式发布${latestPlayoffRound.name}`"
-      description="发布后本阶段签表不可修改，选手将可以查看对手并提交赛果。"
-      confirm-text="确认正式发布"
-      :busy="busy"
-      :error="error"
-      @cancel="cancelPlayoffStagePublish"
-      @confirm="publishPlayoffStage"
-    />
-
     <form v-if="tournament && section === 'settings'" class="content-form tournament-settings" @submit.prevent="saveSettings">
       <div class="settings-heading"><div><h2>赛事设置</h2><p v-if="coreLocked" class="form-hint">赛事已经开始，容量、轮数、Top N 和禁卡表版本已锁定。</p></div><span :class="['status-badge', `status-${tournament.status.toLowerCase()}`]">{{ tournamentStatusText[tournament.status] }}</span></div>
       <label><span>赛事名称</span><input v-model.trim="form.name" required /></label>
@@ -880,10 +841,9 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
         <div v-if="!['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.status)" class="empty-state">完成瑞士轮后开放淘汰赛管理。</div>
         <template v-else>
           <div class="swiss-operation-bar">
-            <div><h3>淘汰赛对阵</h3><p>按阶段查看和处理每场对局；Top N 按瑞士轮最终排名固定入位。</p></div>
+            <div><h3>淘汰赛对阵</h3><p>Top N 按瑞士轮最终排名固定入位，生成后立即发布。</p></div>
             <div class="form-actions">
-              <button v-if="tournament.status !== 'ENDED' && (!latestPlayoffRound || (latestPlayoffRound.status === 'COMPLETED' && latestPlayoffRound.bracket_size > 2))" class="button primary" type="button" :disabled="busy" @click="generatePlayoffStage">生成下一阶段</button>
-              <button v-if="latestPlayoffRound?.status === 'DRAFT'" class="button primary" type="button" :disabled="busy" @click="requestPlayoffStagePublish">正式发布{{ latestPlayoffRound.name }}</button>
+              <button v-if="tournament.status !== 'ENDED' && (!latestPlayoffRound || latestPlayoffRound.status === 'DRAFT' || (latestPlayoffRound.status === 'COMPLETED' && latestPlayoffRound.bracket_size > 2))" class="button primary" type="button" :disabled="busy" @click="generatePlayoffStage">{{ latestPlayoffRound?.status === 'DRAFT' ? '完成对阵生成' : latestPlayoffRound ? '生成下一阶段' : '生成淘汰赛对阵' }}</button>
               <button v-if="tournament.status === 'ELIMINATION' && playoff?.awaiting_tournament_end" class="button primary" type="button" :disabled="busy" @click="endTournament">结束赛事并锁定结果</button>
             </div>
           </div>

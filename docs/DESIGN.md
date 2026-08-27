@@ -87,7 +87,7 @@ Use subtle hover states.
 
 ## Administrative Confirmations
 
-- Use the shared in-page confirmation dialog for irreversible tournament-stage actions such as publishing Swiss rounds or playoff stages. Do not use native browser `confirm()` dialogs for these workflows.
+- Use the shared in-page confirmation dialog when publishing Swiss rounds. Playoff pairings are fixed by seed and must be generated and published atomically without a preview or separate confirmation step.
 - Keep the action title, consequence description, cancel action, and primary confirmation action consistent across competition stages.
 - Ending a tournament is an explicit exception: `结束赛事并锁定结果` executes immediately without a confirmation dialog or cancel step. Keep the button disabled while the request is in progress and surface API success or failure in the page.
 

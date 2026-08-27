@@ -114,12 +114,8 @@ def generate_and_publish(client, tournament_id, admin_token):
         f"/api/admin/tournaments/{tournament_id}/playoffs/generate", headers=auth(admin_token)
     )
     assert generated.status_code == 200, generated.json()
-    published = client.post(
-        f"/api/admin/tournaments/{tournament_id}/playoffs/rounds/{generated.json()['id']}/publish",
-        headers=auth(admin_token),
-    )
-    assert published.status_code == 200, published.json()
-    return generated.json(), published.json()
+    assert generated.json()["status"] == "PUBLISHED"
+    return generated.json(), generated.json()
 
 
 def forfeit_all(client, round_data, admin_token):
@@ -132,20 +128,20 @@ def forfeit_all(client, round_data, admin_token):
         assert response.status_code == 200, response.json()
 
 
-def test_top_four_fixed_seeds_and_no_draft_forfeit(client, make_user, session_factory) -> None:
+def test_top_four_fixed_seeds_are_published_immediately(client, make_user, session_factory) -> None:
     tournament_id, admin_token, _ = seed_ready_playoff(session_factory, make_user, playoff_size=4)
     generated = client.post(
         f"/api/admin/tournaments/{tournament_id}/playoffs/generate", headers=auth(admin_token)
     )
     assert generated.status_code == 200
+    assert generated.json()["status"] == "PUBLISHED"
     assert [(item["seed_a"], item["seed_b"]) for item in generated.json()["matches"]] == [(1, 4), (2, 3)]
-    draft_forfeit = client.post(
+    resolved = client.post(
         f"/api/admin/playoffs/matches/{generated.json()['matches'][0]['id']}/forfeit",
         headers=auth(admin_token),
-        json={"loser_id": generated.json()["matches"][0]["player_b_id"], "reason": "尚未发布"},
+        json={"loser_id": generated.json()["matches"][0]["player_b_id"]},
     )
-    assert draft_forfeit.status_code == 409
-    assert draft_forfeit.json()["code"] == "MATCH_NOT_PUBLISHED"
+    assert resolved.status_code == 200
 
 
 def test_player_submissions_complete_playoff_match(client, make_user, session_factory) -> None:
@@ -223,35 +219,18 @@ def test_next_stage_publication_locks_previous_results(client, make_user, sessio
     tournament_id, admin_token, _ = seed_ready_playoff(session_factory, make_user, playoff_size=4)
     _, semifinal = generate_and_publish(client, tournament_id, admin_token)
     forfeit_all(client, semifinal, admin_token)
-    final_preview = client.post(
-        f"/api/admin/tournaments/{tournament_id}/playoffs/generate", headers=auth(admin_token)
-    )
-    assert final_preview.status_code == 200
-
-    # A correction before publishing the next stage remains possible and invalidates its draft.
-    correction_match = semifinal["matches"][0]
-    corrected = client.post(
-        f"/api/admin/playoffs/matches/{correction_match['id']}/forfeit",
-        headers=auth(admin_token),
-        json={"loser_id": correction_match["player_a_id"]},
-    )
-    assert corrected.status_code == 200
-    assert len(client.get(
-        f"/api/admin/tournaments/{tournament_id}/playoffs", headers=auth(admin_token)
-    ).json()["rounds"]) == 1
-
-    final_preview = client.post(
-        f"/api/admin/tournaments/{tournament_id}/playoffs/generate", headers=auth(admin_token)
-    )
     published_final = client.post(
-        f"/api/admin/tournaments/{tournament_id}/playoffs/rounds/{final_preview.json()['id']}/publish",
-        headers=auth(admin_token),
+        f"/api/admin/tournaments/{tournament_id}/playoffs/generate", headers=auth(admin_token)
     )
     assert published_final.status_code == 200
+    assert published_final.json()["status"] == "PUBLISHED"
+
+    # Generating the next fixed-seed stage publishes it immediately and locks prior results.
+    correction_match = semifinal["matches"][0]
     locked = client.post(
         f"/api/admin/playoffs/matches/{correction_match['id']}/forfeit",
         headers=auth(admin_token),
-        json={"loser_id": correction_match["player_b_id"], "reason": "锁定后尝试修改"},
+        json={"loser_id": correction_match["player_a_id"]},
     )
     assert locked.status_code == 409
     assert locked.json()["code"] == "MATCH_RESULT_LOCKED"

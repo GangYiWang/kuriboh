@@ -66,7 +66,7 @@ def generate_playoff_stage(
     db: Annotated[Session, Depends(get_db)],
 ) -> PlayoffRoundResponse:
     require_tournament_owner(db, tournament_id, principal.user_id)
-    return PlayoffService(db).generate_preview(tournament_id, principal.user_id)
+    return PlayoffService(db).generate_and_publish(tournament_id, principal.user_id)
 
 
 @admin_router.post(

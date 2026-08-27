@@ -21,7 +21,7 @@ from app.playoffs.schemas import (
 from app.registrations.models import ParticipantStatus
 from app.swiss.models import SwissRoundStatus
 from app.swiss.repository import SwissRepository
-from app.tournaments.models import TournamentStatus
+from app.tournaments.models import Tournament, TournamentStatus
 from app.tournaments.service import TournamentService
 
 
@@ -32,7 +32,7 @@ class PlayoffService:
         self.swiss = SwissRepository(db)
         self.tournaments = TournamentService(db)
 
-    def generate_preview(self, tournament_id: UUID, operator_id: UUID) -> PlayoffRoundResponse:
+    def _prepare_stage(self, tournament_id: UUID) -> tuple[Tournament, PlayoffRound, list[Match]]:
         tournament = self.tournaments.require(tournament_id, for_update=True)
         if tournament.status not in {TournamentStatus.SWISS.value, TournamentStatus.ELIMINATION.value}:
             raise AppError("INVALID_TOURNAMENT_STATE", "赛事当前不能生成淘汰赛签表", status_code=409)
@@ -48,11 +48,40 @@ class PlayoffService:
             round_item, matches = self._generate_first_round(tournament)
         else:
             round_item, matches = self._generate_next_round(tournament_id, latest)
+        return tournament, round_item, matches
+
+    def _store_stage(self, round_item: PlayoffRound, matches: list[Match]) -> None:
         self.db.add(round_item)
         self.db.flush()
         for match in matches:
             match.playoff_round_id = round_item.id
             self.db.add(match)
+
+    def _publish_stage_state(
+        self,
+        tournament: Tournament,
+        round_item: PlayoffRound,
+    ) -> None:
+        previous = [
+            item for item in self.repository.rounds(tournament.id)
+            if item.stage_no < round_item.stage_no
+        ]
+        if previous and previous[-1].status != PlayoffRoundStatus.COMPLETED.value:
+            raise AppError("PLAYOFF_STAGE_INCOMPLETE", "上一淘汰阶段尚未完成", status_code=409)
+        if previous:
+            for match in self.repository.round_matches(previous[-1].id):
+                match.result_locked = True
+        else:
+            for swiss_round in self.swiss.rounds(tournament.id, published_only=True):
+                for match in self.swiss.round_matches(swiss_round.id):
+                    match.result_locked = True
+        round_item.status = PlayoffRoundStatus.PUBLISHED.value
+        round_item.published_at = datetime.now(UTC)
+        tournament.status = TournamentStatus.ELIMINATION.value
+
+    def generate_preview(self, tournament_id: UUID, operator_id: UUID) -> PlayoffRoundResponse:
+        _, round_item, matches = self._prepare_stage(tournament_id)
+        self._store_stage(round_item, matches)
         add_audit_log(
             self.db,
             operator_id=operator_id,
@@ -61,6 +90,36 @@ class PlayoffService:
             target_type="playoff_round",
             target_id=round_item.id,
             after={"stage_no": round_item.stage_no, "bracket_size": round_item.bracket_size},
+        )
+        self.db.commit()
+        return self.round_response(round_item)
+
+    def generate_and_publish(self, tournament_id: UUID, operator_id: UUID) -> PlayoffRoundResponse:
+        existing = self.repository.latest_round(tournament_id)
+        if existing and existing.status == PlayoffRoundStatus.DRAFT.value:
+            tournament = self.tournaments.require(tournament_id, for_update=True)
+            round_item = self.repository.get_round(tournament_id, existing.id, for_update=True)
+            if round_item is None:
+                raise AppError("PLAYOFF_ROUND_NOT_FOUND", "淘汰阶段不存在", status_code=404)
+            self._publish_stage_state(tournament, round_item)
+            action_type = "PLAYOFF_STAGE_PUBLISHED"
+        else:
+            tournament, round_item, matches = self._prepare_stage(tournament_id)
+            self._store_stage(round_item, matches)
+            self._publish_stage_state(tournament, round_item)
+            action_type = "PLAYOFF_STAGE_GENERATED_AND_PUBLISHED"
+        add_audit_log(
+            self.db,
+            operator_id=operator_id,
+            tournament_id=tournament_id,
+            action_type=action_type,
+            target_type="playoff_round",
+            target_id=round_item.id,
+            after={
+                "stage_no": round_item.stage_no,
+                "bracket_size": round_item.bracket_size,
+                "name": round_item.name,
+            },
         )
         self.db.commit()
         return self.round_response(round_item)
@@ -146,19 +205,7 @@ class PlayoffService:
             raise AppError("PLAYOFF_ROUND_NOT_FOUND", "淘汰阶段不存在", status_code=404)
         if round_item.status != PlayoffRoundStatus.DRAFT.value:
             raise AppError("PLAYOFF_ALREADY_PUBLISHED", "淘汰阶段已经发布", status_code=409)
-        previous = [item for item in self.repository.rounds(tournament_id) if item.stage_no < round_item.stage_no]
-        if previous and previous[-1].status != PlayoffRoundStatus.COMPLETED.value:
-            raise AppError("PLAYOFF_STAGE_INCOMPLETE", "上一淘汰阶段尚未完成", status_code=409)
-        if previous:
-            for match in self.repository.round_matches(previous[-1].id):
-                match.result_locked = True
-        else:
-            for swiss_round in self.swiss.rounds(tournament_id, published_only=True):
-                for match in self.swiss.round_matches(swiss_round.id):
-                    match.result_locked = True
-        round_item.status = PlayoffRoundStatus.PUBLISHED.value
-        round_item.published_at = datetime.now(UTC)
-        tournament.status = TournamentStatus.ELIMINATION.value
+        self._publish_stage_state(tournament, round_item)
         add_audit_log(
             self.db,
             operator_id=operator_id,

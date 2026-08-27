@@ -78,6 +78,7 @@ const auditActionTypeText: Record<string, string> = {
   PARTICIPANT_WITHDRAWN: '强制选手退赛',
   PLAYOFF_STAGE_GENERATED: '生成淘汰赛阶段',
   PLAYOFF_STAGE_PUBLISHED: '发布淘汰赛阶段',
+  PLAYOFF_STAGE_GENERATED_AND_PUBLISHED: '生成并发布淘汰赛阶段',
   PLAYOFF_MATCH_FORFEIT: '裁定淘汰赛赛果',
   PLAYOFF_MATCH_RESOLVED: '裁定淘汰赛赛果',
   DECK_SUBMISSION_APPROVE: '通过卡组审核',
