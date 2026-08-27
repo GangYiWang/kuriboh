@@ -109,6 +109,8 @@ def test_image_upload_validates_and_reencodes_images(client, make_user) -> None:
     headers = {"Authorization": f"Bearer {token}"}
     image_buffer = BytesIO()
     Image.new("RGB", (12, 8), color=(141, 61, 45)).save(image_buffer, format="PNG")
+    jpeg_buffer = BytesIO()
+    Image.new("RGB", (12, 8), color=(141, 61, 45)).save(jpeg_buffer, format="JPEG")
 
     valid = client.post(
         "/api/admin/uploads/images",
@@ -119,6 +121,11 @@ def test_image_upload_validates_and_reencodes_images(client, make_user) -> None:
         "/api/admin/uploads/images",
         headers=headers,
         files={"image": ("attack.png", b"<script>alert(1)</script>", "image/png")},
+    )
+    jpeg = client.post(
+        "/api/admin/uploads/images",
+        headers=headers,
+        files={"image": ("sample.jpeg", jpeg_buffer.getvalue(), "image/jpeg")},
     )
     settings = get_settings()
     too_large = client.post(
@@ -133,6 +140,9 @@ def test_image_upload_validates_and_reencodes_images(client, make_user) -> None:
     assert valid.json()["height"] == 8
     assert invalid.status_code == 400
     assert invalid.json()["code"] == "INVALID_IMAGE"
+    assert jpeg.status_code == 200
+    assert jpeg.json()["content_type"] == "image/jpeg"
+    assert jpeg.json()["url"].endswith(".jpg")
     assert too_large.status_code == 413
     assert too_large.json()["code"] == "INVALID_IMAGE_SIZE"
     assert too_large.json()["message"] == "图片为空或超过 20MB"

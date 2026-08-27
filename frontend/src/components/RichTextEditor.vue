@@ -58,7 +58,7 @@ async function upload(event: Event) {
       <button type="button" @click="command('bold')">加粗</button>
       <button type="button" @click="command('insertUnorderedList')">列表</button>
       <button type="button" @click="fileInput?.click()">插入图片</button>
-      <input ref="fileInput" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp" @change="upload" />
+      <input ref="fileInput" class="visually-hidden" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" @change="upload" />
     </div>
     <div
       ref="editor"

@@ -64,7 +64,7 @@ onMounted(load)
     <img v-if="submission.image_url" class="deck-preview" :src="submission.image_url" alt="已提交的卡组截图" />
     <p v-if="submission.review_note" class="review-note">退回原因：{{ submission.review_note }}</p>
     <div v-if="submission.status !== 'APPROVED'" class="deck-upload-actions">
-      <label class="file-control"><span>{{ submission.image_url ? '选择新的截图' : '选择卡组截图' }}</span><input type="file" accept="image/jpeg,image/png,image/webp" @change="chooseFile" /></label>
+      <label class="file-control"><span>{{ submission.image_url ? '选择新的截图' : '选择卡组截图' }}</span><input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" @change="chooseFile" /></label>
       <button class="button primary" type="button" :disabled="busy || !selectedFile" @click="upload">{{ submission.image_url ? '重新上传' : '上传截图' }}</button>
     </div>
     <p v-else class="form-hint">截图已审核通过并锁定，将用于本届赛事周报。</p>

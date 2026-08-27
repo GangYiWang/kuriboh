@@ -33,9 +33,9 @@ class LocalImageStorage:
             source = Image.open(BytesIO(content))
             source.load()
         except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
-            raise AppError("INVALID_IMAGE", "仅支持有效的 JPG、PNG 或 WEBP 图片", status_code=400) from exc
+            raise AppError("INVALID_IMAGE", "仅支持有效的 JPG、JPEG、PNG 或 WEBP 图片", status_code=400) from exc
         if source.format not in FORMAT_CONFIG:
-            raise AppError("INVALID_IMAGE_TYPE", "仅支持 JPG、PNG 或 WEBP 图片", status_code=400)
+            raise AppError("INVALID_IMAGE_TYPE", "仅支持 JPG、JPEG、PNG 或 WEBP 图片", status_code=400)
         width, height = source.size
         if width > 6000 or height > 6000:
             raise AppError("IMAGE_TOO_LARGE", "图片尺寸不能超过 6000×6000", status_code=400)
