@@ -27,6 +27,7 @@ from app.tournaments.schemas import (
     TournamentUpdateRequest,
 )
 from app.swiss.models import RankingSnapshot, SwissRound, SwissRoundStatus
+from app.statistics.service import TournamentStatisticsService
 
 
 CORE_FIELDS = {"max_players", "swiss_rounds", "playoff_size", "banlist_version_id"}
@@ -323,6 +324,7 @@ class TournamentService:
         placements = self._final_four_placements(tournament.id, final_match)
         if len(placements) != 4:
             raise AppError("FINAL_FOUR_UNAVAILABLE", "无法从赛事结果确定最终四强", status_code=409)
+        settled_at = datetime.now(UTC)
         for placement, participant_id in enumerate(placements, start=1):
             self.db.add(DeckSubmission(
                 tournament_id=tournament.id,
@@ -332,8 +334,9 @@ class TournamentService:
         self.db.execute(
             update(Match).where(Match.tournament_id == tournament.id).values(result_locked=True)
         )
+        TournamentStatisticsService(self.db).settle_tournament(tournament, placements, settled_at)
         tournament.status = TournamentStatus.ENDED.value
-        tournament.ended_at = datetime.now(UTC)
+        tournament.ended_at = settled_at
         add_audit_log(
             self.db,
             operator_id=operator_id,

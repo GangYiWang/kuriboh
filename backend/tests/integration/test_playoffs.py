@@ -9,6 +9,7 @@ from app.content.models import BanlistVersion
 from app.matches.models import Match, MatchStage, MatchStatus, ResultSource
 from app.registrations.models import Registration, RegistrationStatus, TournamentParticipant
 from app.swiss.models import RankingSnapshot, SwissRound, SwissRoundStatus
+from app.statistics.models import PlayerStatistics, TournamentPlayerResult
 from app.tournaments.models import Tournament, TournamentStatus
 
 
@@ -268,6 +269,39 @@ def test_phase5_end_decks_and_immutable_weekly_report(client, make_user, session
     assert ended.status_code == 200, ended.json()
     assert ended.json()["status"] == "ENDED"
     assert ended.json()["ended_at"] is not None
+
+    with session_factory() as db:
+        settled_results = list(db.query(TournamentPlayerResult).filter_by(tournament_id=tournament_id))
+        assert len(settled_results) == 8
+        assert sorted((item.points_awarded for item in settled_results), reverse=True) == [8, 4, 2, 2, 1, 1, 1, 1]
+        assert db.query(PlayerStatistics).count() == 8
+
+    champion_id = UUID(final["matches"][0]["player_a_id"])
+    champion_statistics = client.get(
+        "/api/me/tournament-statistics", headers=auth(tokens[champion_id])
+    )
+    assert champion_statistics.status_code == 200, champion_statistics.json()
+    assert champion_statistics.json()["total_points"] == 8
+    assert champion_statistics.json()["champion_count"] == 1
+    assert champion_statistics.json()["top_4_count"] == 1
+    assert champion_statistics.json()["top_8_count"] == 1
+    assert champion_statistics.json()["results"][0]["finish_level"] == "CHAMPION"
+    assert champion_statistics.json()["results"][0]["placement"] == 1
+
+    quarterfinal_loser_id = UUID(quarterfinal["matches"][0]["player_b_id"])
+    quarterfinalist_statistics = client.get(
+        "/api/me/tournament-statistics", headers=auth(tokens[quarterfinal_loser_id])
+    ).json()
+    assert quarterfinalist_statistics["total_points"] == 1
+    assert quarterfinalist_statistics["top_4_count"] == 0
+    assert quarterfinalist_statistics["top_8_count"] == 1
+    assert quarterfinalist_statistics["results"][0]["finish_level"] == "TOP_8"
+    assert quarterfinalist_statistics["results"][0]["placement"] is None
+
+    repeated_end = client.post(f"/api/admin/tournaments/{tournament_id}/end", headers=admin_headers)
+    assert repeated_end.status_code == 409
+    with session_factory() as db:
+        assert db.query(TournamentPlayerResult).filter_by(tournament_id=tournament_id).count() == 8
 
     locked = client.post(
         f"/api/admin/playoffs/matches/{final['matches'][0]['id']}/forfeit",

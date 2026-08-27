@@ -9,6 +9,7 @@ from app.playoffs.models import PlayoffRound
 from app.registrations.models import Registration, TournamentParticipant
 from app.reports.models import WeeklyReport
 from app.swiss.models import RankingSnapshot, SwissRound, Withdrawal
+from app.statistics.models import PlayerStatistics, TournamentPlayerResult
 from app.tournaments.models import Tournament
 from app.users.models import User
 
@@ -21,10 +22,12 @@ __all__ = [
     "MatchSubmission",
     "Message",
     "PlayoffRound",
+    "PlayerStatistics",
     "RankingSnapshot",
     "Registration",
     "SwissRound",
     "Tournament",
+    "TournamentPlayerResult",
     "TournamentParticipant",
     "User",
     "WeeklyReport",

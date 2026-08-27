@@ -167,6 +167,7 @@ cd /d backend
 - `/api/admin/banlists`、`/api/admin/announcements`
 - `/api/admin/uploads/images`
 - `/api/tournaments`、`/api/tournaments/{id}`
+- `/api/me/tournaments`、`/api/me/tournament-statistics`
 - `/api/tournaments/{id}/registrations`、`/api/tournaments/{id}/registrations/me`、`/api/tournaments/{id}/registrations/cancel`
 - `/api/admin/tournaments`、`/api/admin/tournaments/{id}`
 - `/api/admin/tournaments/{id}/publish`、`/api/admin/tournaments/{id}/start`

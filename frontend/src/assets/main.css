@@ -646,6 +646,10 @@ input {
   padding-bottom: 80px;
 }
 
+.account-page .page-heading {
+  padding: 32px 0 24px;
+}
+
 .account-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -656,6 +660,67 @@ input {
 .account-layout.password-form-open {
   grid-template-columns: minmax(0, 1fr) 420px;
 }
+
+.account-section-nav {
+  display: flex;
+  gap: 28px;
+  margin-top: 30px;
+  border-bottom: 1px solid var(--color-line-strong);
+}
+
+.account-section-nav button {
+  position: relative;
+  padding: 0 1px 13px;
+  border: 0;
+  color: var(--color-muted);
+  background: transparent;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.account-section-nav button::after {
+  height: 2px;
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  content: '';
+  transform: scaleX(0);
+  background: var(--color-brand);
+}
+
+.account-section-nav button:hover,
+.account-section-nav button.active {
+  color: var(--color-brand);
+}
+
+.account-section-nav button.active::after {
+  transform: scaleX(1);
+}
+
+.competition-records { padding-top: 24px; }
+.record-section-heading, .record-history-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.record-section-heading h2 { margin: 0; font-size: 20px; }
+.record-section-heading > p { margin: 0; color: var(--color-muted); font-size: 12px; }
+.record-statistics { display: grid; grid-template-columns: 1.35fr repeat(5, 1fr); margin: 18px 0 0; border-top: 1px solid var(--color-line-strong); border-bottom: 1px solid var(--color-line-strong); }
+.record-statistics div { min-height: 104px; padding: 22px 20px; border-left: 1px solid var(--color-line); }
+.record-statistics div:first-child { border-left: 0; padding-left: 0; }
+.record-statistics dt { color: var(--color-muted); font-size: 11px; }
+.record-statistics dd { margin: 14px 0 0; font: 700 28px/1 var(--font-number); }
+.record-statistics-primary dd { color: var(--color-brand); font-size: 36px; }
+.record-history { margin-top: 32px; }
+.record-history-heading h2 { margin: 0; font-size: 20px; }
+.record-history-heading span { color: var(--color-muted); font-size: 11px; }
+.record-history-table-wrap { margin-top: 18px; overflow-x: auto; border-top: 1px solid var(--color-line-strong); }
+.record-history-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.record-history-table th, .record-history-table td { padding: 13px 12px; border-bottom: 1px solid var(--color-line); text-align: left; white-space: nowrap; }
+.record-history-table th { color: var(--color-muted); font-size: 10px; font-weight: 500; }
+.record-history-table th:first-child, .record-history-table td:first-child { padding-left: 0; }
+.record-history-table td:first-child { min-width: 220px; white-space: normal; }
+.record-history-table a { font-weight: 600; }
+.record-history-table a:hover { color: var(--color-brand); }
+.record-history-table small { display: block; margin-top: 4px; color: var(--color-muted); font-size: 10px; }
+.record-history-table td:last-child strong { color: var(--color-brand); }
 
 .profile-details h2,
 .settings-form h2,
@@ -1391,6 +1456,9 @@ input {
   .hero-emblem { width: 300px; transform: scale(0.78); }
   .auth-page { grid-template-columns: 1fr 390px; gap: 48px; }
   .account-layout.password-form-open { grid-template-columns: 1fr 380px; gap: 38px; }
+  .record-statistics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .record-statistics div:nth-child(4) { border-left: 0; }
+  .record-statistics div:nth-child(n+4) { border-top: 1px solid var(--color-line); }
   .admin-modules { grid-template-columns: 1fr 1fr; }
   .tournament-row { grid-template-columns: 82px minmax(180px, 1fr) 24px; }
   .tournament-facts { display: none; }
@@ -1506,6 +1574,12 @@ input {
   .auth-intro h1 { font-size: 35px; }
   .auth-form { margin-top: 34px; padding: 22px 18px; }
   .account-layout { display: block; }
+  .record-section-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .record-statistics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .record-statistics div, .record-statistics div:first-child { min-height: 88px; padding: 18px 14px; border-top: 1px solid var(--color-line); border-left: 1px solid var(--color-line); }
+  .record-statistics div:nth-child(-n+2) { border-top: 0; }
+  .record-statistics div:nth-child(odd) { border-left: 0; }
+  .record-statistics dd, .record-statistics-primary dd { font-size: 26px; }
   .settings-form { margin-top: 42px; }
   .security-settings { align-items: flex-start; }
 

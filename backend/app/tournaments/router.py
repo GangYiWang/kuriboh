@@ -26,6 +26,8 @@ from app.tournaments.schemas import (
     TournamentUpdateRequest,
 )
 from app.tournaments.service import TournamentService, tournament_response
+from app.statistics.schemas import PlayerStatisticsResponse
+from app.statistics.service import TournamentStatisticsService
 
 router = APIRouter(tags=["tournaments"])
 admin_router = APIRouter(prefix="/admin", tags=["admin-tournaments"])
@@ -88,6 +90,14 @@ def my_tournaments(
     db: Annotated[Session, Depends(get_db)],
 ) -> MyTournamentListResponse:
     return TournamentService(db).my_tournaments(principal.user_id)
+
+
+@router.get("/me/tournament-statistics", response_model=PlayerStatisticsResponse)
+def my_tournament_statistics(
+    principal: Authenticated,
+    db: Annotated[Session, Depends(get_db)],
+) -> PlayerStatisticsResponse:
+    return TournamentStatisticsService(db).for_user(principal.user_id)
 
 
 @router.get("/me/created-tournaments", response_model=TournamentListResponse)
