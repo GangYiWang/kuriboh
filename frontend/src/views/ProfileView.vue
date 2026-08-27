@@ -40,14 +40,6 @@ onMounted(async () => {
   }
 })
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(value))
-}
-
 async function changePassword() {
   message.value = ''
   error.value = ''
@@ -157,15 +149,14 @@ function closePasswordForm() {
           </div>
           <div v-if="statistics.results.length" class="record-history-table-wrap">
             <table class="record-history-table">
-              <thead><tr><th>赛事</th><th>结束日期</th><th>最终成绩</th><th>瑞士轮排名</th><th>战绩</th><th>积分</th></tr></thead>
+              <thead><tr><th>赛事</th><th>最终成绩</th><th>瑞士轮排名</th><th>战绩</th><th>积分</th></tr></thead>
               <tbody>
                 <tr v-for="item in statistics.results" :key="item.tournament_id">
                   <td><RouterLink :to="`/tournaments/${item.tournament_id}`">{{ item.tournament_name }}</RouterLink><small v-if="item.participant_status === 'WITHDRAWN'">已退赛</small></td>
-                  <td>{{ formatDate(item.ended_at) }}</td>
-                  <td><strong>{{ finishLevelText[item.finish_level] }}</strong></td>
-                  <td>{{ item.swiss_rank ? `第 ${item.swiss_rank} 名` : '—' }}</td>
-                  <td>{{ item.wins }}-{{ item.losses }}<small v-if="item.bye_count">{{ item.bye_count }} 次轮空</small></td>
-                  <td><strong>+{{ item.points_awarded }}</strong></td>
+                  <td data-label="最终成绩"><strong>{{ finishLevelText[item.finish_level] }}</strong></td>
+                  <td data-label="瑞士排名">{{ item.swiss_rank ? `第 ${item.swiss_rank} 名` : '—' }}</td>
+                  <td data-label="战绩"><span>{{ item.wins }}-{{ item.losses }}<small v-if="item.bye_count">{{ item.bye_count }} 次轮空</small></span></td>
+                  <td data-label="积分"><strong>+{{ item.points_awarded }}</strong></td>
                 </tr>
               </tbody>
             </table>
