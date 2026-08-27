@@ -21,7 +21,12 @@ class LocalImageStorage:
     def save(self, content: bytes) -> tuple[str, int, int, str]:
         settings = get_settings()
         if not content or len(content) > settings.upload_max_bytes:
-            raise AppError("INVALID_IMAGE_SIZE", "图片为空或超过 5MB", status_code=413)
+            max_megabytes = settings.upload_max_bytes // (1024 * 1024)
+            raise AppError(
+                "INVALID_IMAGE_SIZE",
+                f"图片为空或超过 {max_megabytes}MB",
+                status_code=413,
+            )
         try:
             source = Image.open(BytesIO(content))
             source.verify()

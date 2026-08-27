@@ -3,6 +3,7 @@ from io import BytesIO
 from PIL import Image
 
 from app.auth.roles import Role
+from app.core.config import get_settings
 
 
 def test_player_cannot_publish_content(client, make_user) -> None:
@@ -119,6 +120,12 @@ def test_image_upload_validates_and_reencodes_images(client, make_user) -> None:
         headers=headers,
         files={"image": ("attack.png", b"<script>alert(1)</script>", "image/png")},
     )
+    settings = get_settings()
+    too_large = client.post(
+        "/api/admin/uploads/images",
+        headers=headers,
+        files={"image": ("large.png", b"0" * (settings.upload_max_bytes + 1), "image/png")},
+    )
 
     assert valid.status_code == 200
     assert valid.json()["url"].startswith("/uploads/")
@@ -126,3 +133,6 @@ def test_image_upload_validates_and_reencodes_images(client, make_user) -> None:
     assert valid.json()["height"] == 8
     assert invalid.status_code == 400
     assert invalid.json()["code"] == "INVALID_IMAGE"
+    assert too_large.status_code == 413
+    assert too_large.json()["code"] == "INVALID_IMAGE_SIZE"
+    assert too_large.json()["message"] == "图片为空或超过 20MB"

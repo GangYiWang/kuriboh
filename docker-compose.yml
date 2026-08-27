@@ -52,7 +52,7 @@ services:
       QQ_OAUTH_APP_KEY: ${QQ_OAUTH_APP_KEY:-}
       QQ_OAUTH_REDIRECT_URI: ${QQ_OAUTH_REDIRECT_URI:-}
       UPLOAD_DIR: /app/uploads
-      UPLOAD_MAX_BYTES: ${UPLOAD_MAX_BYTES:-5242880}
+      UPLOAD_MAX_BYTES: ${UPLOAD_MAX_BYTES:-20971520}
     command: ["python", "-m", "alembic", "upgrade", "head"]
     depends_on:
       postgres:
