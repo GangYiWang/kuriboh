@@ -22,6 +22,10 @@ const message = ref('')
 const activeTab = ref<'info' | 'matches' | 'results' | 'deck'>('info')
 const resultsStage = ref<'swiss' | 'playoff'>('swiss')
 const tournamentId = computed(() => String(route.params.id))
+const backTarget = computed(() => route.query.from === 'records'
+  ? { path: '/profile', query: { section: 'records' } }
+  : { path: '/tournaments' })
+const backLabel = computed(() => route.query.from === 'records' ? '返回赛事档案' : '返回赛事中心')
 const remaining = computed(() => Math.max(0, (tournament.value?.max_players ?? 0) - (tournament.value?.approved_count ?? 0)))
 const canReapply = computed(() => registration.value?.status === 'CANCELED' && !registration.value.reviewed_by_id)
 
@@ -89,7 +93,7 @@ onMounted(async () => {
   <div v-else-if="tournament" class="tournament-detail-page">
     <header class="detail-banner">
       <div class="page-shell detail-banner-inner">
-        <RouterLink class="back-link" to="/tournaments">← 返回赛事中心</RouterLink>
+        <RouterLink class="back-link" :to="backTarget">← {{ backLabel }}</RouterLink>
         <span :class="['status-badge', `status-${tournament.status.toLowerCase()}`]">{{ tournamentStatusText[tournament.status] }}</span>
         <h1>{{ tournament.name }}</h1>
         <RouterLink v-if="authStore.user?.id === tournament.created_by_id" class="button secondary" :to="`/tournaments/${tournament.id}/manage/settings`">管理比赛</RouterLink>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { apiGet } from '@/api/client'
 import FormMessage from '@/components/FormMessage.vue'
@@ -9,12 +10,13 @@ import type { PlayerStatistics } from '@/types/statistics'
 import { finishLevelText } from '@/types/statistics'
 
 const authStore = useAuthStore()
+const route = useRoute()
 const form = reactive({ current: '', next: '', confirm: '' })
 const message = ref('')
 const error = ref('')
 const qqStatus = ref<QqOAuthStatus | null>(null)
 const passwordFormOpen = ref(false)
-const activeSection = ref<'account' | 'records'>('account')
+const activeSection = ref<'account' | 'records'>(route.query.section === 'records' ? 'records' : 'account')
 const statistics = ref<PlayerStatistics | null>(null)
 const statisticsError = ref('')
 
@@ -152,7 +154,7 @@ function closePasswordForm() {
               <thead><tr><th>赛事</th><th>最终成绩</th><th>瑞士轮排名</th><th>战绩</th><th>积分</th></tr></thead>
               <tbody>
                 <tr v-for="item in statistics.results" :key="item.tournament_id">
-                  <td><RouterLink :to="`/tournaments/${item.tournament_id}`">{{ item.tournament_name }}</RouterLink><small v-if="item.participant_status === 'WITHDRAWN'">已退赛</small></td>
+                  <td><RouterLink :to="{ path: `/tournaments/${item.tournament_id}`, query: { from: 'records' } }">{{ item.tournament_name }}</RouterLink><small v-if="item.participant_status === 'WITHDRAWN'">已退赛</small></td>
                   <td data-label="最终成绩"><strong>{{ finishLevelText[item.finish_level] }}</strong></td>
                   <td data-label="瑞士排名">{{ item.swiss_rank ? `第 ${item.swiss_rank} 名` : '—' }}</td>
                   <td data-label="战绩"><span>{{ item.wins }}-{{ item.losses }}<small v-if="item.bye_count">{{ item.bye_count }} 次轮空</small></span></td>
