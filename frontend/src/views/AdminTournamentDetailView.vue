@@ -848,7 +848,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
                 <small v-if="selectedSwissRound.status === 'DRAFT' && match.warnings.length" class="admin-match-warning">{{ match.warnings.join(' · ') }}</small>
                 <div v-if="selectedSwissRound.status !== 'DRAFT'" class="admin-match-outcome">
                   <span :class="['status-badge', `match-${match.status.toLowerCase()}`]">{{ matchStatusText[match.status] }}</span>
-                  <div v-if="tournament.status === 'SWISS' && match.player_b_id && !match.result_locked" class="row-actions"><button type="button" :disabled="busy" @click="requestMatchResolution(match)">{{ matchResolutionActionText(match) }}</button></div>
+                  <div v-if="tournament.status === 'SWISS' && match.player_b_id && !match.result_locked" class="row-actions"><button type="button" :aria-label="matchResolutionActionText(match)" :title="matchResolutionActionText(match)" :disabled="busy" @click="requestMatchResolution(match)">处理</button></div>
                 </div>
               </article>
               <section v-if="pendingSwissResolution?.match.id === match.id" class="forfeit-confirmation swiss-resolution-confirmation" role="dialog" :aria-labelledby="`swiss-resolution-title-${match.id}`">
@@ -912,7 +912,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
                   </div>
                   <div v-if="selectedPlayoffRound.status !== 'DRAFT'" class="admin-match-outcome">
                     <span :class="['status-badge', `match-${match.status.toLowerCase()}`]">{{ matchStatusText[match.status] }}</span>
-                    <div v-if="!match.result_locked" class="row-actions"><button type="button" :disabled="busy" @click="requestPlayoffResolution(match)">{{ matchResolutionActionText(match) }}</button></div>
+                    <div v-if="!match.result_locked" class="row-actions"><button type="button" :aria-label="matchResolutionActionText(match)" :title="matchResolutionActionText(match)" :disabled="busy" @click="requestPlayoffResolution(match)">处理</button></div>
                   </div>
                 </article>
                 <section v-if="pendingPlayoffResolution?.match.id === match.id" class="forfeit-confirmation swiss-resolution-confirmation" role="dialog" :aria-labelledby="`playoff-resolution-title-${match.id}`">

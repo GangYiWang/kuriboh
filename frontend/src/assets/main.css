@@ -1554,11 +1554,13 @@ input {
   .admin-match-row { grid-template-columns: 52px minmax(0, 1fr) auto; gap: 8px; padding: 11px 0; }
   .admin-match-row .match-table-no { font-size: 13px; }
   .admin-match-row.admin-match-row-preview { grid-template-columns: 72px minmax(0, 1fr) 72px; }
+  .admin-match-row > .admin-match-players { grid-column: 1 / -1; grid-row: 2; }
   .admin-match-players { grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); gap: 6px; }
+  .admin-match-row-preview > .admin-match-players { grid-column: 2; grid-row: 1; }
   .admin-match-row-preview .admin-match-players { grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr); gap: 8px; }
   .admin-match-player { font-size: 13px; }
   .admin-match-player strong { white-space: normal; }
-  .admin-match-row > .admin-match-outcome { grid-column: 3; }
+  .admin-match-row > .admin-match-outcome { grid-column: 2 / -1; grid-row: 1; }
   .admin-match-outcome { gap: 6px; }
   .admin-match-outcome .status-badge { font-size: 10px; white-space: nowrap; }
   .admin-match-outcome .row-actions button { font-size: 10px; white-space: nowrap; }
