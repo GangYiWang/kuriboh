@@ -102,7 +102,6 @@ onMounted(async () => {
   <div class="page-shell content-list-page">
     <header class="page-heading split-heading tournament-area-heading">
       <div>
-        <p class="section-kicker">TOURNAMENT CENTER</p>
         <h1>赛事中心</h1>
         <p>统一查看报名中、进行中与往期的栗子杯赛事。</p>
       </div>

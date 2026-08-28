@@ -601,8 +601,8 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
 
 <template>
   <div class="page-shell admin-page">
-    <header v-if="tournament" class="page-heading split-heading">
-      <div><p class="section-kicker">TOURNAMENT OPERATION</p><h1>{{ tournament.name }}</h1><p>状态：{{ tournamentStatusText[tournament.status] }} · 已通过 {{ tournament.approved_count }} 人 · 待审核 {{ tournament.pending_count }} 人</p></div>
+    <header v-if="tournament" class="page-heading split-heading tournament-operation-heading">
+      <div><h1>{{ tournament.name }}</h1><p>状态：{{ tournamentStatusText[tournament.status] }} · 已通过 {{ tournament.approved_count }} 人 · 待审核 {{ tournament.pending_count }} 人</p></div>
       <RouterLink class="button secondary" :to="`/tournaments/${tournament.id}`">查看公开页面</RouterLink>
     </header>
     <nav class="admin-subnav" aria-label="赛事管理导航">
@@ -751,7 +751,6 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
     <section v-if="tournament && ['matches', 'results'].includes(section)" class="competition-admin">
       <header class="competition-heading">
         <div>
-          <p class="section-kicker">{{ section === 'matches' ? 'MATCHES' : 'RESULTS' }}</p>
           <h2>{{ section === 'matches' ? '对阵' : '赛果' }}</h2>
           <p>{{ section === 'matches' ? '查看并管理每一场比赛明细。' : '查看瑞士轮排名与淘汰赛晋级结果。' }}</p>
         </div>

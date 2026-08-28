@@ -57,7 +57,6 @@ onMounted(load)
 
 <template>
   <section v-if="eligible && submission" class="info-section deck-upload-panel">
-    <p class="section-kicker">TOP 4 DECK</p>
     <div class="section-title-row"><div><h2>四强卡组截图</h2><p>你是本届赛事{{ deckPlacementText(submission.placement) }}，请上传本届赛事使用的 Master Duel 卡组截图。</p></div><span :class="['status-badge', `deck-${submission.status.toLowerCase()}`]">{{ deckStatusText[submission.status] }}</span></div>
     <FormMessage v-if="message" type="success" :message="message" />
     <FormMessage v-if="error" :message="error" />
@@ -70,12 +69,10 @@ onMounted(load)
     <p v-else class="form-hint">截图已审核通过并锁定，将用于本届赛事周报。</p>
   </section>
   <section v-else-if="eligible === false" class="info-section deck-upload-panel">
-    <p class="section-kicker">DECK</p>
     <h2>卡组截图</h2>
     <p class="empty-state compact">卡组上传仅向本届赛事最终四强开放。</p>
   </section>
   <section v-else-if="error" class="info-section deck-upload-panel">
-    <p class="section-kicker">DECK</p>
     <h2>卡组截图</h2>
     <FormMessage :message="error" />
   </section>
