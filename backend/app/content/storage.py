@@ -46,8 +46,8 @@ class LocalImageStorage:
                 status_code=400,
             )
         width, height = source.size
-        if width > 6000 or height > 6000:
-            raise AppError("IMAGE_TOO_LARGE", "图片尺寸不能超过 6000×6000", status_code=400)
+        if width > 12000 or height > 12000:
+            raise AppError("IMAGE_TOO_LARGE", "图片尺寸不能超过 12000×12000", status_code=400)
         source_format = source.format
         extension, content_type, output_format = FORMAT_CONFIG[source_format]
         self.root.mkdir(parents=True, exist_ok=True)
