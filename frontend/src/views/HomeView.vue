@@ -33,7 +33,7 @@ onMounted(async () => {
         </p>
         <div class="hero-actions">
           <RouterLink class="button primary" to="/tournaments">浏览赛事</RouterLink>
-          <RouterLink class="button secondary" to="/rules">查看比赛规则</RouterLink>
+          <RouterLink class="button secondary" to="/announcements">查看平台公告</RouterLink>
         </div>
       </div>
 
@@ -68,7 +68,7 @@ onMounted(async () => {
       </div>
       <div class="quick-links">
         <RouterLink to="/tournaments"><span>01</span><strong>赛事中心</strong><small>浏览赛事并提交报名</small><i>→</i></RouterLink>
-        <RouterLink to="/rules"><span>02</span><strong>比赛规则</strong><small>了解栗子杯赛制与流程</small><i>→</i></RouterLink>
+        <RouterLink to="/announcements"><span>02</span><strong>平台公告</strong><small>查看平台最新通知与动态</small><i>→</i></RouterLink>
         <RouterLink to="/banlists"><span>03</span><strong>当前禁卡表</strong><small>查看当前版本与永久历史</small><i>→</i></RouterLink>
         <RouterLink to="/my-tournaments"><span>04</span><strong>我的赛事</strong><small>登录后查看参赛记录</small><i>→</i></RouterLink>
       </div>
