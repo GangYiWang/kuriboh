@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { apiPost } from '../src/api/client'
+import { apiDelete, apiPost } from '../src/api/client'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -28,5 +28,15 @@ describe('API client error handling', () => {
       status: 401,
       message: '手机号、QQ 号或密码错误',
     })
+  })
+
+  it('sends delete requests and accepts an empty 204 response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(apiDelete('/admin/tournaments/example', 'token')).resolves.toBeUndefined()
+    expect(fetchMock).toHaveBeenCalledWith('/api/admin/tournaments/example', expect.objectContaining({
+      method: 'DELETE',
+    }))
   })
 })

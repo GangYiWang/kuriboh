@@ -7,11 +7,16 @@ defineProps<{
   confirmText: string
   busy?: boolean
   error?: string
+  reason?: string
+  reasonLabel?: string
+  reasonPlaceholder?: string
+  reasonMaxlength?: number
 }>()
 
 const emit = defineEmits<{
   cancel: []
   confirm: []
+  'update:reason': [value: string]
 }>()
 
 const cancelButton = ref<HTMLButtonElement | null>(null)
@@ -23,6 +28,10 @@ onMounted(async () => {
 
 function cancel() {
   emit('cancel')
+}
+
+function updateReason(event: Event) {
+  if (event.target instanceof HTMLTextAreaElement) emit('update:reason', event.target.value)
 }
 </script>
 
@@ -42,6 +51,17 @@ function cancel() {
           <h2>{{ title }}</h2>
         </header>
         <p class="form-dialog-description">{{ description }}</p>
+        <label v-if="reasonLabel" class="form-dialog-field">
+          <span>{{ reasonLabel }}</span>
+          <textarea
+            :value="reason"
+            :maxlength="reasonMaxlength ?? 500"
+            :placeholder="reasonPlaceholder"
+            rows="3"
+            :disabled="busy"
+            @input="updateReason"
+          />
+        </label>
         <p v-if="error" class="form-dialog-error" role="alert">{{ error }}</p>
         <div class="form-actions">
           <button ref="cancelButton" class="button secondary" type="button" :disabled="busy" @click="cancel">取消</button>

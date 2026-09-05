@@ -36,6 +36,10 @@ class TournamentUpdateRequest(BaseModel):
     _validate_playoff_size = field_validator("playoff_size")(validate_power_of_two)
 
 
+class TournamentCancelRequest(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
+
+
 class TournamentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -54,6 +58,8 @@ class TournamentResponse(BaseModel):
     published_at: datetime | None
     started_at: datetime | None
     ended_at: datetime | None
+    canceled_at: datetime | None
+    cancellation_reason: str | None
     approved_count: int
     pending_count: int
     created_at: datetime

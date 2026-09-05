@@ -170,7 +170,7 @@ cd /d backend
 - `/api/me/tournaments`、`/api/me/tournament-statistics`
 - `/api/tournaments/{id}/registrations`、`/api/tournaments/{id}/registrations/me`、`/api/tournaments/{id}/registrations/cancel`
 - `/api/admin/tournaments`、`/api/admin/tournaments/{id}`
-- `/api/admin/tournaments/{id}/publish`、`/api/admin/tournaments/{id}/start`
+- `/api/admin/tournaments/{id}/publish`、`/api/admin/tournaments/{id}/start`、`/api/admin/tournaments/{id}/cancel`、`DELETE /api/admin/tournaments/{id}`
 - `/api/admin/tournaments/{id}/registrations`、`/api/admin/tournaments/{id}/registrations/{registration_id}/{action}`
 - `/api/admin/tournaments/{id}/participants`
 - `/api/tournaments/{id}/swiss`、`/api/tournaments/{id}/swiss/rounds`

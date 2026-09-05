@@ -14,7 +14,7 @@ class TournamentRepository:
     def get(self, tournament_id: UUID, *, for_update: bool = False) -> Tournament | None:
         statement = (
             select(Tournament)
-            .where(Tournament.id == tournament_id)
+            .where(Tournament.id == tournament_id, Tournament.deleted_at.is_(None))
             .options(selectinload(Tournament.banlist_version))
         )
         if for_update:
@@ -27,6 +27,7 @@ class TournamentRepository:
             .where(
                 Tournament.code == code.strip().upper(),
                 Tournament.status != TournamentStatus.DRAFT.value,
+                Tournament.deleted_at.is_(None),
             )
             .options(selectinload(Tournament.banlist_version))
         )
@@ -39,7 +40,10 @@ class TournamentRepository:
         status: TournamentStatus | None,
         search: str | None,
     ) -> tuple[list[Tournament], int]:
-        filters = [Tournament.status != TournamentStatus.DRAFT.value]
+        filters = [
+            Tournament.status != TournamentStatus.DRAFT.value,
+            Tournament.deleted_at.is_(None),
+        ]
         if status is not None:
             filters.append(Tournament.status == status.value)
         if search:
@@ -57,17 +61,21 @@ class TournamentRepository:
     def list_admin(self, *, offset: int, limit: int) -> tuple[list[Tournament], int]:
         statement = (
             select(Tournament)
+            .where(Tournament.deleted_at.is_(None))
             .options(selectinload(Tournament.banlist_version))
             .order_by(Tournament.created_at.desc())
         )
         items = list(self.db.scalars(statement.offset(offset).limit(limit)))
-        total = self.db.scalar(select(func.count()).select_from(Tournament)) or 0
+        total = self.db.scalar(
+            select(func.count()).select_from(Tournament).where(Tournament.deleted_at.is_(None))
+        ) or 0
         return items, total
 
     def list_created_by(self, user_id: UUID, *, offset: int, limit: int) -> tuple[list[Tournament], int]:
         filters = [
             Tournament.created_by_id == user_id,
             Tournament.status != TournamentStatus.DRAFT.value,
+            Tournament.deleted_at.is_(None),
         ]
         statement = (
             select(Tournament)
@@ -102,7 +110,10 @@ class TournamentRepository:
         return list(self.db.scalars(
             select(Registration)
             .join(Registration.tournament)
-            .where(Registration.user_id == user_id)
+            .where(
+                Registration.user_id == user_id,
+                Tournament.deleted_at.is_(None),
+            )
             .options(
                 selectinload(Registration.tournament),
                 selectinload(Registration.participant),

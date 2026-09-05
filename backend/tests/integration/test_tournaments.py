@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 
 from app.auth.roles import Role
+from app.audit.models import AuditLog
 from app.content.models import BanlistVersion
 from app.registrations.models import Registration, RegistrationStatus, TournamentParticipant
 from app.tournaments.models import Tournament, TournamentStatus
@@ -259,6 +260,14 @@ def test_start_blocks_pending_snapshots_approved_and_locks_core_config(client, m
     assert locked.status_code == 409
     assert locked.json()["code"] == "CORE_CONFIG_LOCKED"
     assert description_update.status_code == 200
+    assert client.delete(
+        f"/api/admin/tournaments/{tournament_id}", headers=auth(admin_token)
+    ).status_code == 409
+    assert client.post(
+        f"/api/admin/tournaments/{tournament_id}/cancel",
+        headers=auth(admin_token),
+        json={"reason": "已经开赛"},
+    ).status_code == 409
     with session_factory() as db:
         participants = list(db.scalars(select(TournamentParticipant)))
         tournament = db.get(Tournament, UUID(tournament_id))
@@ -312,3 +321,152 @@ def test_tournament_owner_can_also_register_as_player(client, make_user, session
         ))
     assert registration is not None
     assert registration.status == RegistrationStatus.PENDING.value
+
+
+def test_owner_can_soft_delete_unstarted_tournament_without_active_registrations(
+    client, make_user, session_factory
+) -> None:
+    owner, owner_token = make_user(qq_number="80000014", nickname="删除赛事管理员")
+    _, other_token = make_user(qq_number="80000015", nickname="非赛事所有者")
+    _, player_token = make_user(qq_number="80000019", nickname="已取消报名玩家")
+    banlist_id = seed_banlist(session_factory, owner.id)
+    tournament_id = create_and_publish(client, owner_token, banlist_id)
+    client.post(
+        f"/api/tournaments/{tournament_id}/registrations",
+        headers=auth(player_token),
+        json={"nickname_matches_game": True, "accepts_rules": True},
+    )
+    client.post(
+        f"/api/tournaments/{tournament_id}/registrations/cancel",
+        headers=auth(player_token),
+    )
+    tournament_code = client.get(f"/api/tournaments/{tournament_id}").json()["code"]
+    blocked_cancel = client.post(
+        f"/api/admin/tournaments/{tournament_id}/cancel",
+        headers=auth(owner_token),
+        json={"reason": None},
+    )
+
+    forbidden = client.delete(
+        f"/api/admin/tournaments/{tournament_id}", headers=auth(other_token)
+    )
+    deleted = client.delete(
+        f"/api/admin/tournaments/{tournament_id}", headers=auth(owner_token)
+    )
+
+    assert forbidden.status_code == 403
+    assert blocked_cancel.status_code == 409
+    assert blocked_cancel.json()["code"] == "TOURNAMENT_HAS_NO_ACTIVE_REGISTRATIONS"
+    assert deleted.status_code == 204
+    assert client.get(f"/api/tournaments/{tournament_id}").status_code == 404
+    assert client.get(f"/api/tournaments/code/{tournament_code}").status_code == 404
+    assert client.get(
+        f"/api/admin/tournaments/{tournament_id}", headers=auth(owner_token)
+    ).status_code == 404
+    assert client.get("/api/tournaments").json()["total"] == 0
+    assert client.get(
+        f"/api/tournaments/{tournament_id}/registrations/me", headers=auth(player_token)
+    ).status_code == 404
+    assert client.get("/api/me/tournaments", headers=auth(player_token)).json()["total"] == 0
+    assert client.get(
+        "/api/me/created-tournaments", headers=auth(owner_token)
+    ).json()["total"] == 0
+
+    with session_factory() as db:
+        tournament = db.get(Tournament, UUID(tournament_id))
+        audit = db.scalar(select(AuditLog).where(
+            AuditLog.tournament_id == UUID(tournament_id),
+            AuditLog.action_type == "TOURNAMENT_DELETED",
+        ))
+    assert tournament is not None
+    assert tournament.deleted_at is not None
+    assert audit is not None
+
+
+def test_tournament_with_active_registration_is_canceled_instead_of_deleted(
+    client, make_user, session_factory
+) -> None:
+    owner, owner_token = make_user(qq_number="80000016", nickname="取消赛事管理员")
+    player, player_token = make_user(qq_number="80000017", nickname="被取消报名玩家")
+    _, approved_player_token = make_user(qq_number="80000018", nickname="已通过报名玩家")
+    banlist_id = seed_banlist(session_factory, owner.id)
+    tournament_id = create_and_publish(client, owner_token, banlist_id)
+    applied = client.post(
+        f"/api/tournaments/{tournament_id}/registrations",
+        headers=auth(player_token),
+        json={"nickname_matches_game": True, "accepts_rules": True},
+    )
+    approved_application = client.post(
+        f"/api/tournaments/{tournament_id}/registrations",
+        headers=auth(approved_player_token),
+        json={"nickname_matches_game": True, "accepts_rules": True},
+    )
+    client.post(
+        f"/api/admin/tournaments/{tournament_id}/registrations/{approved_application.json()['id']}/approve",
+        headers=auth(owner_token),
+    )
+
+    blocked_delete = client.delete(
+        f"/api/admin/tournaments/{tournament_id}", headers=auth(owner_token)
+    )
+    canceled = client.post(
+        f"/api/admin/tournaments/{tournament_id}/cancel",
+        headers=auth(owner_token),
+        json={"reason": "  参赛人数不足  "},
+    )
+
+    assert blocked_delete.status_code == 409
+    assert blocked_delete.json()["code"] == "TOURNAMENT_HAS_ACTIVE_REGISTRATIONS"
+    assert canceled.status_code == 200, canceled.json()
+    assert canceled.json()["status"] == "CANCELED"
+    assert canceled.json()["cancellation_reason"] == "参赛人数不足"
+    assert canceled.json()["canceled_at"] is not None
+    assert canceled.json()["pending_count"] == 0
+    assert canceled.json()["approved_count"] == 0
+
+    public = client.get(f"/api/tournaments/{tournament_id}")
+    player_tournaments = client.get("/api/me/tournaments", headers=auth(player_token)).json()
+    assert public.status_code == 200
+    assert public.json()["status"] == "CANCELED"
+    assert player_tournaments["total"] == 1
+    assert player_tournaments["items"][0]["status"] == "CANCELED"
+    assert player_tournaments["items"][0]["registration_status"] == "CANCELED"
+
+    blocked_start = client.post(
+        f"/api/admin/tournaments/{tournament_id}/start", headers=auth(owner_token)
+    )
+    blocked_update = client.patch(
+        f"/api/admin/tournaments/{tournament_id}",
+        headers=auth(owner_token),
+        json={"description": "不应允许修改"},
+    )
+    blocked_apply = client.post(
+        f"/api/tournaments/{tournament_id}/registrations",
+        headers=auth(player_token),
+        json={"nickname_matches_game": True, "accepts_rules": True},
+    )
+    assert blocked_start.status_code == 409
+    assert blocked_update.status_code == 409
+    assert blocked_update.json()["code"] == "TOURNAMENT_CANCELED"
+    assert blocked_apply.status_code == 409
+    assert blocked_apply.json()["code"] == "REGISTRATION_CLOSED"
+
+    with session_factory() as db:
+        registration = db.get(Registration, UUID(applied.json()["id"]))
+        canceled_registration_count = db.scalar(select(func.count()).select_from(Registration).where(
+            Registration.tournament_id == UUID(tournament_id),
+            Registration.status == RegistrationStatus.CANCELED.value,
+        ))
+        audit = db.scalar(select(AuditLog).where(
+            AuditLog.tournament_id == UUID(tournament_id),
+            AuditLog.action_type == "TOURNAMENT_CANCELED",
+        ))
+    assert registration is not None
+    assert registration.user_id == player.id
+    assert registration.status == RegistrationStatus.CANCELED.value
+    assert registration.reviewed_by_id == owner.id
+    assert registration.reviewed_at is not None
+    assert canceled_registration_count == 2
+    assert audit is not None
+    assert audit.before_json["pending_count"] == 1
+    assert audit.before_json["approved_count"] == 1

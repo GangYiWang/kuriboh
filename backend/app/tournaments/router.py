@@ -20,6 +20,7 @@ from app.tournaments.repository import TournamentRepository
 from app.tournaments.schemas import (
     ParticipantResponse,
     TournamentCreateRequest,
+    TournamentCancelRequest,
     TournamentListResponse,
     MyTournamentListResponse,
     TournamentResponse,
@@ -135,6 +136,7 @@ def my_registration(
     principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
 ) -> RegistrationResponse:
+    TournamentService(db).require(tournament_id)
     item = RegistrationRepository(db).for_user(tournament_id, principal.user_id)
     if item is None:
         raise AppError("REGISTRATION_NOT_FOUND", "尚未报名该赛事", status_code=404)
@@ -226,6 +228,27 @@ def end_tournament(
     service = TournamentService(db)
     service.require_owner(tournament_id, principal.user_id)
     return serialize_tournament(service.repository, service.end(tournament_id, principal.user_id))
+
+
+@admin_router.post("/tournaments/{tournament_id}/cancel", response_model=TournamentResponse)
+def cancel_tournament(
+    tournament_id: UUID,
+    request: TournamentCancelRequest,
+    principal: Authenticated,
+    db: Annotated[Session, Depends(get_db)],
+) -> TournamentResponse:
+    service = TournamentService(db)
+    item = service.cancel(tournament_id, principal.user_id, request.reason)
+    return serialize_tournament(service.repository, item)
+
+
+@admin_router.delete("/tournaments/{tournament_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_tournament(
+    tournament_id: UUID,
+    principal: Authenticated,
+    db: Annotated[Session, Depends(get_db)],
+) -> None:
+    TournamentService(db).soft_delete(tournament_id, principal.user_id)
 
 
 @admin_router.get(

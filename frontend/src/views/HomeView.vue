@@ -11,7 +11,7 @@ import { tournamentStatusText } from '@/types/tournament'
 const authStore = useAuthStore()
 const announcement = ref<Announcement | null>(null)
 const myTournaments = ref<MyTournamentListResponse | null>(null)
-const currentTournament = computed(() => myTournaments.value?.items.find((item) => item.status !== 'ENDED' && item.registration_status === 'APPROVED') ?? null)
+const currentTournament = computed(() => myTournaments.value?.items.find((item) => !['ENDED', 'CANCELED'].includes(item.status) && item.registration_status === 'APPROVED') ?? null)
 
 onMounted(async () => {
   const announcements = await apiGet<ListResponse<Announcement>>('/announcements?limit=1').catch(() => null)

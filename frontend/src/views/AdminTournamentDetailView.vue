@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
-import { apiGet, apiPatch, apiPost } from '@/api/client'
+import { apiDelete, apiGet, apiPatch, apiPost } from '@/api/client'
 import ConfirmFormDialog from '@/components/ConfirmFormDialog.vue'
 import FormMessage from '@/components/FormMessage.vue'
 import MatchHistoryList from '@/components/MatchHistoryList.vue'
@@ -33,7 +33,10 @@ type PendingSwissResolution = {
   reasonOpen: boolean
 }
 
+type TournamentTerminationMode = 'delete' | 'cancel'
+
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 const tournament = ref<Tournament | null>(null)
 const registrations = ref<Registration[]>([])
@@ -64,9 +67,12 @@ const busy = ref(false)
 const bulkApprovalOpen = ref(false)
 const startTournamentOpen = ref(false)
 const publishSwissRoundOpen = ref(false)
+const terminationOpen = ref(false)
+const terminationReason = ref('')
 const tournamentId = computed(() => String(route.params.id))
 const section = computed(() => String(route.params.section || 'settings'))
-const coreLocked = computed(() => tournament.value ? ['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.value.status) : false)
+const coreLocked = computed(() => tournament.value ? ['SWISS', 'ELIMINATION', 'ENDED', 'CANCELED'].includes(tournament.value.status) : false)
+const settingsLocked = computed(() => tournament.value?.status === 'CANCELED')
 const latestRound = computed<SwissRound | null>(() => swissRounds.value[swissRounds.value.length - 1] ?? null)
 const selectedSwissRound = computed<SwissRound | null>(() =>
   swissRounds.value.find((item) => item.round_no === selectedSwissRoundNo.value) ?? latestRound.value,
@@ -87,6 +93,15 @@ const registrationActionsOpen = computed(() => tournament.value?.status === 'REG
 const activeParticipantCount = computed(() => participants.value.filter((item) => item.status === 'ACTIVE').length)
 const withdrawnParticipantCount = computed(() => participants.value.filter((item) => item.status === 'WITHDRAWN').length)
 const pendingRegistrationCount = computed(() => registrations.value.filter((item) => item.status === 'PENDING').length)
+const terminationMode = computed<TournamentTerminationMode | null>(() => {
+  if (tournament.value?.status === 'DRAFT') return 'delete'
+  if (tournament.value?.status !== 'REGISTRATION') return null
+  return tournament.value.pending_count + tournament.value.approved_count > 0 ? 'cancel' : 'delete'
+})
+const terminationLabel = computed(() => terminationMode.value === 'cancel' ? '取消比赛' : '删除比赛')
+const terminationDescription = computed(() => terminationMode.value === 'cancel'
+  ? `当前有 ${tournament.value?.pending_count ?? 0} 名待审核、${tournament.value?.approved_count ?? 0} 名已通过报名。取消后赛事和报名记录仍会保留，但不能继续报名或开始。`
+  : '删除后比赛将从赛事中心和个人发布列表中隐藏，且不能继续访问或操作。')
 const withdrawalOpen = computed(() => tournament.value?.status === 'SWISS' && (!latestRound.value || ['DRAFT', 'COMPLETED'].includes(latestRound.value.status)))
 const latestPlayoffRound = computed(() => playoff.value?.rounds[playoff.value.rounds.length - 1] ?? null)
 const selectedPlayoffRound = computed<PlayoffRound | null>(() =>
@@ -157,7 +172,7 @@ async function load() {
   banlists.value = banlistData.items
   syncForm(item)
   if (section.value === 'players') {
-    playerTab.value = ['DRAFT', 'REGISTRATION'].includes(item.status) ? 'registrations' : 'participants'
+    playerTab.value = ['DRAFT', 'REGISTRATION', 'CANCELED'].includes(item.status) ? 'registrations' : 'participants'
     await loadPlayerManagement(item)
   }
   if (['matches', 'results'].includes(section.value) && ['SWISS', 'ELIMINATION', 'ENDED'].includes(item.status)) {
@@ -272,6 +287,46 @@ async function saveSettings() {
     syncForm(tournament.value)
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '保存失败'
+  } finally { busy.value = false }
+}
+
+function requestTournamentTermination() {
+  if (!terminationMode.value) return
+  error.value = ''
+  terminationReason.value = ''
+  terminationOpen.value = true
+}
+
+function closeTournamentTermination() {
+  if (!busy.value) terminationOpen.value = false
+}
+
+async function terminateTournament() {
+  const mode = terminationMode.value
+  if (!mode) {
+    terminationOpen.value = false
+    return
+  }
+  busy.value = true
+  error.value = ''
+  try {
+    if (mode === 'delete') {
+      await apiDelete(`/admin/tournaments/${tournamentId.value}`, authStore.token)
+      terminationOpen.value = false
+      await router.push({ path: '/my-tournaments', query: { tab: 'created' } })
+      return
+    }
+    tournament.value = await apiPost<Tournament>(
+      `/admin/tournaments/${tournamentId.value}/cancel`,
+      { reason: terminationReason.value.trim() || null },
+      authStore.token,
+    )
+    syncForm(tournament.value)
+    message.value = '赛事已取消，相关有效报名已统一取消。'
+    terminationOpen.value = false
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '操作失败'
+    await loadTournamentSummary().catch(() => undefined)
   } finally { busy.value = false }
 }
 
@@ -584,7 +639,7 @@ async function confirmPlayoffResolution() {
 
 watch(section, async (value) => {
   if (value === 'players' && tournament.value) {
-    playerTab.value = ['DRAFT', 'REGISTRATION'].includes(tournament.value.status) ? 'registrations' : 'participants'
+    playerTab.value = ['DRAFT', 'REGISTRATION', 'CANCELED'].includes(tournament.value.status) ? 'registrations' : 'participants'
     await loadPlayerManagement(tournament.value)
   }
   if (['matches', 'results'].includes(value) && tournament.value && ['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.value.status)) await loadCompetitionData()
@@ -608,9 +663,9 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
     <nav class="admin-subnav" aria-label="赛事管理导航">
       <RouterLink :to="`/tournaments/${tournamentId}/manage/settings`">赛事设置</RouterLink>
       <RouterLink :to="`/tournaments/${tournamentId}/manage/players`">选手</RouterLink>
-      <RouterLink :to="`/tournaments/${tournamentId}/manage/matches`">对阵</RouterLink>
-      <RouterLink :to="`/tournaments/${tournamentId}/manage/results`">赛果</RouterLink>
-      <RouterLink :to="`/tournaments/${tournamentId}/manage/decks-report`">卡组与周报</RouterLink>
+      <RouterLink v-if="tournament?.status !== 'CANCELED'" :to="`/tournaments/${tournamentId}/manage/matches`">对阵</RouterLink>
+      <RouterLink v-if="tournament?.status !== 'CANCELED'" :to="`/tournaments/${tournamentId}/manage/results`">赛果</RouterLink>
+      <RouterLink v-if="tournament?.status !== 'CANCELED'" :to="`/tournaments/${tournamentId}/manage/decks-report`">卡组与周报</RouterLink>
       <RouterLink v-if="TOURNAMENT_NOTIFICATIONS_ENABLED" :to="`/tournaments/${tournamentId}/manage/notifications`">赛事通知</RouterLink>
       <RouterLink v-if="TOURNAMENT_AUDIT_VIEW_ENABLED" :to="`/tournaments/${tournamentId}/manage/audit`">操作日志</RouterLink>
     </nav>
@@ -657,23 +712,40 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       @cancel="cancelSwissRoundPublish"
       @confirm="publishSwissRound"
     />
+    <ConfirmFormDialog
+      v-if="terminationOpen && terminationMode"
+      :title="terminationLabel"
+      :description="terminationDescription"
+      :confirm-text="`确认${terminationLabel}`"
+      :busy="busy"
+      :error="error"
+      :reason-label="terminationMode === 'cancel' ? '取消原因（选填）' : undefined"
+      reason-placeholder="例如：参赛人数不足"
+      v-model:reason="terminationReason"
+      @cancel="closeTournamentTermination"
+      @confirm="terminateTournament"
+    />
     <form v-if="tournament && section === 'settings'" class="content-form tournament-settings" @submit.prevent="saveSettings">
-      <div class="settings-heading"><div><h2>赛事设置</h2><p v-if="coreLocked" class="form-hint">赛事已经开始，容量、轮数、Top N 和禁卡表版本已锁定。</p></div><span :class="['status-badge', `status-${tournament.status.toLowerCase()}`]">{{ tournamentStatusText[tournament.status] }}</span></div>
-      <label><span>赛事名称</span><input v-model.trim="form.name" required /></label>
-      <label><span>赛事说明</span><textarea v-model.trim="form.description" rows="5" /></label>
-      <label><span>预计比赛开始时间</span><input v-model="form.planned_start_at" type="datetime-local" required /></label>
+      <div class="settings-heading"><div><h2>赛事设置</h2><p v-if="settingsLocked" class="form-hint">赛事已经取消，设置与报名记录仅供查看。</p><p v-else-if="coreLocked" class="form-hint">赛事已经开始，容量、轮数、Top N 和禁卡表版本已锁定。</p></div><span :class="['status-badge', `status-${tournament.status.toLowerCase()}`]">{{ tournamentStatusText[tournament.status] }}</span></div>
+      <label><span>赛事名称</span><input v-model.trim="form.name" :disabled="settingsLocked" required /></label>
+      <label><span>赛事说明</span><textarea v-model.trim="form.description" :disabled="settingsLocked" rows="5" /></label>
+      <label><span>预计比赛开始时间</span><input v-model="form.planned_start_at" type="datetime-local" :disabled="settingsLocked" required /></label>
       <div class="form-field-grid">
         <label><span>最大参赛人数</span><input v-model.number="form.max_players" type="number" min="2" :disabled="coreLocked" /></label>
         <label><span>瑞士轮轮数</span><input v-model.number="form.swiss_rounds" type="number" min="1" :disabled="coreLocked" /></label>
         <label><span>Top N</span><select v-model.number="form.playoff_size" :disabled="coreLocked"><option v-for="size in [2,4,8,16,32,64]" :key="size" :value="size">Top {{ size }}</option></select></label>
       </div>
       <label><span>禁卡表版本</span><select v-model="form.banlist_version_id" :disabled="coreLocked"><option v-for="item in banlists" :key="item.id" :value="item.id">{{ item.version }} · {{ item.title }}</option></select></label>
-      <div class="form-actions">
+      <div v-if="!settingsLocked" class="form-actions">
         <button class="button secondary" type="submit" :disabled="busy">保存设置</button>
         <button v-if="tournament.status === 'DRAFT'" class="button primary" type="button" :disabled="busy" @click="publishTournament">发布并开放报名</button>
         <button v-if="tournament.status === 'REGISTRATION'" class="button primary" type="button" :disabled="busy" @click="requestTournamentStart">开始赛事</button>
       </div>
     </form>
+    <section v-if="tournament && section === 'settings' && terminationMode" class="tournament-termination" aria-labelledby="tournament-termination-title">
+      <div><h2 id="tournament-termination-title">{{ terminationLabel }}</h2><p>{{ terminationMode === 'cancel' ? '赛事已有有效报名，将保留赛事记录并标记为已取消。' : '赛事没有有效报名，可以从正常页面中删除并隐藏。' }}</p></div>
+      <button class="button secondary" type="button" :disabled="busy" @click="requestTournamentTermination">{{ terminationLabel }}</button>
+    </section>
 
     <section v-if="tournament && section === 'players'" class="player-management">
       <div class="settings-heading">

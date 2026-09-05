@@ -1,4 +1,4 @@
-export type TournamentStatus = 'DRAFT' | 'REGISTRATION' | 'SWISS' | 'ELIMINATION' | 'ENDED'
+export type TournamentStatus = 'DRAFT' | 'REGISTRATION' | 'SWISS' | 'ELIMINATION' | 'ENDED' | 'CANCELED'
 export type RegistrationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELED'
 export type SwissRoundStatus = 'DRAFT' | 'PUBLISHED' | 'COMPLETED'
 export type MatchStatus = 'WAITING' | 'CONFLICT' | 'COMPLETED'
@@ -21,6 +21,8 @@ export interface Tournament {
   published_at: string | null
   started_at: string | null
   ended_at: string | null
+  canceled_at: string | null
+  cancellation_reason: string | null
   approved_count: number
   pending_count: number
   created_at: string
@@ -219,6 +221,7 @@ export const tournamentStatusText: Record<TournamentStatus, string> = {
   SWISS: '瑞士轮',
   ELIMINATION: '淘汰赛',
   ENDED: '已结束',
+  CANCELED: '已取消',
 }
 
 export const registrationStatusText: Record<RegistrationStatus, string> = {

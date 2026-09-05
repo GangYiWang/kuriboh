@@ -90,6 +90,8 @@ Use subtle hover states.
 - Use the shared in-page confirmation dialog when publishing Swiss rounds. Playoff pairings are fixed by seed and must be generated and published atomically without a preview or separate confirmation step.
 - Keep the action title, consequence description, cancel action, and primary confirmation action consistent across competition stages.
 - Ending a tournament is an explicit exception: `结束赛事并锁定结果` executes immediately without a confirmation dialog or cancel step. Keep the button disabled while the request is in progress and surface API success or failure in the page.
+- Tournament settings expose one pre-start termination action. Use `删除比赛` for drafts or registration-stage tournaments without pending/approved registrations; use `取消赛事` when pending or approved registrations exist. Both require the shared in-page confirmation dialog. Cancellation may include an optional reason and must summarize the affected pending and approved counts.
+- Soft-deleted tournaments disappear from normal lists, code lookup, and detail routes. Canceled tournaments remain visible with a clear `已取消` state and cancellation reason, but all registration and lifecycle actions are read-only.
 
 ## Player Match Lists
 

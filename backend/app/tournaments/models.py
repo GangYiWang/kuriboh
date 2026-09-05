@@ -26,14 +26,20 @@ class TournamentStatus(StrEnum):
     SWISS = "SWISS"
     ELIMINATION = "ELIMINATION"
     ENDED = "ENDED"
+    CANCELED = "CANCELED"
 
 
 class Tournament(TimestampMixin, Base):
     __tablename__ = "tournaments"
     __table_args__ = (
         CheckConstraint(
-            "status in ('DRAFT', 'REGISTRATION', 'SWISS', 'ELIMINATION', 'ENDED')",
+            "status in ('DRAFT', 'REGISTRATION', 'SWISS', 'ELIMINATION', 'ENDED', 'CANCELED')",
             name="ck_tournaments_status",
+        ),
+        CheckConstraint(
+            "(status = 'CANCELED' and canceled_at is not null) or "
+            "(status <> 'CANCELED' and canceled_at is null and cancellation_reason is null)",
+            name="ck_tournaments_cancellation",
         ),
         CheckConstraint("max_players is null or max_players >= 2", name="ck_tournaments_max_players"),
         CheckConstraint("swiss_rounds is null or swiss_rounds >= 1", name="ck_tournaments_swiss_rounds"),
@@ -56,6 +62,9 @@ class Tournament(TimestampMixin, Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancellation_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     created_by_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
 
     banlist_version: Mapped[BanlistVersion | None] = relationship(back_populates="tournaments")

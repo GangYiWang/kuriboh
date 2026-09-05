@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 import secrets
 from uuid import UUID
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm import Session
 
@@ -13,7 +13,7 @@ from app.deck_submissions.models import DeckSubmission
 from app.matches.models import Match, MatchStatus
 from app.reports.models import WeeklyReport, WeeklyReportStatus
 from app.playoffs.models import PlayoffRound, PlayoffRoundStatus
-from app.registrations.models import ParticipantStatus, RegistrationStatus, TournamentParticipant
+from app.registrations.models import ParticipantStatus, Registration, RegistrationStatus, TournamentParticipant
 from app.registrations.repository import RegistrationRepository
 from app.tournaments.models import Tournament, TournamentStatus
 from app.tournaments.repository import TournamentRepository
@@ -55,6 +55,8 @@ def tournament_response(
         published_at=tournament.published_at,
         started_at=tournament.started_at,
         ended_at=tournament.ended_at,
+        canceled_at=tournament.canceled_at,
+        cancellation_reason=tournament.cancellation_reason,
         approved_count=approved_count,
         pending_count=pending_count,
         created_at=tournament.created_at,
@@ -201,6 +203,8 @@ class TournamentService:
         return self.require(tournament.id)
 
     def update(self, tournament: Tournament, request: TournamentUpdateRequest) -> Tournament:
+        if tournament.status == TournamentStatus.CANCELED.value:
+            raise AppError("TOURNAMENT_CANCELED", "已取消赛事不能修改", status_code=409)
         supplied = request.model_fields_set
         if TournamentStatus(tournament.status) in {
             TournamentStatus.SWISS,
@@ -346,6 +350,109 @@ class TournamentService:
             target_id=tournament.id,
             before={"status": TournamentStatus.ELIMINATION.value},
             after={"status": TournamentStatus.ENDED.value, "final_four": [str(item) for item in placements]},
+        )
+        self.db.commit()
+        return self.require(tournament.id)
+
+    def soft_delete(self, tournament_id: UUID, operator_id: UUID) -> None:
+        tournament = self.require_owner(tournament_id, operator_id, for_update=True)
+        if tournament.status not in {
+            TournamentStatus.DRAFT.value,
+            TournamentStatus.REGISTRATION.value,
+        }:
+            raise AppError(
+                "TOURNAMENT_DELETE_NOT_ALLOWED",
+                "只有草稿或尚未开始的报名中赛事可以删除",
+                status_code=409,
+            )
+        active_registration_count = self.db.scalar(
+            select(func.count())
+            .select_from(Registration)
+            .where(
+                Registration.tournament_id == tournament.id,
+                Registration.status.in_([
+                    RegistrationStatus.PENDING.value,
+                    RegistrationStatus.APPROVED.value,
+                ]),
+            )
+        ) or 0
+        if active_registration_count:
+            raise AppError(
+                "TOURNAMENT_HAS_ACTIVE_REGISTRATIONS",
+                "赛事已有有效报名，请改为取消赛事",
+                status_code=409,
+            )
+        deleted_at = datetime.now(UTC)
+        tournament.deleted_at = deleted_at
+        add_audit_log(
+            self.db,
+            operator_id=operator_id,
+            tournament_id=tournament.id,
+            action_type="TOURNAMENT_DELETED",
+            target_type="tournament",
+            target_id=tournament.id,
+            before={"name": tournament.name, "status": tournament.status},
+            after={"deleted_at": deleted_at.isoformat()},
+        )
+        self.db.commit()
+
+    def cancel(self, tournament_id: UUID, operator_id: UUID, reason: str | None) -> Tournament:
+        tournament = self.require_owner(tournament_id, operator_id, for_update=True)
+        if tournament.status != TournamentStatus.REGISTRATION.value:
+            raise AppError(
+                "TOURNAMENT_CANCEL_NOT_ALLOWED",
+                "只有尚未开始的报名中赛事可以取消",
+                status_code=409,
+            )
+        active_registrations = list(self.db.scalars(
+            select(Registration)
+            .where(
+                Registration.tournament_id == tournament.id,
+                Registration.status.in_([
+                    RegistrationStatus.PENDING.value,
+                    RegistrationStatus.APPROVED.value,
+                ]),
+            )
+            .order_by(Registration.user_id)
+            .with_for_update()
+        ))
+        if not active_registrations:
+            raise AppError(
+                "TOURNAMENT_HAS_NO_ACTIVE_REGISTRATIONS",
+                "赛事当前没有有效报名，请改为删除比赛",
+                status_code=409,
+            )
+        pending_count = sum(
+            registration.status == RegistrationStatus.PENDING.value
+            for registration in active_registrations
+        )
+        approved_count = len(active_registrations) - pending_count
+        canceled_at = datetime.now(UTC)
+        for registration in active_registrations:
+            registration.status = RegistrationStatus.CANCELED.value
+            registration.reviewed_by_id = operator_id
+            registration.reviewed_at = canceled_at
+        normalized_reason = (reason or "").strip() or None
+        tournament.status = TournamentStatus.CANCELED.value
+        tournament.canceled_at = canceled_at
+        tournament.cancellation_reason = normalized_reason
+        add_audit_log(
+            self.db,
+            operator_id=operator_id,
+            tournament_id=tournament.id,
+            action_type="TOURNAMENT_CANCELED",
+            target_type="tournament",
+            target_id=tournament.id,
+            before={
+                "status": TournamentStatus.REGISTRATION.value,
+                "pending_count": pending_count,
+                "approved_count": approved_count,
+            },
+            after={
+                "status": TournamentStatus.CANCELED.value,
+                "canceled_at": canceled_at.isoformat(),
+                "cancellation_reason": normalized_reason,
+            },
         )
         self.db.commit()
         return self.require(tournament.id)

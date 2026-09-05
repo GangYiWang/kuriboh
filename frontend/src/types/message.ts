@@ -64,6 +64,8 @@ const auditActionTypeText: Record<string, string> = {
   TOURNAMENT_UPDATED: '更新赛事设置',
   TOURNAMENT_STARTED: '开始赛事',
   TOURNAMENT_ENDED: '结束赛事并锁定结果',
+  TOURNAMENT_CANCELED: '取消赛事',
+  TOURNAMENT_DELETED: '删除赛事',
   REGISTRATION_APPROVE: '通过报名申请',
   REGISTRATION_REJECT: '拒绝报名申请',
   REGISTRATION_CANCEL: '取消报名资格',

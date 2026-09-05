@@ -102,13 +102,18 @@ onMounted(async () => {
     <div :class="['page-shell', 'tournament-detail-layout', { 'tournament-detail-layout-results': ['results', 'deck'].includes(activeTab) }]">
       <nav class="tournament-detail-tabs" aria-label="赛事页面内容">
         <button type="button" :class="{ active: activeTab === 'info' }" :aria-current="activeTab === 'info' ? 'page' : undefined" @click="activeTab = 'info'">赛事信息</button>
-        <button type="button" :class="{ active: activeTab === 'matches' }" :aria-current="activeTab === 'matches' ? 'page' : undefined" @click="activeTab = 'matches'">对阵</button>
-        <button type="button" :class="{ active: activeTab === 'results' }" :aria-current="activeTab === 'results' ? 'page' : undefined" @click="activeTab = 'results'">赛果</button>
+        <button v-if="tournament.status !== 'CANCELED'" type="button" :class="{ active: activeTab === 'matches' }" :aria-current="activeTab === 'matches' ? 'page' : undefined" @click="activeTab = 'matches'">对阵</button>
+        <button v-if="tournament.status !== 'CANCELED'" type="button" :class="{ active: activeTab === 'results' }" :aria-current="activeTab === 'results' ? 'page' : undefined" @click="activeTab = 'results'">赛果</button>
         <button v-if="tournament.status === 'ENDED' && authStore.isAuthenticated && authStore.token" type="button" :class="{ active: activeTab === 'deck' }" :aria-current="activeTab === 'deck' ? 'page' : undefined" @click="activeTab = 'deck'">卡组</button>
       </nav>
       <main>
         <section v-if="activeTab === 'info'" class="info-section">
           <h2>赛事信息</h2>
+          <div v-if="tournament.status === 'CANCELED'" class="tournament-cancellation-notice">
+            <strong>本赛事已取消</strong>
+            <p>{{ tournament.cancellation_reason || '赛事主办方未填写取消原因。' }}</p>
+            <small v-if="tournament.canceled_at">取消时间：{{ formatDate(tournament.canceled_at) }}</small>
+          </div>
           <dl class="info-grid">
             <div><dt>预计开赛时间</dt><dd>{{ formatDate(tournament.planned_start_at) }}</dd></div>
             <div><dt>比赛码</dt><dd class="tournament-code">{{ tournament.code ?? '—' }}</dd></div>
@@ -178,7 +183,11 @@ onMounted(async () => {
         <h2>赛事报名</h2>
         <FormMessage v-if="message" type="success" :message="message" />
         <FormMessage v-if="error" :message="error" />
-        <template v-if="tournament.status === 'REGISTRATION'">
+        <template v-if="tournament.status === 'CANCELED'">
+          <p><strong>本赛事已取消</strong></p>
+          <p class="form-hint">报名与赛事操作均已停止，记录继续保留。</p>
+        </template>
+        <template v-else-if="tournament.status === 'REGISTRATION'">
           <div class="capacity-copy"><span>已通过 {{ tournament.approved_count }} 人</span><strong>剩余 {{ remaining }} 席</strong></div>
           <div class="capacity-track"><i :style="{ width: `${Math.min(100, tournament.approved_count / (tournament.max_players || 1) * 100)}%` }" /></div>
           <template v-if="registration">

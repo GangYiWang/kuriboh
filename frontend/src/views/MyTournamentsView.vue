@@ -18,7 +18,7 @@ const tab = computed(() => route.query.tab === 'created' ? 'created' : 'joined')
 const formatDate = (value: string | null) => value ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(value)) : '时间待定'
 const matchLabel = (item: MyTournament) => item.current_match
   ? `${item.current_match.stage === 'SWISS' ? `瑞士轮第 ${item.current_match.round_no} 轮` : '淘汰赛'} · 第 ${item.current_match.table_no} 桌`
-  : '当前无进行中对阵'
+  : item.status === 'CANCELED' ? '赛事已取消' : '当前无进行中对阵'
 
 async function loadCurrent() {
   error.value = ''

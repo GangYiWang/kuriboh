@@ -101,3 +101,7 @@ export function apiPostForm<T>(path: string, body: FormData, token?: string | nu
 export function apiPatch<T>(path: string, body: unknown, token?: string | null): Promise<T> {
   return apiRequest<T>(path, { method: 'PATCH', body: JSON.stringify(body), token })
 }
+
+export function apiDelete<T = void>(path: string, token?: string | null): Promise<T> {
+  return apiRequest<T>(path, { method: 'DELETE', token })
+}
