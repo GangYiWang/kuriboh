@@ -59,7 +59,6 @@ async function submit() {
       <FormMessage v-if="error" :message="error" />
       <label><span>QQ 号或手机号</span><input v-model.trim="identifier" type="tel" inputmode="numeric" autocomplete="username" minlength="5" maxlength="20" required /></label>
       <label><span>密码</span><input v-model="password" type="password" autocomplete="current-password" required /></label>
-      <p class="form-switch"><RouterLink :to="{ path: '/reset-password', query: typeof route.query.redirect === 'string' ? { redirect: route.query.redirect } : {} }">忘记密码？</RouterLink></p>
       <button class="button primary full" type="submit" :disabled="submitting">{{ submitting ? '正在登录…' : '登录' }}</button>
       <a v-if="qqStatus?.configured" class="button secondary full" :href="qqStatus.authorization_url ?? '#'">使用 QQ 授权登录</a>
       <p class="form-switch">还没有账号？<RouterLink :to="{ path: '/register', query: typeof route.query.redirect === 'string' ? { redirect: route.query.redirect } : {} }">立即注册</RouterLink></p>

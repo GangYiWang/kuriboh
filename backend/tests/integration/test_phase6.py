@@ -111,7 +111,8 @@ def test_phase6_messages_my_tournaments_audit_and_deduplication(client, make_use
     )
     assert audit.status_code == 200
     actions = {item["action_type"] for item in audit.json()["items"]}
-    assert {"TOURNAMENT_PUBLISHED", "TOURNAMENT_STARTED", "REGISTRATION_APPROVE", "TOURNAMENT_NOTICE_SENT", "SWISS_ROUND_PUBLISHED"} <= actions
+    assert {"TOURNAMENT_PUBLISHED", "TOURNAMENT_STARTED", "TOURNAMENT_NOTICE_SENT", "SWISS_ROUND_PUBLISHED"} <= actions
+    assert "REGISTRATION_APPROVE" not in actions
 
     assert client.get("/api/admin/audit-logs", headers=auth(token_a)).status_code == 403
     assert client.post(

@@ -104,16 +104,17 @@ class RegistrationService:
 
         registration.reviewed_by_id = operator_id
         registration.reviewed_at = datetime.now(UTC)
-        add_audit_log(
-            self.db,
-            operator_id=operator_id,
-            tournament_id=tournament_id,
-            action_type=f"REGISTRATION_{action.upper()}",
-            target_type="registration",
-            target_id=registration.id,
-            before={"status": before_status},
-            after={"status": registration.status, "user_id": str(registration.user_id)},
-        )
+        if action != "approve":
+            add_audit_log(
+                self.db,
+                operator_id=operator_id,
+                tournament_id=tournament_id,
+                action_type=f"REGISTRATION_{action.upper()}",
+                target_type="registration",
+                target_id=registration.id,
+                before={"status": before_status},
+                after={"status": registration.status, "user_id": str(registration.user_id)},
+            )
         notification = {
             "approve": (MessageType.REGISTRATION_APPROVED, "报名审核通过", f"你报名的“{tournament.name}”已审核通过。"),
             "restore": (MessageType.REGISTRATION_APPROVED, "报名已恢复", f"你在“{tournament.name}”的参赛资格已恢复。"),
@@ -156,16 +157,6 @@ class RegistrationService:
             registration.status = RegistrationStatus.APPROVED.value
             registration.reviewed_by_id = operator_id
             registration.reviewed_at = reviewed_at
-            add_audit_log(
-                self.db,
-                operator_id=operator_id,
-                tournament_id=tournament_id,
-                action_type="REGISTRATION_APPROVE",
-                target_type="registration",
-                target_id=registration.id,
-                before={"status": RegistrationStatus.PENDING.value},
-                after={"status": RegistrationStatus.APPROVED.value, "user_id": str(registration.user_id)},
-            )
             add_automatic_message(
                 self.db,
                 recipient_id=registration.user_id,

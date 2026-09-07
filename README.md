@@ -158,6 +158,15 @@ cd /d backend
 
 也可以将 `--phone` 替换为 `--qq`，使用 QQ 号创建平台管理员。程序会提示输入至少 6 个字符的密码；已有手机号、QQ 号或昵称不会被覆盖。
 
+忘记密码时，服务器管理员可按数据库中的用户 UUID 将密码重置为固定临时密码 `123456`：
+
+```bat
+cd /d backend
+.venv\Scripts\python.exe -m app.cli reset-password --user-id 用户UUID
+```
+
+命令会使用项目的 Argon2id 算法生成新哈希，不能直接向 `password_hash` 写入明文。用户恢复登录后应立即在个人中心修改密码。
+
 ## Phase 1～6 接口
 
 - `/api/auth/register`、`/api/auth/login`、`/api/auth/me`、`/api/auth/change-password`

@@ -151,7 +151,43 @@ def test_registration_capacity_review_and_duplicate_boundary(client, make_user, 
             Registration.tournament_id == UUID(tournament_id),
             Registration.status == RegistrationStatus.APPROVED.value,
         ))
+        approval_audit_count = db.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.tournament_id == UUID(tournament_id),
+            AuditLog.action_type == "REGISTRATION_APPROVE",
+        ))
     assert approved_count == 2
+    assert approval_audit_count == 0
+
+
+def test_bulk_registration_approval_does_not_create_audit_noise(
+    client, make_user, session_factory
+) -> None:
+    admin, admin_token = make_user(qq_number="80000020", nickname="批量审核管理员")
+    _, token_a = make_user(qq_number="80000021", nickname="批量选手甲")
+    _, token_b = make_user(qq_number="80000022", nickname="批量选手乙")
+    banlist_id = seed_banlist(session_factory, admin.id)
+    tournament_id = create_and_publish(client, admin_token, banlist_id, max_players=4)
+    confirmation = {"nickname_matches_game": True, "accepts_rules": True}
+    assert client.post(
+        f"/api/tournaments/{tournament_id}/registrations", headers=auth(token_a), json=confirmation
+    ).status_code == 201
+    assert client.post(
+        f"/api/tournaments/{tournament_id}/registrations", headers=auth(token_b), json=confirmation
+    ).status_code == 201
+
+    approved = client.post(
+        f"/api/admin/tournaments/{tournament_id}/registrations/approve-pending",
+        headers=auth(admin_token),
+    )
+
+    assert approved.status_code == 200
+    assert approved.json() == {"approved_count": 2}
+    with session_factory() as db:
+        approval_audit_count = db.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.tournament_id == UUID(tournament_id),
+            AuditLog.action_type == "REGISTRATION_APPROVE",
+        ))
+    assert approval_audit_count == 0
 
 
 def test_cancel_reject_and_restore_transitions(client, make_user, session_factory) -> None:

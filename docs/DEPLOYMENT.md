@@ -178,6 +178,15 @@ docker compose --env-file .env.production exec api \
 
 也可以将 `--phone` 替换为 `--qq`，使用 QQ 号创建平台管理员。按提示交互输入密码，避免将平台管理员密码写入终端历史。
 
+用户忘记密码时，可根据数据库中的用户 UUID 将密码重置为固定临时密码 `123456`：
+
+```bash
+docker compose --env-file .env.production exec api \
+  python -m app.cli reset-password --user-id 用户UUID
+```
+
+命令会先验证用户是否存在，再通过项目的 Argon2id 算法写入新哈希。用户恢复登录后应立即在个人中心修改密码。该操作目前不会使已经签发的登录令牌失效。
+
 ## 6. 更新版本
 
 更新前先完成数据库和上传文件备份：
