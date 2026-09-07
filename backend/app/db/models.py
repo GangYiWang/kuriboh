@@ -10,10 +10,13 @@ from app.registrations.models import Registration, TournamentParticipant
 from app.reports.models import WeeklyReport
 from app.swiss.models import RankingSnapshot, SwissRound, Withdrawal
 from app.statistics.models import PlayerStatistics, TournamentPlayerResult
+from app.tournament_accounts.models import AccountImportBatch, AccountReplacementRequest, TournamentAccount
 from app.tournaments.models import Tournament
 from app.users.models import User
 
 __all__ = [
+    "AccountImportBatch",
+    "AccountReplacementRequest",
     "Announcement",
     "AuditLog",
     "BanlistVersion",
@@ -27,6 +30,7 @@ __all__ = [
     "Registration",
     "SwissRound",
     "Tournament",
+    "TournamentAccount",
     "TournamentPlayerResult",
     "TournamentParticipant",
     "User",

@@ -87,4 +87,21 @@ describe('authentication profile loading', () => {
       confirm_password: 'password123',
     })
   })
+
+  it('submits an unauthenticated password reset request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const authStore = useAuthStore()
+    await authStore.resetPassword('13800138000', 'reset456', 'reset456')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/auth/reset-password')
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({
+      identifier: '13800138000',
+      new_password: 'reset456',
+      confirm_password: 'reset456',
+    })
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).has('Authorization')).toBe(false)
+  })
 })

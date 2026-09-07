@@ -11,6 +11,7 @@ defineProps<{
   reasonLabel?: string
   reasonPlaceholder?: string
   reasonMaxlength?: number
+  reasonRequired?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -47,7 +48,6 @@ function updateReason(event: Event) {
         @keydown.esc.prevent="cancel"
       >
         <header>
-          <p class="section-kicker">CONFIRM ACTION</p>
           <h2>{{ title }}</h2>
         </header>
         <p class="form-dialog-description">{{ description }}</p>
@@ -57,6 +57,7 @@ function updateReason(event: Event) {
             :value="reason"
             :maxlength="reasonMaxlength ?? 500"
             :placeholder="reasonPlaceholder"
+            :required="reasonRequired"
             rows="3"
             :disabled="busy"
             @input="updateReason"
@@ -65,7 +66,7 @@ function updateReason(event: Event) {
         <p v-if="error" class="form-dialog-error" role="alert">{{ error }}</p>
         <div class="form-actions">
           <button ref="cancelButton" class="button secondary" type="button" :disabled="busy" @click="cancel">取消</button>
-          <button class="button primary" type="submit" :disabled="busy">{{ busy ? '提交中…' : confirmText }}</button>
+          <button class="button primary" type="submit" :disabled="busy || (reasonRequired && !reason?.trim())">{{ busy ? '提交中…' : confirmText }}</button>
         </div>
       </form>
     </div>

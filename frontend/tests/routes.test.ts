@@ -15,13 +15,14 @@ describe('formal route skeleton', () => {
       '/',
       '/login',
       '/register',
+      '/reset-password',
       '/tournaments',
       '/tournaments/:id',
       '/tournaments/:id/matches',
       '/tournaments/:id/results',
       '/tournaments/:id/manage/registrations',
       '/tournaments/:id/manage/playoffs',
-      '/tournaments/:id/manage/:section(settings|players|matches|results|decks-report|notifications|audit)',
+      '/tournaments/:id/manage/:section(settings|players|accounts|matches|results|decks-report|notifications|audit)',
       '/reports',
       '/reports/:id',
       '/announcements',
@@ -40,12 +41,13 @@ describe('formal route skeleton', () => {
     const byPath = new Map(routes.map((route) => [route.path, route]))
 
     expect(byPath.get('/profile')?.meta?.requiresAuth).toBe(true)
+    expect(byPath.get('/reset-password')?.meta?.guestOnly).toBe(true)
     expect(byPath.get('/messages')?.meta?.requiresAuth).toBe(true)
     expect(byPath.get('/admin')?.meta?.requiresPlatformAdmin).toBe(true)
     expect(byPath.get('/admin/banlists')?.meta?.requiresPlatformAdmin).toBe(true)
     expect(byPath.get('/admin/tournaments')?.meta?.requiresAuth).toBe(true)
     expect(byPath.get('/admin/tournaments/:id/playoffs')?.meta?.requiresAuth).toBe(true)
-    expect(byPath.get('/admin/tournaments/:id/:section(settings|players|matches|results|decks-report|notifications|audit)')?.meta?.requiresAuth).toBe(true)
+    expect(byPath.get('/admin/tournaments/:id/:section(settings|players|accounts|matches|results|decks-report|notifications|audit)')?.meta?.requiresAuth).toBe(true)
     expect(byPath.get('/admin/messages')?.meta?.requiresPlatformAdmin).toBe(true)
     expect(byPath.get('/admin/audit')?.meta?.requiresPlatformAdmin).toBe(true)
     expect(byPath.get('/announcements')?.meta?.requiresAuth).not.toBe(true)

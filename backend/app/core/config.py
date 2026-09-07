@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     qq_oauth_redirect_uri: str | None = None
     upload_dir: Path = Path("uploads")
     upload_max_bytes: int = 20 * 1024 * 1024
+    account_import_max_bytes: int = 1024 * 1024
 
     @field_validator("database_url")
     @classmethod

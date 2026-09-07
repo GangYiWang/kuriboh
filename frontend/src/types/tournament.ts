@@ -4,6 +4,9 @@ export type SwissRoundStatus = 'DRAFT' | 'PUBLISHED' | 'COMPLETED'
 export type MatchStatus = 'WAITING' | 'CONFLICT' | 'COMPLETED'
 export type SubmittedResult = 'WIN' | 'LOSS'
 export type PlayoffRoundStatus = 'DRAFT' | 'PUBLISHED' | 'COMPLETED'
+export type AccountType = 'KONAMI' | 'STEAM'
+export type TournamentAccountStatus = 'AVAILABLE' | 'RESERVED' | 'CLAIMED' | 'INVALID'
+export type AccountReplacementStatus = 'PENDING' | 'APPROVED' | 'COMPLETED' | 'REJECTED'
 
 export interface Tournament {
   id: string
@@ -85,6 +88,75 @@ export interface Participant {
   nickname_snapshot: string
   status: 'ACTIVE' | 'WITHDRAWN'
   bye_count: number
+}
+
+export interface AccountCredential {
+  account_type: AccountType
+  account: string
+  password: string
+  claimed_at: string
+}
+
+export interface MyTournamentAccountsResponse {
+  items: AccountCredential[]
+  replacement_requests: AccountReplacementRequest[]
+}
+
+export interface AccountReplacementRequest {
+  id: string
+  account_type: AccountType
+  status: AccountReplacementStatus
+  reason: string
+  rejection_reason: string | null
+  created_at: string
+  reviewed_at: string | null
+  completed_at: string | null
+}
+
+export interface AdminAccountReplacementRequest extends AccountReplacementRequest {
+  user_id: string
+  nickname: string
+  original_account: string
+  replacement_account: string | null
+}
+
+export interface AdminAccountReplacementRequestListResponse {
+  items: AdminAccountReplacementRequest[]
+  total: number
+  pending_count: number
+}
+
+export interface AccountInventorySummary {
+  account_type: AccountType
+  total: number
+  available: number
+  reserved: number
+  claimed: number
+  invalid: number
+}
+
+export interface AdminTournamentAccount {
+  id: string
+  account_type: AccountType
+  account: string
+  status: TournamentAccountStatus
+  claimed_by_user_id: string | null
+  claimed_by_nickname: string | null
+  claimed_at: string | null
+  created_at: string
+}
+
+export interface AdminTournamentAccountListResponse {
+  items: AdminTournamentAccount[]
+  summaries: AccountInventorySummary[]
+  total: number
+}
+
+export interface AccountImportResponse {
+  batch_id: string
+  account_type: AccountType
+  imported_count: number
+  available_count: number
 }
 
 export interface SwissMatch {

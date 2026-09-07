@@ -306,7 +306,7 @@ input {
   background: var(--color-surface);
 }
 
-.form-dialog h2 { margin: 8px 0 0; font-size: 22px; }
+.form-dialog h2 { margin: 0; font-size: 22px; }
 .form-dialog-description { margin: 18px 0 0; color: var(--color-muted); font-size: 13px; line-height: 1.8; }
 .form-dialog-error { margin: 16px 0 0; padding: 10px 12px; border-left: 3px solid #8f3a2d; color: #8f3a2d; background: #f7ebe7; font-size: 12px; }
 .form-dialog-field { display: grid; gap: 7px; margin-top: 18px; color: var(--color-muted); font-size: 11px; }
@@ -1138,6 +1138,57 @@ input {
 .text-action { border: 0; color: var(--color-brand); background: transparent; font-size: 11px; cursor: pointer; }
 .text-action:disabled { color: var(--color-muted); cursor: not-allowed; }
 
+.account-admin { margin-top: 34px; padding-bottom: 70px; }
+.account-admin > .form-message { margin-top: 18px; }
+.account-import-bar { min-height: 96px; display: flex; align-items: center; justify-content: space-between; gap: 28px; padding: 18px 0; border-bottom: 1px solid var(--color-line); }
+.account-import-bar strong { font-size: 14px; }
+.account-import-bar p { margin: 6px 0 0; color: var(--color-muted); font-size: 11px; line-height: 1.7; }
+.account-import-bar code, .account-inventory-table code { font-family: var(--font-number); }
+.account-import-actions { display: flex; align-items: end; gap: 12px; }
+.account-import-errors { margin: 12px 0 0; padding: 12px 14px 12px 32px; border-left: 3px solid var(--color-brand); background: var(--color-brand-pale); color: var(--color-brand); font-size: 11px; line-height: 1.8; }
+.account-available { color: var(--color-muted); }
+.account-reserved { color: var(--color-brand); }
+.account-claimed { color: #44774c; }
+.account-invalid { color: #8f3a2d; }
+.account-type-tabs { display: flex; gap: 26px; margin-top: 18px; border-bottom: 1px solid var(--color-line); }
+.account-type-tabs button { position: relative; padding: 10px 2px 12px; border: 0; color: var(--color-muted); background: transparent; font-size: 13px; font-weight: 600; cursor: pointer; }
+.account-type-tabs button.active { color: var(--color-ink); }
+.account-type-tabs button.active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: var(--color-brand); content: ''; }
+.account-replacement-admin { padding-top: 20px; }
+.account-replacement-table td { vertical-align: top; }
+.account-replacement-table td:first-child strong, .account-replacement-table td:first-child small,
+.account-replacement-table td:nth-child(2) span, .account-replacement-table td:nth-child(2) code,
+.account-replacement-table td:nth-child(4) small { display: block; }
+.account-replacement-table td small { margin-top: 6px; color: var(--color-muted); font-size: 10px; }
+.account-replacement-table td:nth-child(3) { min-width: 260px; white-space: normal; }
+.account-replacement-table td:nth-child(3) p { margin: 0; line-height: 1.65; }
+.replacement-pending, .replacement-approved { color: var(--color-brand); }
+.replacement-completed { color: #44774c; }
+.replacement-rejected { color: #8f3a2d; }
+.player-tabs .replacement-request-count { margin-left: 6px; color: #b3261e; font: 700 12px/1 var(--font-number); }
+
+.tournament-accounts-panel { padding-bottom: 48px; }
+.tournament-accounts-panel .section-title-row h2 { margin: 0 0 8px; font-size: 24px; }
+.tournament-accounts-panel .section-title-row p:last-child { margin: 0; color: var(--color-muted); font-size: 12px; }
+.tournament-accounts-panel > .form-message { margin-top: 18px; }
+.account-claim-list { margin-top: 24px; border-top: 1px solid var(--color-line-strong); }
+.account-claim-row { padding: 24px 0; border-bottom: 1px solid var(--color-line); }
+.account-claim-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.account-claim-heading h3 { margin: 0 0 7px; font-size: 18px; }
+.account-claim-heading p, .account-claim-action p { margin: 0; color: var(--color-muted); font-size: 11px; line-height: 1.7; }
+.account-claim-action { margin-top: 18px; }
+.account-credential-list { display: grid; grid-template-columns: 1fr 1fr minmax(180px, .7fr); margin: 20px 0 0; border-top: 1px solid var(--color-line); }
+.account-credential-list > div { min-width: 0; padding: 14px 18px 0 0; }
+.account-credential-list dt { color: var(--color-muted); font-size: 10px; }
+.account-credential-list dd { min-width: 0; display: flex; align-items: center; gap: 10px; margin: 7px 0 0; font-size: 12px; }
+.account-credential-list code { overflow-wrap: anywhere; font: 700 13px/1.5 var(--font-number); }
+.account-replacement-state { margin-top: 18px; padding: 12px 14px; border-left: 3px solid var(--color-brand); background: var(--color-brand-pale); }
+.account-replacement-state strong { color: var(--color-brand); font-size: 12px; }
+.account-replacement-state p { margin: 5px 0 0; color: var(--color-muted); font-size: 11px; line-height: 1.7; }
+.account-replacement-state.rejected { border-left-color: #8f3a2d; }
+.account-replacement-state.rejected strong { color: #8f3a2d; }
+.account-replacement-action { display: flex; justify-content: flex-end; margin-top: 16px; }
+
 .competition-admin { margin-top: 24px; padding-bottom: 70px; }
 .competition-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 .competition-heading h2 { margin: 0 0 7px; font-size: 24px; }
@@ -1667,6 +1718,11 @@ input {
   .playoff-bracket-tree { --bracket-tree-gap: 36px; grid-template-columns: repeat(var(--round-count), 220px); }
   .player-summary > div { min-width: 50%; padding-right: 12px; }
   .player-section-heading { align-items: flex-start; flex-direction: column; gap: 8px; padding: 14px 0; }
+  .account-import-bar, .account-import-actions, .account-claim-heading { align-items: stretch; flex-direction: column; }
+  .account-import-actions .button { width: 100%; }
+  .account-type-tabs { overflow-x: auto; white-space: nowrap; }
+  .account-credential-list { grid-template-columns: 1fr; }
+  .account-credential-list > div { padding-bottom: 12px; border-bottom: 1px solid var(--color-line); }
   .deck-review-grid, .podium-grid { grid-template-columns: 1fr; }
   .section-title-row, .report-admin-heading, .forfeit-confirmation { align-items: stretch; flex-direction: column; }
   .forfeit-confirmation.swiss-resolution-confirmation { width: 100%; margin-left: 0; }

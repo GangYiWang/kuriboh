@@ -4,6 +4,7 @@ import HomeView from '@/views/HomeView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
 import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
+import ResetPasswordView from '@/views/ResetPasswordView.vue'
 import QqCallbackView from '@/views/QqCallbackView.vue'
 import ProfileView from '@/views/ProfileView.vue'
 import BanlistListView from '@/views/BanlistListView.vue'
@@ -40,6 +41,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: HomeView, meta: { title: '首页' } },
   { path: '/login', name: 'login', component: LoginView, meta: { title: '登录', guestOnly: true } },
   { path: '/register', name: 'register', component: RegisterView, meta: { title: '注册', guestOnly: true } },
+  { path: '/reset-password', name: 'reset-password', component: ResetPasswordView, meta: { title: '重置密码', guestOnly: true } },
   { path: '/login/qq/callback', name: 'qq-callback', component: QqCallbackView, meta: { title: 'QQ 授权' } },
   { path: '/profile', name: 'profile', component: ProfileView, meta: { title: '个人中心', requiresAuth: true } },
   { path: '/messages', name: 'messages', component: MessagesView, meta: { title: '消息中心', requiresAuth: true } },
@@ -52,7 +54,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/tournaments/new', name: 'tournament-create', component: TournamentCreateView, meta: { title: '发布比赛', requiresAuth: true } },
   { path: '/tournaments/:id/manage/registrations', redirect: (to) => `/tournaments/${String(to.params.id)}/manage/players` },
   { path: '/tournaments/:id/manage/playoffs', redirect: (to) => ({ path: `/tournaments/${String(to.params.id)}/manage/matches`, query: { stage: 'playoff' } }) },
-  { path: '/tournaments/:id/manage/:section(settings|players|matches|results|decks-report|notifications|audit)', name: 'tournament-manage', component: AdminTournamentDetailView, meta: { title: '赛事管理', requiresAuth: true } },
+  { path: '/tournaments/:id/manage/:section(settings|players|accounts|matches|results|decks-report|notifications|audit)', name: 'tournament-manage', component: AdminTournamentDetailView, meta: { title: '赛事管理', requiresAuth: true } },
   { path: '/tournaments/:id', name: 'tournament-detail', component: TournamentDetailView, meta: { title: '赛事详情' } },
   { path: '/tournaments/:id/matches', redirect: (to) => `/tournaments/${String(to.params.id)}` },
   { path: '/tournaments/:id/results', redirect: (to) => `/tournaments/${String(to.params.id)}` },
@@ -66,7 +68,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/admin/tournaments', redirect: '/my-tournaments?tab=created', meta: { requiresAuth: true } },
   { path: '/admin/tournaments/:id/registrations', redirect: (to) => `/tournaments/${String(to.params.id)}/manage/players`, meta: { requiresAuth: true } },
   { path: '/admin/tournaments/:id/playoffs', redirect: (to) => ({ path: `/tournaments/${String(to.params.id)}/manage/matches`, query: { stage: 'playoff' } }), meta: { requiresAuth: true } },
-  { path: '/admin/tournaments/:id/:section(settings|players|matches|results|decks-report|notifications|audit)', redirect: (to) => `/tournaments/${String(to.params.id)}/manage/${String(to.params.section)}`, meta: { requiresAuth: true } },
+  { path: '/admin/tournaments/:id/:section(settings|players|accounts|matches|results|decks-report|notifications|audit)', redirect: (to) => `/tournaments/${String(to.params.id)}/manage/${String(to.params.section)}`, meta: { requiresAuth: true } },
   ...placeholders.map((route) => ({
     path: route.path,
     name: route.name,

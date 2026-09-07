@@ -11,6 +11,7 @@ from app.auth.schemas import (
     QqCallbackResponse,
     QqOAuthStatus,
     RegisterRequest,
+    ResetPasswordRequest,
     TokenResponse,
 )
 from app.auth.security import create_token
@@ -31,6 +32,14 @@ def register(request: RegisterRequest, db: Annotated[Session, Depends(get_db)]) 
 @router.post("/login", response_model=TokenResponse)
 def login(request: LoginRequest, db: Annotated[Session, Depends(get_db)]) -> TokenResponse:
     return AuthService(db).login(request)
+
+
+@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+def reset_password(
+    request: ResetPasswordRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> None:
+    AuthService(db).reset_password(request)
 
 
 @router.get("/me", response_model=UserResponse)

@@ -42,6 +42,18 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class ResetPasswordRequest(BaseModel):
+    identifier: str = Field(min_length=5, max_length=20, pattern=r"^[1-9][0-9]+$")
+    new_password: str = Field(min_length=6, max_length=128)
+    confirm_password: str = Field(min_length=6, max_length=128)
+
+    @model_validator(mode="after")
+    def passwords_match(self) -> "ResetPasswordRequest":
+        if self.new_password != self.confirm_password:
+            raise ValueError("两次输入的新密码不一致")
+        return self
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=1, max_length=128)
     new_password: str = Field(min_length=6, max_length=128)

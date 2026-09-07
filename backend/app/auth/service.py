@@ -7,7 +7,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth.roles import Role
-from app.auth.schemas import ChangePasswordRequest, LoginRequest, RegisterRequest, TokenResponse
+from app.auth.schemas import (
+    ChangePasswordRequest,
+    LoginRequest,
+    RegisterRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+)
 from app.auth.security import DUMMY_PASSWORD_HASH, create_token, decode_token, hash_password, verify_password
 from app.core.config import get_settings
 from app.core.errors import AppError
@@ -55,6 +61,13 @@ class AuthService:
         if user is None or not valid:
             raise AppError("INVALID_CREDENTIALS", "手机号、QQ 号或密码错误", status_code=401)
         return self._token_response(user)
+
+    def reset_password(self, request: ResetPasswordRequest) -> None:
+        user = self.users.get_by_identifier(request.identifier)
+        if user is None:
+            raise AppError("ACCOUNT_NOT_FOUND", "账号不存在", status_code=404)
+        user.password_hash = hash_password(request.new_password)
+        self.db.commit()
 
     def change_password(self, user: User, request: ChangePasswordRequest) -> None:
         if not verify_password(request.current_password, user.password_hash):

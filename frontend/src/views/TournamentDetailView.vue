@@ -7,6 +7,7 @@ import FormMessage from '@/components/FormMessage.vue'
 import SwissLivePanel from '@/components/SwissLivePanel.vue'
 import PlayoffBracket from '@/components/PlayoffBracket.vue'
 import DeckSubmissionPanel from '@/components/DeckSubmissionPanel.vue'
+import TournamentAccountsPanel from '@/components/TournamentAccountsPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { Registration, Tournament } from '@/types/tournament'
 import { registrationStatusText, tournamentStatusText } from '@/types/tournament'
@@ -19,7 +20,7 @@ const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
 const message = ref('')
-const activeTab = ref<'info' | 'matches' | 'results' | 'deck'>('info')
+const activeTab = ref<'info' | 'accounts' | 'matches' | 'results' | 'deck'>('info')
 const resultsStage = ref<'swiss' | 'playoff'>('swiss')
 const tournamentId = computed(() => String(route.params.id))
 const backTarget = computed(() => route.query.from === 'records'
@@ -99,9 +100,10 @@ onMounted(async () => {
         <RouterLink v-if="authStore.user?.id === tournament.created_by_id" class="button secondary" :to="`/tournaments/${tournament.id}/manage/settings`">管理比赛</RouterLink>
       </div>
     </header>
-    <div :class="['page-shell', 'tournament-detail-layout', { 'tournament-detail-layout-results': ['results', 'deck'].includes(activeTab) }]">
+    <div :class="['page-shell', 'tournament-detail-layout', { 'tournament-detail-layout-results': ['accounts', 'results', 'deck'].includes(activeTab) }]">
       <nav class="tournament-detail-tabs" aria-label="赛事页面内容">
         <button type="button" :class="{ active: activeTab === 'info' }" :aria-current="activeTab === 'info' ? 'page' : undefined" @click="activeTab = 'info'">赛事信息</button>
+        <button v-if="registration && ['APPROVED', 'CANCELED'].includes(registration.status) && authStore.token" type="button" :class="{ active: activeTab === 'accounts' }" :aria-current="activeTab === 'accounts' ? 'page' : undefined" @click="activeTab = 'accounts'">赛事账号</button>
         <button v-if="tournament.status !== 'CANCELED'" type="button" :class="{ active: activeTab === 'matches' }" :aria-current="activeTab === 'matches' ? 'page' : undefined" @click="activeTab = 'matches'">对阵</button>
         <button v-if="tournament.status !== 'CANCELED'" type="button" :class="{ active: activeTab === 'results' }" :aria-current="activeTab === 'results' ? 'page' : undefined" @click="activeTab = 'results'">赛果</button>
         <button v-if="tournament.status === 'ENDED' && authStore.isAuthenticated && authStore.token" type="button" :class="{ active: activeTab === 'deck' }" :aria-current="activeTab === 'deck' ? 'page' : undefined" @click="activeTab = 'deck'">卡组</button>
@@ -127,6 +129,13 @@ onMounted(async () => {
             <p class="long-copy">{{ tournament.description || '暂无赛事说明。' }}</p>
           </section>
         </section>
+        <TournamentAccountsPanel
+          v-if="activeTab === 'accounts' && registration && ['APPROVED', 'CANCELED'].includes(registration.status) && authStore.token"
+          :tournament-id="tournament.id"
+          :token="authStore.token"
+          :tournament-status="tournament.status"
+          :registration-status="registration.status"
+        />
         <SwissLivePanel
           v-if="activeTab === 'matches' && tournament.status === 'SWISS'"
           :tournament-id="tournament.id"

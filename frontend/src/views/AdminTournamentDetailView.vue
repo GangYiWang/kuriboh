@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/api/client'
+import AdminTournamentAccountsPanel from '@/components/AdminTournamentAccountsPanel.vue'
 import ConfirmFormDialog from '@/components/ConfirmFormDialog.vue'
 import FormMessage from '@/components/FormMessage.vue'
 import MatchHistoryList from '@/components/MatchHistoryList.vue'
@@ -663,6 +664,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
     <nav class="admin-subnav" aria-label="赛事管理导航">
       <RouterLink :to="`/tournaments/${tournamentId}/manage/settings`">赛事设置</RouterLink>
       <RouterLink :to="`/tournaments/${tournamentId}/manage/players`">选手</RouterLink>
+      <RouterLink :to="`/tournaments/${tournamentId}/manage/accounts`">账号分发</RouterLink>
       <RouterLink v-if="tournament?.status !== 'CANCELED'" :to="`/tournaments/${tournamentId}/manage/matches`">对阵</RouterLink>
       <RouterLink v-if="tournament?.status !== 'CANCELED'" :to="`/tournaments/${tournamentId}/manage/results`">赛果</RouterLink>
       <RouterLink v-if="tournament?.status !== 'CANCELED'" :to="`/tournaments/${tournamentId}/manage/decks-report`">卡组与周报</RouterLink>
@@ -819,6 +821,13 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
         </template>
       </div>
     </section>
+
+    <AdminTournamentAccountsPanel
+      v-if="tournament && section === 'accounts' && authStore.token"
+      :tournament-id="tournamentId"
+      :token="authStore.token"
+      :tournament-status="tournament.status"
+    />
 
     <section v-if="tournament && ['matches', 'results'].includes(section)" class="competition-admin">
       <header class="competition-heading">

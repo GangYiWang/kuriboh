@@ -35,6 +35,14 @@ export const useAuthStore = defineStore('auth', () => {
     acceptSession(await apiPost<TokenResponse>('/auth/register', payload))
   }
 
+  async function resetPassword(identifier: string, newPassword: string, confirmPassword: string) {
+    await apiPost<void>('/auth/reset-password', {
+      identifier,
+      new_password: newPassword,
+      confirm_password: confirmPassword,
+    })
+  }
+
   async function ensureProfile() {
     if (!token.value || user.value) return
     if (profileRequest) return profileRequest
@@ -81,6 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
     acceptSession,
     login,
     register,
+    resetPassword,
     ensureProfile,
     changePassword,
     bindQq,

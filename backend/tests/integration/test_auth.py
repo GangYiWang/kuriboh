@@ -58,6 +58,97 @@ def test_register_by_phone_login_profile_and_change_password(
     ).status_code == 200
 
 
+def test_reset_password_by_phone_without_login(
+    client,
+    session_factory: sessionmaker[Session],
+) -> None:
+    assert client.post("/api/auth/register", json=registration_payload()).status_code == 201
+
+    reset = client.post(
+        "/api/auth/reset-password",
+        json={
+            "identifier": "13800138000",
+            "new_password": "reset456",
+            "confirm_password": "reset456",
+        },
+    )
+
+    assert reset.status_code == 204
+    assert client.post(
+        "/api/auth/login",
+        json={"identifier": "13800138000", "password": "secure123"},
+    ).status_code == 401
+    assert client.post(
+        "/api/auth/login",
+        json={"identifier": "13800138000", "password": "reset456"},
+    ).status_code == 200
+    with session_factory() as db:
+        user = db.scalar(select(User).where(User.phone_number == "13800138000"))
+        assert user is not None
+        assert user.password_hash != "reset456"
+        assert verify_password("reset456", user.password_hash)
+
+
+def test_reset_password_by_qq_number_without_login(client) -> None:
+    assert client.post(
+        "/api/auth/register",
+        json=registration_payload(
+            identifier_type="QQ",
+            identifier="123456789",
+            nickname="重置密码选手",
+        ),
+    ).status_code == 201
+
+    reset = client.post(
+        "/api/auth/reset-password",
+        json={
+            "identifier": "123456789",
+            "new_password": "reset456",
+            "confirm_password": "reset456",
+        },
+    )
+
+    assert reset.status_code == 204
+    assert client.post(
+        "/api/auth/login",
+        json={"identifier": "123456789", "password": "reset456"},
+    ).status_code == 200
+
+
+def test_reset_password_rejects_unknown_account_and_invalid_passwords(client) -> None:
+    unknown = client.post(
+        "/api/auth/reset-password",
+        json={
+            "identifier": "123456789",
+            "new_password": "reset456",
+            "confirm_password": "reset456",
+        },
+    )
+    mismatch = client.post(
+        "/api/auth/reset-password",
+        json={
+            "identifier": "123456789",
+            "new_password": "reset456",
+            "confirm_password": "different456",
+        },
+    )
+    too_short = client.post(
+        "/api/auth/reset-password",
+        json={
+            "identifier": "123456789",
+            "new_password": "12345",
+            "confirm_password": "12345",
+        },
+    )
+
+    assert unknown.status_code == 404
+    assert unknown.json()["code"] == "ACCOUNT_NOT_FOUND"
+    assert mismatch.status_code == 422
+    assert mismatch.json()["code"] == "VALIDATION_ERROR"
+    assert too_short.status_code == 422
+    assert too_short.json()["code"] == "VALIDATION_ERROR"
+
+
 def test_register_and_login_by_qq_number(client) -> None:
     registered = client.post(
         "/api/auth/register",
