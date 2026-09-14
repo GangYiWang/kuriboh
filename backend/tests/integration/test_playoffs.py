@@ -4,6 +4,7 @@ from uuid import UUID
 
 from PIL import Image
 
+from app.audit.models import AuditLog
 from app.auth.roles import Role
 from app.content.models import BanlistVersion
 from app.matches.models import Match, MatchStage, MatchStatus, ResultSource
@@ -332,11 +333,25 @@ def test_phase5_end_decks_and_immutable_weekly_report(client, make_user, session
     image_buffer = BytesIO()
     Image.new("RGB", (24, 16), color=(141, 61, 45)).save(image_buffer, format="PNG")
     image_bytes = image_buffer.getvalue()
+    finalist_id = UUID(submissions["items"][0]["participant_id"])
+    denied_admin_upload = client.post(
+        f"/api/admin/deck-submissions/{submissions['items'][0]['id']}/upload",
+        headers=auth(tokens[finalist_id]),
+        files={"image": ("deck.png", image_bytes, "image/png")},
+    )
+    assert denied_admin_upload.status_code == 403
+    assert denied_admin_upload.json()["code"] == "TOURNAMENT_OWNER_REQUIRED"
+
     for index, submission in enumerate(submissions["items"]):
         participant_id = UUID(submission["participant_id"])
+        upload_path = (
+            f"/api/admin/deck-submissions/{submission['id']}/upload"
+            if index == 0
+            else f"/api/tournaments/{tournament_id}/deck-submission"
+        )
         uploaded = client.post(
-            f"/api/tournaments/{tournament_id}/deck-submission",
-            headers=auth(tokens[participant_id]),
+            upload_path,
+            headers=admin_headers if index == 0 else auth(tokens[participant_id]),
             files={"image": (f"deck-{index}.png", image_bytes, "image/png")},
         )
         assert uploaded.status_code == 200, uploaded.json()
@@ -351,8 +366,8 @@ def test_phase5_end_decks_and_immutable_weekly_report(client, make_user, session
             assert returned.json()["status"] == "REUPLOAD_REQUIRED"
             assert returned.json()["review_note"] == ""
             reuploaded = client.post(
-                f"/api/tournaments/{tournament_id}/deck-submission",
-                headers=auth(tokens[participant_id]),
+                f"/api/admin/deck-submissions/{submission['id']}/upload",
+                headers=admin_headers,
                 files={"image": ("deck-fixed.png", image_bytes, "image/png")},
             )
             assert reuploaded.json()["status"] == "PENDING_REVIEW"
@@ -368,6 +383,13 @@ def test_phase5_end_decks_and_immutable_weekly_report(client, make_user, session
         )
         assert approved.status_code == 200
         assert approved.json()["status"] == "APPROVED"
+
+    with session_factory() as db:
+        admin_upload_audits = db.query(AuditLog).filter_by(
+            tournament_id=tournament_id,
+            action_type="DECK_SUBMISSION_UPLOADED_BY_ADMIN",
+        ).all()
+    assert len(admin_upload_audits) == 2
 
     approved_reupload = client.post(
         f"/api/tournaments/{tournament_id}/deck-submission",

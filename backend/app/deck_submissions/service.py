@@ -50,17 +50,56 @@ class DeckSubmissionService:
         item = self.repository.for_user(tournament_id, user_id, for_update=True)
         if item is None:
             raise AppError("NOT_FINAL_FOUR", "只有本届赛事最终四强可以提交卡组截图", status_code=403)
+        return self._store_upload(item, content)
+
+    def upload_for_admin(
+        self,
+        submission_id: UUID,
+        content: bytes,
+        operator_id: UUID,
+    ) -> DeckSubmission:
+        item = self.repository.get(submission_id, for_update=True)
+        if item is None:
+            raise AppError("DECK_SUBMISSION_NOT_FOUND", "卡组提交不存在", status_code=404)
+        tournament = TournamentService(self.db).require(item.tournament_id)
+        if tournament.status != TournamentStatus.ENDED.value:
+            raise AppError("TOURNAMENT_NOT_ENDED", "赛事结束后才能上传四强卡组截图", status_code=409)
+        return self._store_upload(item, content, operator_id=operator_id)
+
+    def _store_upload(
+        self,
+        item: DeckSubmission,
+        content: bytes,
+        *,
+        operator_id: UUID | None = None,
+    ) -> DeckSubmission:
         if item.status == DeckSubmissionStatus.APPROVED.value:
             raise AppError("DECK_SUBMISSION_LOCKED", "卡组截图审核通过后不可替换", status_code=409)
-        report = self.db.query(WeeklyReport).filter_by(tournament_id=tournament_id).one_or_none()
+        report = self.db.query(WeeklyReport).filter_by(tournament_id=item.tournament_id).one_or_none()
         if report is not None and report.status == WeeklyReportStatus.PUBLISHED.value:
             raise AppError("REPORT_PUBLISHED", "周报发布后不可替换卡组截图", status_code=409)
+        before = {"status": item.status, "image_path": item.image_path}
         image_path, _, _, _ = LocalImageStorage().save(content)
         item.image_path = image_path
         item.status = DeckSubmissionStatus.PENDING_REVIEW.value
         item.review_note = None
         item.reviewed_by_id = None
         item.reviewed_at = None
+        if operator_id is not None:
+            add_audit_log(
+                self.db,
+                operator_id=operator_id,
+                tournament_id=item.tournament_id,
+                action_type="DECK_SUBMISSION_UPLOADED_BY_ADMIN",
+                target_type="deck_submission",
+                target_id=item.id,
+                before=before,
+                after={
+                    "status": item.status,
+                    "image_path": item.image_path,
+                    "participant_id": str(item.participant_id),
+                },
+            )
         self.db.commit()
         return self.repository.get(item.id)  # type: ignore[return-value]
 

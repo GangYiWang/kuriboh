@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { apiDelete, apiGet, apiPatch, apiPost } from '@/api/client'
+import { apiDelete, apiGet, apiPatch, apiPost, apiPostForm } from '@/api/client'
 import AdminTournamentAccountsPanel from '@/components/AdminTournamentAccountsPanel.vue'
 import ConfirmFormDialog from '@/components/ConfirmFormDialog.vue'
 import FormMessage from '@/components/FormMessage.vue'
@@ -53,6 +53,7 @@ const weeklyReport = ref<WeeklyReport | null>(null)
 const auditLogs = ref<AuditLogListResponse | null>(null)
 const noticeForm = reactive({ title: '', body: '' })
 const previewDeck = ref<DeckSubmission | null>(null)
+const deckUploadFiles = ref<Record<string, File | null>>({})
 const deckPreviewCloseButton = ref<HTMLButtonElement | null>(null)
 const matchFilter = ref<'ALL' | 'WAITING' | 'CONFLICT' | 'COMPLETED'>('ALL')
 const playerTab = ref<'registrations' | 'participants'>('registrations')
@@ -587,6 +588,31 @@ async function reviewDeck(item: DeckSubmission, action: 'approve' | 'return') {
   } finally { busy.value = false }
 }
 
+function chooseAdminDeckFile(submissionId: string, event: Event): void {
+  deckUploadFiles.value[submissionId] = (event.target as HTMLInputElement).files?.[0] ?? null
+  error.value = ''
+}
+
+async function uploadDeckForPlayer(item: DeckSubmission): Promise<void> {
+  const file = deckUploadFiles.value[item.id]
+  if (!file) return
+  busy.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    const form = new FormData()
+    form.append('image', file)
+    await apiPostForm<DeckSubmission>(
+      `/admin/deck-submissions/${item.id}/upload`, form, authStore.token,
+    )
+    delete deckUploadFiles.value[item.id]
+    message.value = `已代 ${item.nickname} 上传卡组截图，等待审核。`
+    await loadPhase5()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '代上传卡组截图失败'
+  } finally { busy.value = false }
+}
+
 function openDeckPreview(item: DeckSubmission) {
   if (item.image_url) previewDeck.value = item
 }
@@ -1011,8 +1037,12 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
           <article v-for="item in deckSubmissions?.items" :key="item.id" class="deck-review-card">
             <header><span>{{ deckPlacementText(item.placement) }}</span><strong>{{ item.nickname }}</strong><i :class="['status-badge', `deck-${item.status.toLowerCase()}`]">{{ deckStatusText[item.status] }}</i></header>
             <img v-if="item.image_url" :src="item.image_url" :alt="`${item.nickname} 的卡组截图`" />
-            <div v-else class="deck-image-empty">等待选手上传</div>
+            <div v-else class="deck-image-empty">等待选手或管理员上传</div>
             <footer v-if="item.status === 'PENDING_REVIEW'" class="row-actions"><button type="button" :disabled="busy || !item.image_url" @click="openDeckPreview(item)">预览</button><button type="button" :disabled="busy" @click="reviewDeck(item, 'approve')">审核通过</button><button type="button" :disabled="busy" @click="reviewDeck(item, 'return')">退回重传</button></footer>
+            <footer v-else-if="item.status === 'NOT_UPLOADED' || item.status === 'REUPLOAD_REQUIRED'" class="row-actions deck-admin-upload-actions">
+              <label class="file-control"><span>{{ item.image_url ? '选择新的截图' : '代选手选择截图' }}</span><input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" :disabled="busy" @change="chooseAdminDeckFile(item.id, $event)" /></label>
+              <button type="button" :disabled="busy || !deckUploadFiles[item.id]" @click="uploadDeckForPlayer(item)">{{ busy ? '上传中…' : '代上传' }}</button>
+            </footer>
           </article>
         </div>
 

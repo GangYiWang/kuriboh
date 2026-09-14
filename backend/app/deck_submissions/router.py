@@ -39,6 +39,20 @@ def admin_deck_submissions(tournament_id: UUID, principal: Authenticated, db: An
     return DeckSubmissionService(db).list_for_admin(tournament_id)
 
 
+@admin_router.post("/deck-submissions/{submission_id}/upload", response_model=DeckSubmissionResponse)
+async def upload_deck_submission_for_player(
+    submission_id: UUID,
+    principal: Authenticated,
+    db: Annotated[Session, Depends(get_db)],
+    image: Annotated[UploadFile, File()],
+):
+    require_deck_submission_owner(db, submission_id, principal.user_id)
+    content = await image.read(get_settings().upload_max_bytes + 1)
+    return deck_response(
+        DeckSubmissionService(db).upload_for_admin(submission_id, content, principal.user_id)
+    )
+
+
 @admin_router.post("/deck-submissions/{submission_id}/approve", response_model=DeckSubmissionResponse)
 def approve_deck_submission(submission_id: UUID, principal: Authenticated, db: Annotated[Session, Depends(get_db)]):
     require_deck_submission_owner(db, submission_id, principal.user_id)

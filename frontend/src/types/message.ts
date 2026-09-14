@@ -92,6 +92,7 @@ const auditActionTypeText: Record<string, string> = {
   DECK_SUBMISSION_APPROVE: '通过卡组审核',
   DECK_SUBMISSION_RETURN: '退回卡组重传',
   DECK_SUBMISSION_RETURNED: '退回卡组重传',
+  DECK_SUBMISSION_UPLOADED_BY_ADMIN: '代选手上传卡组',
   WEEKLY_REPORT_GENERATED: '生成周报草稿',
   WEEKLY_REPORT_PUBLISHED: '发布周报',
   WEEKLY_REPORT_GENERATED_AND_PUBLISHED: '生成并发布周报',
