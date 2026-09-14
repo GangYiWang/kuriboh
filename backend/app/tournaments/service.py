@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.orm import Session
 
 from app.audit.service import add_audit_log
+from app.auth.roles import Role
 from app.content.models import BanlistVersion
 from app.core.errors import AppError
 from app.deck_submissions.models import DeckSubmission
@@ -26,6 +27,7 @@ from app.tournaments.schemas import (
     TournamentResponse,
     TournamentUpdateRequest,
 )
+from app.users.models import User
 from app.swiss.models import RankingSnapshot, SwissRound, SwissRoundStatus
 from app.statistics.service import TournamentStatisticsService
 
@@ -85,7 +87,13 @@ class TournamentService:
     ) -> Tournament:
         tournament = self.require(tournament_id, for_update=for_update)
         if tournament.created_by_id != user_id:
-            raise AppError("TOURNAMENT_OWNER_REQUIRED", "只有赛事创建者可以管理该赛事", status_code=403)
+            role = self.db.scalar(select(User.role).where(User.id == user_id))
+            if role != Role.PLATFORM_ADMIN.value:
+                raise AppError(
+                    "TOURNAMENT_OWNER_REQUIRED",
+                    "只有赛事创建者或平台管理员可以管理该赛事",
+                    status_code=403,
+                )
         return tournament
 
     def get_by_code(self, code: str) -> Tournament:
@@ -97,10 +105,13 @@ class TournamentService:
     def created_tournaments(
         self,
         user_id: UUID,
+        role: Role,
         *,
         offset: int,
         limit: int,
     ) -> tuple[list[Tournament], int]:
+        if role == Role.PLATFORM_ADMIN:
+            return self.repository.list_admin(offset=offset, limit=limit)
         return self.repository.list_created_by(user_id, offset=offset, limit=limit)
 
     def my_tournaments(self, user_id: UUID) -> MyTournamentListResponse:

@@ -109,7 +109,12 @@ def my_created_tournaments(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> TournamentListResponse:
     service = TournamentService(db)
-    items, total = service.created_tournaments(principal.user_id, offset=offset, limit=limit)
+    items, total = service.created_tournaments(
+        principal.user_id,
+        principal.role,
+        offset=offset,
+        limit=limit,
+    )
     return TournamentListResponse(
         items=[serialize_tournament(service.repository, item) for item in items],
         total=total,
@@ -159,9 +164,17 @@ def admin_list_tournaments(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> TournamentListResponse:
-    repository = TournamentRepository(db)
-    items, total = repository.list_created_by(principal.user_id, offset=offset, limit=limit)
-    return TournamentListResponse(items=[serialize_tournament(repository, item) for item in items], total=total)
+    service = TournamentService(db)
+    items, total = service.created_tournaments(
+        principal.user_id,
+        principal.role,
+        offset=offset,
+        limit=limit,
+    )
+    return TournamentListResponse(
+        items=[serialize_tournament(service.repository, item) for item in items],
+        total=total,
+    )
 
 
 @admin_router.post("/tournaments", response_model=TournamentResponse, status_code=status.HTTP_201_CREATED)

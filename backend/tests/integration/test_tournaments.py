@@ -333,6 +333,76 @@ def test_user_can_create_draft_but_cannot_manage_another_users_tournament(client
     assert forbidden.json()["code"] == "TOURNAMENT_OWNER_REQUIRED"
 
 
+def test_platform_admin_can_list_and_manage_another_users_tournament(
+    client, make_user, session_factory
+) -> None:
+    owner, owner_token = make_user(qq_number="80000020", nickname="被接管赛事管理员")
+    platform_admin, platform_admin_token = make_user(
+        qq_number="80000021",
+        nickname="赛事介入平台管理员",
+        role=Role.PLATFORM_ADMIN,
+    )
+    _, player_token = make_user(qq_number="80000022", nickname="赛事介入测试选手")
+    _, other_token = make_user(qq_number="80000023", nickname="无权介入普通用户")
+    banlist_id = seed_banlist(session_factory, owner.id)
+    tournament_id = create_and_publish(client, owner_token, banlist_id)
+    applied = client.post(
+        f"/api/tournaments/{tournament_id}/registrations",
+        headers=auth(player_token),
+        json={"nickname_matches_game": True, "accepts_rules": True},
+    )
+
+    manageable = client.get(
+        "/api/me/created-tournaments?limit=100",
+        headers=auth(platform_admin_token),
+    )
+    admin_list = client.get(
+        "/api/admin/tournaments?limit=100",
+        headers=auth(platform_admin_token),
+    )
+    detail = client.get(
+        f"/api/admin/tournaments/{tournament_id}",
+        headers=auth(platform_admin_token),
+    )
+    updated = client.patch(
+        f"/api/admin/tournaments/{tournament_id}",
+        headers=auth(platform_admin_token),
+        json={"description": "平台管理员已介入赛事运营"},
+    )
+    inventory = client.get(
+        f"/api/admin/tournaments/{tournament_id}/accounts?type=KONAMI",
+        headers=auth(platform_admin_token),
+    )
+    approved = client.post(
+        f"/api/admin/tournaments/{tournament_id}/registrations/{applied.json()['id']}/approve",
+        headers=auth(platform_admin_token),
+    )
+    forbidden = client.get(
+        f"/api/admin/tournaments/{tournament_id}",
+        headers=auth(other_token),
+    )
+
+    assert applied.status_code == 201
+    assert manageable.status_code == 200
+    assert tournament_id in {item["id"] for item in manageable.json()["items"]}
+    assert admin_list.status_code == 200
+    assert tournament_id in {item["id"] for item in admin_list.json()["items"]}
+    assert detail.status_code == 200
+    assert detail.json()["created_by_id"] == str(owner.id)
+    assert updated.status_code == 200
+    assert updated.json()["description"] == "平台管理员已介入赛事运营"
+    assert inventory.status_code == 200
+    assert approved.status_code == 200
+    assert approved.json()["status"] == RegistrationStatus.APPROVED.value
+    assert forbidden.status_code == 403
+    assert forbidden.json()["code"] == "TOURNAMENT_OWNER_REQUIRED"
+
+    with session_factory() as db:
+        registration = db.get(Registration, UUID(applied.json()["id"]))
+    assert registration is not None
+    assert registration.reviewed_by_id == platform_admin.id
+
+
 def test_tournament_owner_can_also_register_as_player(client, make_user, session_factory) -> None:
     admin, admin_token = make_user(
         qq_number="80000013", nickname="参赛管理员", role=Role.USER

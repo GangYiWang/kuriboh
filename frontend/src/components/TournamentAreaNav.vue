@@ -2,10 +2,13 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { useAuthStore } from '@/stores/auth'
+
 withDefaults(defineProps<{ showCompetitionTabs?: boolean }>(), {
   showCompetitionTabs: false,
 })
 
+const authStore = useAuthStore()
 const route = useRoute()
 const competitionModuleSelected = computed(() => ['/tournaments', '/my-tournaments'].includes(route.path))
 const reportModuleSelected = computed(() => route.path.startsWith('/reports'))
@@ -23,6 +26,6 @@ const competitionTab = computed(() => {
   <nav v-if="showCompetitionTabs" class="competition-tabs" aria-label="比赛中心内容">
     <RouterLink :class="{ 'tab-selected': competitionTab === 'matches' }" to="/tournaments">比赛</RouterLink>
     <RouterLink :class="{ 'tab-selected': competitionTab === 'joined' }" to="/my-tournaments">我参加的</RouterLink>
-    <RouterLink :class="{ 'tab-selected': competitionTab === 'created' }" :to="{ path: '/my-tournaments', query: { tab: 'created' } }">我发布的</RouterLink>
+    <RouterLink :class="{ 'tab-selected': competitionTab === 'created' }" :to="{ path: '/my-tournaments', query: { tab: 'created' } }">{{ authStore.isPlatformAdmin ? '赛事管理' : '我发布的' }}</RouterLink>
   </nav>
 </template>

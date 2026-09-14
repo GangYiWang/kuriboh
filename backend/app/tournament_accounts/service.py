@@ -78,7 +78,7 @@ class TournamentAccountService:
                 "赛事结束或取消后不能继续导入账号",
                 status_code=409,
             )
-        parsed = self._parse_file(content)
+        parsed = self._parse_file(content, account_type)
         existing = self.repository.existing_digests(
             tournament_id,
             account_type,
@@ -442,7 +442,7 @@ class TournamentAccountService:
             total=len(items),
         )
 
-    def _parse_file(self, content: bytes) -> list[ParsedAccount]:
+    def _parse_file(self, content: bytes, account_type: AccountType) -> list[ParsedAccount]:
         try:
             text = content.decode("utf-8-sig")
         except UnicodeDecodeError as exc:
@@ -456,10 +456,22 @@ class TournamentAccountService:
         for line_number, line in enumerate(text.splitlines(), start=1):
             if not line.strip():
                 continue
-            if line.count("----") != 1:
-                errors.append({"line": line_number, "reason": "必须使用四个短横线分隔账号和密码"})
-                continue
-            account, password = line.split("----", 1)
+            if account_type == AccountType.KONAMI and line.startswith("科乐美账号:"):
+                credentials, _, _email = line.partition("------邮箱:")
+                account, separator, password = credentials.removeprefix("科乐美账号:").partition(",密码:")
+                if not separator:
+                    errors.append({
+                        "line": line_number,
+                        "reason": "必须使用“科乐美账号:账号,密码:密码”格式",
+                    })
+                    continue
+                account = account.strip()
+                password = password.strip()
+            else:
+                if line.count("----") != 1:
+                    errors.append({"line": line_number, "reason": "必须使用四个短横线分隔账号和密码"})
+                    continue
+                account, password = line.split("----", 1)
             if not account.strip() or not password.strip():
                 errors.append({"line": line_number, "reason": "账号和密码均不能为空"})
                 continue

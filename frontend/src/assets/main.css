@@ -1262,8 +1262,8 @@ input {
 .history-match-side > i.submission-win { border-color: #b8d2c4; color: var(--color-success); background: #eef5f1; }
 .history-versus-mark { color: var(--color-muted); font: 700 10px/1 var(--font-number); text-align: center; }
 .history-match-side.history-bye > strong { color: var(--color-muted); font-weight: 500; }
-.history-match-actions { display: flex; justify-content: center; gap: 8px; padding: 0 14px 12px; }
-.history-result-button { min-width: 26px; min-height: 26px; padding: 5px 6px; border: 1px solid var(--color-line); border-radius: var(--radius-sm); color: var(--color-muted); background: #f3f1ed; font: 700 12px/1 var(--font-number); cursor: pointer; }
+.history-match-actions { display: flex; justify-content: center; gap: 48px; padding: 0 14px 12px; }
+.history-result-button { min-width: 40px; min-height: 40px; padding: 5px 6px; border: 1px solid var(--color-line); border-radius: var(--radius-sm); color: var(--color-muted); background: #f3f1ed; font: 700 12px/1 var(--font-number); cursor: pointer; }
 .history-result-button.submission-win { border-color: #b8d2c4; color: var(--color-success); background: #eef5f1; }
 .history-result-button:hover:not(:disabled),
 .history-result-button:focus-visible { border-color: var(--color-brand); color: var(--color-brand); }

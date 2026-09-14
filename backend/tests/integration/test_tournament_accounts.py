@@ -14,6 +14,7 @@ from app.tournament_accounts.models import (
     TournamentAccount,
     TournamentAccountStatus,
 )
+from app.tournament_accounts.crypto import CredentialCipher
 from app.tournaments.models import Tournament, TournamentStatus
 
 
@@ -95,7 +96,10 @@ def test_import_is_atomic_case_sensitive_and_encrypted(client, make_user, sessio
         tournament_id,
         owner_token,
         AccountType.KONAMI.value,
-        b"\nCaseUser----password-1\ncaseuser----password-2\n\n",
+        (
+            "\n科乐美账号:CaseUser,密码:password-1------邮箱:first@example.com\n"
+            "科乐美账号:caseuser,密码:password-2------邮箱:second@example.com\n\n"
+        ).encode(),
     )
 
     assert forbidden.status_code == 403
@@ -120,6 +124,9 @@ def test_import_is_atomic_case_sensitive_and_encrypted(client, make_user, sessio
     assert len(stored) == 2
     assert all(item.account_ciphertext not in {"CaseUser", "caseuser"} for item in stored)
     assert all(item.password_ciphertext not in {"password-1", "password-2"} for item in stored)
+    cipher = CredentialCipher()
+    assert {cipher.decrypt(item.account_ciphertext) for item in stored} == {"CaseUser", "caseuser"}
+    assert {cipher.decrypt(item.password_ciphertext) for item in stored} == {"password-1", "password-2"}
     assert audit is not None
     assert "password" not in str(audit.after_json).lower()
 

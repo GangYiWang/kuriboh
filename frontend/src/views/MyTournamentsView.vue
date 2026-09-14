@@ -36,7 +36,7 @@ onMounted(loadCurrent)
 
 <template>
   <div class="page-shell content-list-page my-tournaments-page">
-    <header class="page-heading split-heading tournament-area-heading"><div><h1>赛事中心</h1><p>查看参加过的赛事，或继续管理自己发布的比赛。</p></div><RouterLink class="button primary" to="/tournaments/new">发布比赛</RouterLink></header>
+    <header class="page-heading split-heading tournament-area-heading"><div><h1>赛事中心</h1><p>{{ authStore.isPlatformAdmin ? '查看参加过的赛事，或管理平台上的全部比赛。' : '查看参加过的赛事，或继续管理自己发布的比赛。' }}</p></div><RouterLink class="button primary" to="/tournaments/new">发布比赛</RouterLink></header>
     <TournamentAreaNav show-competition-tabs />
     <FormMessage v-if="error" :message="error" />
 
@@ -59,7 +59,7 @@ onMounted(loadCurrent)
           <div class="row-actions"><RouterLink class="button secondary small" :to="`/tournaments/${item.id}`">查看</RouterLink><RouterLink class="button primary small" :to="`/tournaments/${item.id}/manage/settings`">管理</RouterLink></div>
         </article>
       </div>
-      <div v-else-if="created" class="empty-content"><h2>还没有发布比赛</h2><p>任何登录账号都可以创建比赛并参与其他比赛。</p><RouterLink class="button primary" to="/tournaments/new">发布第一场比赛</RouterLink></div>
+      <div v-else-if="created" class="empty-content"><h2>{{ authStore.isPlatformAdmin ? '暂无可管理的比赛' : '还没有发布比赛' }}</h2><p>{{ authStore.isPlatformAdmin ? '平台上还没有赛事。' : '任何登录账号都可以创建比赛并参与其他比赛。' }}</p><RouterLink class="button primary" to="/tournaments/new">发布第一场比赛</RouterLink></div>
     </template>
   </div>
 </template>
