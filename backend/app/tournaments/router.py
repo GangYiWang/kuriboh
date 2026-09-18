@@ -89,8 +89,14 @@ def get_tournament(tournament_id: UUID, db: Annotated[Session, Depends(get_db)])
 def my_tournaments(
     principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> MyTournamentListResponse:
-    return TournamentService(db).my_tournaments(principal.user_id)
+    return TournamentService(db).my_tournaments(
+        principal.user_id,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.get("/me/tournament-statistics", response_model=PlayerStatisticsResponse)
@@ -109,9 +115,8 @@ def my_created_tournaments(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> TournamentListResponse:
     service = TournamentService(db)
-    items, total = service.created_tournaments(
+    items, total = service.my_created_tournaments(
         principal.user_id,
-        principal.role,
         offset=offset,
         limit=limit,
     )

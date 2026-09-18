@@ -11,10 +11,14 @@ import { combineLocalDateAndTime } from '@/utils/dateTime'
 
 const authStore = useAuthStore()
 const tournaments = ref<Tournament[]>([])
+const tournamentTotal = ref(0)
+const loadedTournamentCount = ref(0)
 const banlists = ref<BanlistVersion[]>([])
 const error = ref('')
 const message = ref('')
 const busy = ref(false)
+const loadingMore = ref(false)
+const loadMoreError = ref('')
 const isCreateOpen = ref(false)
 const pendingDraftId = ref('')
 const pendingDraftName = ref('')
@@ -49,14 +53,39 @@ function cancelCreate() {
   error.value = ''
 }
 
-async function load() {
+async function load(append = false) {
+  if (!append) loadMoreError.value = ''
+  const offset = append ? loadedTournamentCount.value : 0
+  const tournamentRequest = apiGet<TournamentListResponse>(`/admin/tournaments?offset=${offset}&limit=20`, undefined, authStore.token)
+  if (append) {
+    const tournamentData = await tournamentRequest
+    tournaments.value = [...tournaments.value, ...tournamentData.items.filter((item) => item.status !== 'DRAFT')]
+    loadedTournamentCount.value += tournamentData.items.length
+    tournamentTotal.value = tournamentData.total
+    return
+  }
+
   const [tournamentData, banlistData] = await Promise.all([
-    apiGet<TournamentListResponse>('/admin/tournaments?limit=100', undefined, authStore.token),
+    tournamentRequest,
     apiGet<ListResponse<BanlistVersion>>('/banlists?limit=100'),
   ])
   tournaments.value = tournamentData.items.filter((item) => item.status !== 'DRAFT')
+  loadedTournamentCount.value = tournamentData.items.length
+  tournamentTotal.value = tournamentData.total
   banlists.value = banlistData.items
   if (!form.banlist_version_id && banlists.value[0]) form.banlist_version_id = banlists.value[0].id
+}
+
+async function loadMore() {
+  loadingMore.value = true
+  loadMoreError.value = ''
+  try {
+    await load(true)
+  } catch (caught) {
+    loadMoreError.value = caught instanceof Error ? caught.message : '更多赛事加载失败'
+  } finally {
+    loadingMore.value = false
+  }
 }
 
 async function createTournament() {
@@ -130,7 +159,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       <div class="form-field-grid">
         <label><span>最大参赛人数</span><input v-model.number="form.max_players" type="number" min="2" max="1024" required /></label>
         <label><span>瑞士轮轮数</span><input v-model.number="form.swiss_rounds" type="number" min="1" max="20" required /></label>
-        <label><span>Top N</span><select v-model.number="form.playoff_size"><option v-for="size in [2,4,8,16,32,64]" :key="size" :value="size">Top {{ size }}</option></select></label>
+        <label><span>Top N</span><select v-model.number="form.playoff_size"><option v-for="size in [4,8,16]" :key="size" :value="size">Top {{ size }}</option></select></label>
       </div>
       <label><span>禁卡表版本</span><select v-model="form.banlist_version_id" required><option disabled value="">请选择已发布版本</option><option v-for="item in banlists" :key="item.id" :value="item.id">{{ item.version }} · {{ item.title }}</option></select></label>
       <p v-if="!banlists.length" class="form-hint">请先发布至少一个禁卡表版本。</p>
@@ -147,6 +176,8 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
           <RouterLink class="button secondary small" :to="`/admin/tournaments/${item.id}/settings`">管理</RouterLink>
         </div>
       </article>
+      <div v-if="loadedTournamentCount < tournamentTotal" class="form-actions tournament-load-more"><button class="button secondary" type="button" :disabled="loadingMore" @click="loadMore">{{ loadingMore ? '加载中…' : '加载更多' }}</button></div>
+      <FormMessage v-if="loadMoreError" :message="loadMoreError" />
     </section>
   </div>
 </template>

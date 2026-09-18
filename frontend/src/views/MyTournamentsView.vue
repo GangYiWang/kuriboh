@@ -14,6 +14,8 @@ const route = useRoute()
 const joined = ref<MyTournamentListResponse | null>(null)
 const created = ref<TournamentListResponse | null>(null)
 const error = ref('')
+const loadingMore = ref(false)
+const loadMoreError = ref('')
 const tab = computed(() => route.query.tab === 'created' ? 'created' : 'joined')
 const formatDate = (value: string | null) => value ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(value)) : '时间待定'
 const matchLabel = (item: MyTournament) => item.current_match
@@ -22,11 +24,30 @@ const matchLabel = (item: MyTournament) => item.current_match
 
 async function loadCurrent() {
   error.value = ''
+  loadMoreError.value = ''
   try {
-    if (tab.value === 'created' && !created.value) created.value = await apiGet<TournamentListResponse>('/me/created-tournaments?limit=100', undefined, authStore.token)
-    if (tab.value === 'joined' && !joined.value) joined.value = await apiGet<MyTournamentListResponse>('/me/tournaments', undefined, authStore.token)
+    if (tab.value === 'created' && !created.value) created.value = await apiGet<TournamentListResponse>('/me/created-tournaments?offset=0&limit=20', undefined, authStore.token)
+    if (tab.value === 'joined' && !joined.value) joined.value = await apiGet<MyTournamentListResponse>('/me/tournaments?offset=0&limit=20', undefined, authStore.token)
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '赛事记录加载失败'
+  }
+}
+
+async function loadMore() {
+  loadingMore.value = true
+  loadMoreError.value = ''
+  try {
+    if (tab.value === 'joined' && joined.value) {
+      const page = await apiGet<MyTournamentListResponse>(`/me/tournaments?offset=${joined.value.items.length}&limit=20`, undefined, authStore.token)
+      joined.value = { items: [...joined.value.items, ...page.items], total: page.total }
+    } else if (tab.value === 'created' && created.value) {
+      const page = await apiGet<TournamentListResponse>(`/me/created-tournaments?offset=${created.value.items.length}&limit=20`, undefined, authStore.token)
+      created.value = { items: [...created.value.items, ...page.items], total: page.total }
+    }
+  } catch (caught) {
+    loadMoreError.value = caught instanceof Error ? caught.message : '更多赛事加载失败'
+  } finally {
+    loadingMore.value = false
   }
 }
 
@@ -36,7 +57,7 @@ onMounted(loadCurrent)
 
 <template>
   <div class="page-shell content-list-page my-tournaments-page">
-    <header class="page-heading split-heading tournament-area-heading"><div><h1>赛事中心</h1><p>{{ authStore.isPlatformAdmin ? '查看参加过的赛事，或管理平台上的全部比赛。' : '查看参加过的赛事，或继续管理自己发布的比赛。' }}</p></div><RouterLink class="button primary" to="/tournaments/new">发布比赛</RouterLink></header>
+    <header class="page-heading split-heading tournament-area-heading"><div><h1>赛事中心</h1><p>查看参加过的赛事，或继续管理自己发布的比赛。</p></div><RouterLink class="button primary" to="/tournaments/new">发布比赛</RouterLink></header>
     <TournamentAreaNav show-competition-tabs />
     <FormMessage v-if="error" :message="error" />
 
@@ -48,6 +69,8 @@ onMounted(loadCurrent)
           <dl><div><dt>当前对阵</dt><dd>{{ matchLabel(item) }}</dd></div><div><dt>对手</dt><dd>{{ item.current_match?.opponent_nickname ?? '—' }}</dd></div><div><dt>瑞士轮排名</dt><dd>{{ item.ranking ? `第 ${item.ranking.rank} 名 · ${item.ranking.wins}-${item.ranking.losses}` : '—' }}</dd></div></dl>
           <RouterLink v-if="item.report_id" class="link-tone" :to="`/reports/${item.report_id}`">查看赛事周报 →</RouterLink>
         </article>
+        <div v-if="joined.items.length < joined.total" class="form-actions tournament-load-more"><button class="button secondary" type="button" :disabled="loadingMore" @click="loadMore">{{ loadingMore ? '加载中…' : '加载更多' }}</button></div>
+        <FormMessage v-if="loadMoreError" :message="loadMoreError" />
       </div>
       <div v-else-if="joined" class="empty-content"><h2>还没有参赛记录</h2><p>报名后，会在这里持续保留记录。</p><RouterLink class="button primary" to="/tournaments">浏览赛事</RouterLink></div>
     </template>
@@ -58,8 +81,10 @@ onMounted(loadCurrent)
           <div><span :class="['status-badge', `status-${item.status.toLowerCase()}`]">{{ tournamentStatusText[item.status] }}</span><strong>{{ item.name }}</strong><small>{{ formatDate(item.planned_start_at) }} · 比赛码 <b class="tournament-code">{{ item.code }}</b></small></div>
           <div class="row-actions"><RouterLink class="button secondary small" :to="`/tournaments/${item.id}`">查看</RouterLink><RouterLink class="button primary small" :to="`/tournaments/${item.id}/manage/settings`">管理</RouterLink></div>
         </article>
+        <div v-if="created.items.length < created.total" class="form-actions tournament-load-more"><button class="button secondary" type="button" :disabled="loadingMore" @click="loadMore">{{ loadingMore ? '加载中…' : '加载更多' }}</button></div>
+        <FormMessage v-if="loadMoreError" :message="loadMoreError" />
       </div>
-      <div v-else-if="created" class="empty-content"><h2>{{ authStore.isPlatformAdmin ? '暂无可管理的比赛' : '还没有发布比赛' }}</h2><p>{{ authStore.isPlatformAdmin ? '平台上还没有赛事。' : '任何登录账号都可以创建比赛并参与其他比赛。' }}</p><RouterLink class="button primary" to="/tournaments/new">发布第一场比赛</RouterLink></div>
+      <div v-else-if="created" class="empty-content"><h2>还没有发布比赛</h2><p>任何登录账号都可以创建比赛并参与其他比赛。</p><RouterLink class="button primary" to="/tournaments/new">发布第一场比赛</RouterLink></div>
     </template>
   </div>
 </template>

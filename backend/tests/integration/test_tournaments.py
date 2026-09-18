@@ -346,6 +346,7 @@ def test_platform_admin_can_list_and_manage_another_users_tournament(
     _, other_token = make_user(qq_number="80000023", nickname="无权介入普通用户")
     banlist_id = seed_banlist(session_factory, owner.id)
     tournament_id = create_and_publish(client, owner_token, banlist_id)
+    admin_tournament_id = create_and_publish(client, platform_admin_token, banlist_id)
     applied = client.post(
         f"/api/tournaments/{tournament_id}/registrations",
         headers=auth(player_token),
@@ -384,9 +385,11 @@ def test_platform_admin_can_list_and_manage_another_users_tournament(
 
     assert applied.status_code == 201
     assert manageable.status_code == 200
-    assert tournament_id in {item["id"] for item in manageable.json()["items"]}
+    assert {item["id"] for item in manageable.json()["items"]} == {admin_tournament_id}
+    assert manageable.json()["total"] == 1
     assert admin_list.status_code == 200
     assert tournament_id in {item["id"] for item in admin_list.json()["items"]}
+    assert admin_tournament_id in {item["id"] for item in admin_list.json()["items"]}
     assert detail.status_code == 200
     assert detail.json()["created_by_id"] == str(owner.id)
     assert updated.status_code == 200

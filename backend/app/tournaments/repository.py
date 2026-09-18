@@ -106,14 +106,21 @@ class TournamentRepository:
             .order_by(TournamentParticipant.nickname_snapshot)
         ))
 
-    def registrations_for_user(self, user_id: UUID) -> list[Registration]:
-        return list(self.db.scalars(
+    def registrations_for_user(
+        self,
+        user_id: UUID,
+        *,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[Registration], int]:
+        filters = [
+            Registration.user_id == user_id,
+            Tournament.deleted_at.is_(None),
+        ]
+        statement = (
             select(Registration)
             .join(Registration.tournament)
-            .where(
-                Registration.user_id == user_id,
-                Tournament.deleted_at.is_(None),
-            )
+            .where(*filters)
             .options(
                 selectinload(Registration.tournament),
                 selectinload(Registration.participant),
@@ -123,4 +130,12 @@ class TournamentRepository:
                 Tournament.planned_start_at.asc(),
                 Tournament.created_at.desc(),
             )
-        ))
+        )
+        items = list(self.db.scalars(statement.offset(offset).limit(limit)))
+        total = self.db.scalar(
+            select(func.count())
+            .select_from(Registration)
+            .join(Registration.tournament)
+            .where(*filters)
+        ) or 0
+        return items, total

@@ -70,6 +70,13 @@ def test_phase6_messages_my_tournaments_audit_and_deduplication(client, make_use
     assert my_tournaments.json()["total"] == 1
     assert my_tournaments.json()["items"][0]["status"] == "SWISS"
     assert my_tournaments.json()["items"][0]["registration_status"] == "APPROVED"
+    next_my_tournaments_page = client.get(
+        "/api/me/tournaments?offset=1&limit=1",
+        headers=auth(token_a),
+    )
+    assert next_my_tournaments_page.status_code == 200
+    assert next_my_tournaments_page.json()["total"] == 1
+    assert next_my_tournaments_page.json()["items"] == []
 
     request_id = str(uuid4())
     payload = {"title": "临时场地通知", "body": "请在比赛开始前进入指定房间。", "request_id": request_id}

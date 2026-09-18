@@ -761,7 +761,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
       <div class="form-field-grid">
         <label><span>最大参赛人数</span><input v-model.number="form.max_players" type="number" min="2" :disabled="coreLocked" /></label>
         <label><span>瑞士轮轮数</span><input v-model.number="form.swiss_rounds" type="number" min="1" :disabled="coreLocked" /></label>
-        <label><span>Top N</span><select v-model.number="form.playoff_size" :disabled="coreLocked"><option v-for="size in [2,4,8,16,32,64]" :key="size" :value="size">Top {{ size }}</option></select></label>
+        <label><span>Top N</span><select v-model.number="form.playoff_size" :disabled="coreLocked"><option v-for="size in [4,8,16]" :key="size" :value="size">Top {{ size }}</option></select></label>
       </div>
       <label><span>禁卡表版本</span><select v-model="form.banlist_version_id" :disabled="coreLocked"><option v-for="item in banlists" :key="item.id" :value="item.id">{{ item.version }} · {{ item.title }}</option></select></label>
       <div v-if="!settingsLocked" class="form-actions">

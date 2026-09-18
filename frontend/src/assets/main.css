@@ -1020,6 +1020,7 @@ input {
 .tournament-search-panel .code-search-input { text-transform: uppercase; letter-spacing: 0.14em; font-family: var(--font-number); font-weight: 700; }
 .tournament-search-panel .form-message { grid-column: 1 / -1; margin: 0; }
 .tournament-list { border-top: 1px solid var(--color-line-strong); }
+.tournament-load-more { justify-content: center; padding-top: 24px; }
 .tournament-row { min-height: 112px; display: grid; grid-template-columns: 88px minmax(200px, 1fr) minmax(430px, 1.45fr) 24px; align-items: center; gap: 22px; border-bottom: 1px solid var(--color-line); transition: background 0.18s, padding 0.18s; }
 .tournament-row:hover { padding-left: 12px; background: var(--color-surface); }
 .status-badge { display: inline-flex; width: fit-content; align-items: center; gap: 6px; color: var(--color-muted); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }

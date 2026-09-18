@@ -45,7 +45,7 @@ describe('formal route skeleton', () => {
     expect(byPath.get('/messages')?.meta?.requiresAuth).toBe(true)
     expect(byPath.get('/admin')?.meta?.requiresPlatformAdmin).toBe(true)
     expect(byPath.get('/admin/banlists')?.meta?.requiresPlatformAdmin).toBe(true)
-    expect(byPath.get('/admin/tournaments')?.meta?.requiresAuth).toBe(true)
+    expect(byPath.get('/admin/tournaments')?.meta?.requiresPlatformAdmin).toBe(true)
     expect(byPath.get('/admin/tournaments/:id/playoffs')?.meta?.requiresAuth).toBe(true)
     expect(byPath.get('/admin/tournaments/:id/:section(settings|players|accounts|matches|results|decks-report|notifications|audit)')?.meta?.requiresAuth).toBe(true)
     expect(byPath.get('/admin/messages')?.meta?.requiresPlatformAdmin).toBe(true)

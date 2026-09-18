@@ -9,19 +9,27 @@ import type { Tournament, TournamentListResponse } from '@/types/tournament'
 import { tournamentStatusText } from '@/types/tournament'
 
 const tournaments = ref<Tournament[]>([])
+const total = ref(0)
 const authStore = useAuthStore()
 const router = useRouter()
 const loading = ref(true)
+const loadingMore = ref(false)
 const error = ref('')
+const loadMoreError = ref('')
 const code = ref('')
 const nameQuery = ref('')
+const activeNameQuery = ref('')
 const searchMode = ref<'code' | 'name' | null>(null)
 const searchBusy = ref(false)
 const searchError = ref('')
 
-async function loadTournaments(search?: string) {
+async function loadTournaments(search = '', append = false) {
+  if (!append) loadMoreError.value = ''
+  const offset = append ? tournaments.value.length : 0
   const query = search ? `&search=${encodeURIComponent(search)}` : ''
-  tournaments.value = (await apiGet<TournamentListResponse>(`/tournaments?limit=100${query}`)).items
+  const response = await apiGet<TournamentListResponse>(`/tournaments?offset=${offset}&limit=20${query}`)
+  tournaments.value = append ? [...tournaments.value, ...response.items] : response.items
+  total.value = response.total
 }
 
 function formatDate(value: string | null) {
@@ -57,6 +65,7 @@ async function findByName() {
   error.value = ''
   try {
     await loadTournaments(query)
+    activeNameQuery.value = query
   } catch (caught) {
     searchError.value = caught instanceof Error ? caught.message : '赛事名称查找失败'
   } finally {
@@ -74,10 +83,23 @@ async function cancelSearch() {
   searchError.value = ''
   code.value = ''
   nameQuery.value = ''
+  activeNameQuery.value = ''
   try {
     await loadTournaments()
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '赛事列表加载失败'
+  }
+}
+
+async function loadMore() {
+  loadingMore.value = true
+  loadMoreError.value = ''
+  try {
+    await loadTournaments(activeNameQuery.value, true)
+  } catch (caught) {
+    loadMoreError.value = caught instanceof Error ? caught.message : '更多赛事加载失败'
+  } finally {
+    loadingMore.value = false
   }
 }
 
@@ -130,6 +152,10 @@ onMounted(async () => {
         </dl>
         <span class="row-arrow">→</span>
       </RouterLink>
+      <div v-if="tournaments.length < total" class="form-actions tournament-load-more">
+        <button class="button secondary" type="button" :disabled="loadingMore" @click="loadMore">{{ loadingMore ? '加载中…' : '加载更多' }}</button>
+      </div>
+      <p v-if="loadMoreError" class="form-message">{{ loadMoreError }}</p>
     </div>
     <p v-else class="empty-state">暂无符合条件的已发布赛事。</p>
   </div>

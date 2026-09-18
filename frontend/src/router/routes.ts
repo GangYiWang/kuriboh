@@ -24,6 +24,7 @@ import MessagesView from '@/views/MessagesView.vue'
 import MyTournamentsView from '@/views/MyTournamentsView.vue'
 import AdminMessagesView from '@/views/AdminMessagesView.vue'
 import AdminAuditView from '@/views/AdminAuditView.vue'
+import AdminTournamentsView from '@/views/AdminTournamentsView.vue'
 
 interface PlaceholderRoute {
   path: string
@@ -65,7 +66,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/admin/announcements', name: 'admin-announcements', component: AdminAnnouncementsView, meta: { title: '公告管理', requiresPlatformAdmin: true } },
   { path: '/admin/messages', name: 'admin-messages', component: AdminMessagesView, meta: { title: '平台通知', requiresPlatformAdmin: true } },
   { path: '/admin/audit', name: 'admin-audit', component: AdminAuditView, meta: { title: '操作审计', requiresPlatformAdmin: true } },
-  { path: '/admin/tournaments', redirect: '/my-tournaments?tab=created', meta: { requiresAuth: true } },
+  { path: '/admin/tournaments', name: 'admin-tournaments', component: AdminTournamentsView, meta: { title: '赛事管理', requiresPlatformAdmin: true } },
   { path: '/admin/tournaments/:id/registrations', redirect: (to) => `/tournaments/${String(to.params.id)}/manage/players`, meta: { requiresAuth: true } },
   { path: '/admin/tournaments/:id/playoffs', redirect: (to) => ({ path: `/tournaments/${String(to.params.id)}/manage/matches`, query: { stage: 'playoff' } }), meta: { requiresAuth: true } },
   { path: '/admin/tournaments/:id/:section(settings|players|accounts|matches|results|decks-report|notifications|audit)', redirect: (to) => `/tournaments/${String(to.params.id)}/manage/${String(to.params.section)}`, meta: { requiresAuth: true } },

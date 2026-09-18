@@ -114,8 +114,27 @@ class TournamentService:
             return self.repository.list_admin(offset=offset, limit=limit)
         return self.repository.list_created_by(user_id, offset=offset, limit=limit)
 
-    def my_tournaments(self, user_id: UUID) -> MyTournamentListResponse:
-        registrations = self.repository.registrations_for_user(user_id)
+    def my_created_tournaments(
+        self,
+        user_id: UUID,
+        *,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[Tournament], int]:
+        return self.repository.list_created_by(user_id, offset=offset, limit=limit)
+
+    def my_tournaments(
+        self,
+        user_id: UUID,
+        *,
+        offset: int,
+        limit: int,
+    ) -> MyTournamentListResponse:
+        registrations, total = self.repository.registrations_for_user(
+            user_id,
+            offset=offset,
+            limit=limit,
+        )
         items: list[MyTournamentResponse] = []
         for registration in registrations:
             participant = registration.participant
@@ -171,7 +190,7 @@ class TournamentService:
                 ranking=ranking,
                 report_id=report_id,
             ))
-        return MyTournamentListResponse(items=items, total=len(items))
+        return MyTournamentListResponse(items=items, total=total)
 
     def create_draft(self, request: TournamentCreateRequest, user_id: UUID) -> Tournament:
         if request.banlist_version_id is not None and self.db.get(BanlistVersion, request.banlist_version_id) is None:

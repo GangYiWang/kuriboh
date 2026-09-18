@@ -85,7 +85,7 @@ onMounted(async () => {
       <div class="form-field-grid">
         <label><span>最大参赛人数 *</span><input v-model.number="form.max_players" type="number" min="2" max="1024" required /></label>
         <label><span>瑞士轮轮数 *</span><input v-model.number="form.swiss_rounds" type="number" min="1" max="20" required /></label>
-        <label><span>淘汰赛晋级 *</span><select v-model.number="form.playoff_size"><option v-for="size in [2,4,8,16,32,64]" :key="size" :value="size">Top {{ size }}</option></select></label>
+        <label><span>淘汰赛晋级 *</span><select v-model.number="form.playoff_size"><option v-for="size in [4,8,16]" :key="size" :value="size">Top {{ size }}</option></select></label>
       </div>
       <label><span>禁卡表版本 *</span><select v-model="form.banlist_version_id" required><option disabled value="">请选择已发布版本</option><option v-for="item in banlists" :key="item.id" :value="item.id">{{ item.version }} · {{ item.title }}</option></select></label>
       <p v-if="!banlists.length" class="form-hint">当前没有可用的已发布禁卡表，请联系平台管理员。</p>
