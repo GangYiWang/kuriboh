@@ -288,6 +288,13 @@ def test_phase5_end_decks_and_immutable_weekly_report(client, make_user, session
     assert champion_statistics.json()["top_8_count"] == 1
     assert champion_statistics.json()["results"][0]["finish_level"] == "CHAMPION"
     assert champion_statistics.json()["results"][0]["placement"] == 1
+    champion_next_page = client.get(
+        "/api/me/tournament-statistics?offset=1&limit=10",
+        headers=auth(tokens[champion_id]),
+    )
+    assert champion_next_page.status_code == 200
+    assert champion_next_page.json()["tournament_count"] == 1
+    assert champion_next_page.json()["results"] == []
 
     quarterfinal_loser_id = UUID(quarterfinal["matches"][0]["player_b_id"])
     quarterfinalist_statistics = client.get(

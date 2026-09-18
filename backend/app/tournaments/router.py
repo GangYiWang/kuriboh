@@ -103,8 +103,14 @@ def my_tournaments(
 def my_tournament_statistics(
     principal: Authenticated,
     db: Annotated[Session, Depends(get_db)],
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 10,
 ) -> PlayerStatisticsResponse:
-    return TournamentStatisticsService(db).for_user(principal.user_id)
+    return TournamentStatisticsService(db).for_user(
+        principal.user_id,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.get("/me/created-tournaments", response_model=TournamentListResponse)

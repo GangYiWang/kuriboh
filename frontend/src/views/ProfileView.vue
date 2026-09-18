@@ -19,14 +19,36 @@ const passwordFormOpen = ref(false)
 const activeSection = ref<'account' | 'records'>(route.query.section === 'records' ? 'records' : 'account')
 const statistics = ref<PlayerStatistics | null>(null)
 const statisticsError = ref('')
+const loadingMoreResults = ref(false)
+const loadMoreResultsError = ref('')
+
+async function loadStatistics(append = false) {
+  if (!authStore.token) return
+  const offset = append ? statistics.value?.results.length ?? 0 : 0
+  const response = await apiGet<PlayerStatistics>(
+    `/me/tournament-statistics?offset=${offset}&limit=10`, undefined, authStore.token,
+  )
+  statistics.value = append && statistics.value
+    ? { ...response, results: [...statistics.value.results, ...response.results] }
+    : response
+}
+
+async function loadMoreResults() {
+  loadingMoreResults.value = true
+  loadMoreResultsError.value = ''
+  try {
+    await loadStatistics(true)
+  } catch (caught) {
+    loadMoreResultsError.value = caught instanceof Error ? caught.message : '更多历届成绩加载失败'
+  } finally {
+    loadingMoreResults.value = false
+  }
+}
 
 onMounted(async () => {
   if (authStore.token) {
-    statistics.value = await apiGet<PlayerStatistics>(
-      '/me/tournament-statistics', undefined, authStore.token,
-    ).catch((caught: unknown) => {
+    await loadStatistics().catch((caught: unknown) => {
       statisticsError.value = caught instanceof Error ? caught.message : '赛事档案加载失败'
-      return null
     })
   }
   qqStatus.value = await apiGet<QqOAuthStatus>('/auth/qq/status').catch(() => null)
@@ -147,7 +169,7 @@ function closePasswordForm() {
         <section class="record-history" aria-labelledby="record-history-title">
           <div class="record-history-heading">
             <h2 id="record-history-title">历届成绩</h2>
-            <span>共 {{ statistics.results.length }} 届</span>
+            <span>共 {{ statistics.tournament_count }} 届</span>
           </div>
           <div v-if="statistics.results.length" class="record-history-table-wrap">
             <table class="record-history-table">
@@ -162,6 +184,8 @@ function closePasswordForm() {
                 </tr>
               </tbody>
             </table>
+            <div v-if="statistics.results.length < statistics.tournament_count" class="form-actions tournament-load-more"><button class="button secondary" type="button" :disabled="loadingMoreResults" @click="loadMoreResults">{{ loadingMoreResults ? '加载中…' : '加载更多' }}</button></div>
+            <FormMessage v-if="loadMoreResultsError" :message="loadMoreResultsError" />
           </div>
           <p v-else class="empty-state compact">还没有已结算的赛事记录。</p>
         </section>

@@ -73,13 +73,21 @@ class TournamentStatisticsService:
 
         self._upsert_player_statistics(results)
 
-    def for_user(self, user_id: UUID) -> PlayerStatisticsResponse:
+    def for_user(
+        self,
+        user_id: UUID,
+        *,
+        offset: int,
+        limit: int,
+    ) -> PlayerStatisticsResponse:
         statistics = self.db.get(PlayerStatistics, user_id)
         rows = self.db.execute(
             select(TournamentPlayerResult, Tournament)
             .join(Tournament, Tournament.id == TournamentPlayerResult.tournament_id)
             .where(TournamentPlayerResult.user_id == user_id)
             .order_by(TournamentPlayerResult.settled_at.desc())
+            .offset(offset)
+            .limit(limit)
         ).all()
         total_wins = statistics.total_wins if statistics else 0
         total_losses = statistics.total_losses if statistics else 0
