@@ -109,7 +109,7 @@ class SwissService:
         except PairingUnavailableError as exc:
             raise AppError(
                 "SWISS_PAIRING_UNAVAILABLE",
-                "无法生成覆盖全部选手的无重复对阵，请检查退赛情况或调整瑞士轮配置",
+                "无法生成覆盖全部选手的无重复、相邻胜场组对阵，请检查退赛情况或调整瑞士轮配置",
                 status_code=409,
             ) from exc
         round_item = SwissRound(
@@ -169,10 +169,15 @@ class SwissService:
         second_match, second_slot = locations[second_id]
         setattr(first_match, first_slot, second_id)
         setattr(second_match, second_slot, first_id)
+        active_standings = {
+            item.participant_id: item.wins
+            for item in self._standing_inputs(tournament_id, active_only=True)
+        }
         errors = validate_pairing_draft(
             [Pairing(item.player_a_id, item.player_b_id) for item in matches],
-            {item.id for item in self.repository.active_participants(tournament_id)},
+            set(active_standings),
             self._prior_pairs(tournament_id, round_item.round_no),
+            active_standings,
         )
         if errors:
             self.db.rollback()
@@ -197,12 +202,16 @@ class SwissService:
             raise AppError("ROUND_NOT_FOUND", "轮次不存在", status_code=404)
         if round_item.status != SwissRoundStatus.DRAFT.value:
             raise AppError("ROUND_ALREADY_PUBLISHED", "轮次已经发布", status_code=409)
-        active_ids = {item.id for item in self.repository.active_participants(tournament_id)}
+        active_standings = {
+            item.participant_id: item.wins
+            for item in self._standing_inputs(tournament_id, active_only=True)
+        }
         matches = self.repository.round_matches(round_id)
         errors = validate_pairing_draft(
             [Pairing(item.player_a_id, item.player_b_id) for item in matches],
-            active_ids,
+            set(active_standings),
             self._prior_pairs(tournament_id, round_item.round_no),
+            active_standings,
         )
         if errors:
             raise AppError("INVALID_PAIRING_DRAFT", "对阵预览未通过发布校验", details={"errors": errors})

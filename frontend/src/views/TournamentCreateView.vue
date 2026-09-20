@@ -7,6 +7,7 @@ import FormMessage from '@/components/FormMessage.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { BanlistVersion, ListResponse } from '@/types/content'
 import type { Tournament } from '@/types/tournament'
+import { copyText } from '@/utils/clipboard'
 import { combineLocalDateAndTime } from '@/utils/dateTime'
 
 const authStore = useAuthStore()
@@ -39,8 +40,12 @@ async function publishTournament() {
 
 async function copyCode() {
   if (!published.value?.code) return
-  await navigator.clipboard.writeText(published.value.code)
-  copyMessage.value = '比赛码已复制'
+  try {
+    await copyText(published.value.code)
+    copyMessage.value = '比赛码已复制'
+  } catch {
+    copyMessage.value = '比赛码复制失败，请手动选择并复制'
+  }
 }
 
 onMounted(async () => {

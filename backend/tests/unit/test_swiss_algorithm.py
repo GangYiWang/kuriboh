@@ -62,6 +62,47 @@ def test_odd_score_group_downfloats_one_player() -> None:
     players = [player(1, wins=2), player(2, wins=2), player(3, wins=2), player(4, wins=1)]
     pairings = generate_swiss_pairings(players, set(), Random(3))
     assert sum("跨胜场组" in item.warnings for item in pairings) == 1
+    floated_pair = next(item for item in pairings if "跨胜场组" in item.warnings)
+    assert {floated_pair.player_a_id, floated_pair.player_b_id} == {UUID(int=3), UUID(int=4)}
+
+
+def test_normal_downfloat_never_skips_an_adjacent_score_group() -> None:
+    players = [
+        *[player(index, wins=2, rank=index) for index in range(1, 8)],
+        *[player(index, wins=1, rank=index) for index in range(8, 22)],
+        *[player(index, wins=0, rank=index) for index in range(22, 28)],
+    ]
+
+    pairings = generate_swiss_pairings(players, set(), Random(46))
+    player_by_id = {item.participant_id: item for item in players}
+    bye = next(item for item in pairings if item.player_b_id is None)
+    played = [item for item in pairings if item.player_b_id is not None]
+    cross_group = [item for item in played if "跨胜场组" in item.warnings]
+
+    assert bye.player_a_id == UUID(int=27)
+    assert len(cross_group) == 2
+    assert all(
+        abs(player_by_id[item.player_a_id].wins - player_by_id[item.player_b_id].wins) <= 1
+        for item in played
+    )
+    assert any(UUID(int=7) in {item.player_a_id, item.player_b_id} for item in cross_group)
+    assert any(UUID(int=21) in {item.player_a_id, item.player_b_id} for item in cross_group)
+
+
+def test_pairing_fails_instead_of_skipping_a_score_group() -> None:
+    players = [
+        player(1, wins=2),
+        player(2, wins=2),
+        player(3, wins=0),
+        player(4, wins=0),
+    ]
+    prior = {
+        frozenset((UUID(int=1), UUID(int=2))),
+        frozenset((UUID(int=3), UUID(int=4))),
+    }
+
+    with pytest.raises(PairingUnavailableError, match="相邻胜场组"):
+        generate_swiss_pairings(players, prior, Random(46))
 
 
 def test_large_field_uses_global_non_repeating_matching() -> None:
@@ -122,6 +163,23 @@ def test_draft_validation_rejects_historical_rematches() -> None:
     )
 
     assert "存在重复对手" in errors
+
+
+def test_draft_validation_rejects_non_adjacent_score_groups() -> None:
+    pairings = [Pairing(UUID(int=1), UUID(int=2)), Pairing(UUID(int=3), UUID(int=4))]
+    errors = validate_pairing_draft(
+        pairings,
+        {UUID(int=index) for index in range(1, 5)},
+        set(),
+        {
+            UUID(int=1): 2,
+            UUID(int=2): 0,
+            UUID(int=3): 1,
+            UUID(int=4): 1,
+        },
+    )
+
+    assert "存在跨越非相邻胜场组的对阵" in errors
 
 
 def test_bye_is_a_win_but_not_an_omw_opponent() -> None:

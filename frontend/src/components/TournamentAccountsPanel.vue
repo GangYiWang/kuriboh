@@ -12,6 +12,7 @@ import type {
   RegistrationStatus,
   TournamentStatus,
 } from '@/types/tournament'
+import { copyText } from '@/utils/clipboard'
 
 const props = defineProps<{
   tournamentId: string
@@ -129,7 +130,7 @@ async function submitReplacementRequest(): Promise<void> {
 
 async function copyValue(value: string, label: string): Promise<void> {
   try {
-    await navigator.clipboard.writeText(value)
+    await copyText(value)
     message.value = `${label}已复制。`
     error.value = ''
   } catch {

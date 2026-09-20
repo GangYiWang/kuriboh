@@ -85,22 +85,27 @@ def generate_swiss_pairings(
             random_noise[frozenset((left.participant_id, right.participant_id))] = rng.randrange(100)
 
     pair_count = len(field) // 2
-    max_score_gap = max((player.wins for player in field), default=0) - min(
-        (player.wins for player in field),
+    max_noise_total = pair_count * 99
+    float_rank_weight = max_noise_total + 1
+    group_rank_bounds: dict[int, tuple[int, int]] = {}
+    for player in field:
+        minimum, maximum = group_rank_bounds.get(player.wins, (player.rank, player.rank))
+        group_rank_bounds[player.wins] = (min(minimum, player.rank), max(maximum, player.rank))
+    max_float_rank_penalty = max(
+        (maximum - minimum for minimum, maximum in group_rank_bounds.values()),
         default=0,
     )
-    max_noise_total = pair_count * 99
-    score_gap_weight = max_noise_total + 1
-    cross_group_weight = pair_count * max_score_gap * score_gap_weight + max_noise_total + 1
+    cross_group_weight = pair_count * max_float_rank_penalty * float_rank_weight + max_noise_total + 1
 
     def pair_cost(left: StandingInput, right: StandingInput) -> int:
         pair = frozenset((left.participant_id, right.participant_id))
         score_gap = abs(left.wins - right.wins)
-        return (
-            (cross_group_weight if score_gap else 0)
-            + score_gap * score_gap_weight
-            + random_noise[pair]
-        )
+        if not score_gap:
+            return random_noise[pair]
+        higher_score_player = left if left.wins > right.wins else right
+        lowest_group_rank = group_rank_bounds[higher_score_player.wins][1]
+        float_rank_penalty = lowest_group_rank - higher_score_player.rank
+        return cross_group_weight + float_rank_penalty * float_rank_weight + random_noise[pair]
 
     graph = nx.Graph()
     graph.add_nodes_from(range(len(field)))
@@ -108,13 +113,13 @@ def generate_swiss_pairings(
         for right_index in range(left_index + 1, len(field)):
             right = field[right_index]
             pair = frozenset((left.participant_id, right.participant_id))
-            if pair in prior_pairs:
+            if pair in prior_pairs or abs(left.wins - right.wins) > 1:
                 continue
             graph.add_edge(left_index, right_index, weight=pair_cost(left, right))
 
     matching = nx.algorithms.matching.min_weight_matching(graph, weight="weight")
     if len(matching) != pair_count:
-        raise PairingUnavailableError("没有可覆盖全部选手的无重复对阵方案")
+        raise PairingUnavailableError("没有可覆盖全部选手的无重复、相邻胜场组对阵方案")
 
     matched: list[tuple[StandingInput, StandingInput]] = []
     for first_index, second_index in matching:
@@ -148,6 +153,7 @@ def validate_pairing_draft(
     pairings: list[Pairing],
     active_ids: set[UUID],
     prior_pairs: set[frozenset[UUID]] | None = None,
+    wins_by_id: dict[UUID, int] | None = None,
 ) -> list[str]:
     seen: list[UUID] = []
     errors: list[str] = []
@@ -158,6 +164,15 @@ def validate_pairing_draft(
                 errors.append("存在选手与自己配对")
             elif prior_pairs is not None and frozenset((pairing.player_a_id, pairing.player_b_id)) in prior_pairs:
                 errors.append("存在重复对手")
+            if wins_by_id is not None:
+                player_a_wins = wins_by_id.get(pairing.player_a_id)
+                player_b_wins = wins_by_id.get(pairing.player_b_id)
+                if (
+                    player_a_wins is not None
+                    and player_b_wins is not None
+                    and abs(player_a_wins - player_b_wins) > 1
+                ):
+                    errors.append("存在跨越非相邻胜场组的对阵")
             seen.append(pairing.player_b_id)
     if len(seen) != len(set(seen)):
         errors.append("同一选手在本轮重复出现")
