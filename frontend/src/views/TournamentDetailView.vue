@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { apiGet, apiPost } from '@/api/client'
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import FormMessage from '@/components/FormMessage.vue'
 import SwissLivePanel from '@/components/SwissLivePanel.vue'
 import PlayoffBracket from '@/components/PlayoffBracket.vue'
@@ -29,18 +30,36 @@ const backTarget = computed(() => route.query.from === 'records'
 const backLabel = computed(() => route.query.from === 'records' ? '返回赛事档案' : '返回赛事中心')
 const remaining = computed(() => Math.max(0, (tournament.value?.max_players ?? 0) - (tournament.value?.approved_count ?? 0)))
 const canReapply = computed(() => registration.value?.status === 'CANCELED' && !registration.value.reviewed_by_id)
+const isLiveTournament = computed(() => ['SWISS', 'ELIMINATION'].includes(tournament.value?.status ?? ''))
 
 function formatDate(value: string | null) {
   return value ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(value)) : '待定'
 }
 
 async function load() {
-  tournament.value = await apiGet<Tournament>(`/tournaments/${tournamentId.value}`)
-  resultsStage.value = ['ELIMINATION', 'ENDED'].includes(tournament.value.status) ? 'playoff' : 'swiss'
+  const requestedTournamentId = tournamentId.value
+  const previousStatus = tournament.value?.status ?? null
+  const item = await apiGet<Tournament>(`/tournaments/${requestedTournamentId}`)
+  if (requestedTournamentId !== tournamentId.value) return
+  tournament.value = item
+  if (!previousStatus || (previousStatus === 'SWISS' && item.status !== 'SWISS')) {
+    resultsStage.value = ['ELIMINATION', 'ENDED'].includes(item.status) ? 'playoff' : 'swiss'
+  }
   if (authStore.token) {
-    registration.value = await apiGet<Registration>(
-      `/tournaments/${tournamentId.value}/registrations/me`, undefined, authStore.token,
+    const currentRegistration = await apiGet<Registration>(
+      `/tournaments/${requestedTournamentId}/registrations/me`, undefined, authStore.token,
     ).catch(() => null)
+    if (requestedTournamentId === tournamentId.value) registration.value = currentRegistration
+  } else {
+    registration.value = null
+  }
+}
+
+async function refresh(): Promise<void> {
+  try {
+    await load()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '赛事刷新失败'
   }
 }
 
@@ -77,6 +96,24 @@ async function cancelRegistration() {
     busy.value = false
   }
 }
+
+watch([activeTab, resultsStage], () => {
+  void refresh()
+})
+watch(tournamentId, async () => {
+  loading.value = true
+  tournament.value = null
+  registration.value = null
+  activeTab.value = 'info'
+  try {
+    await load()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '赛事加载失败'
+  } finally {
+    loading.value = false
+  }
+})
+useLiveRefresh(refresh, { pollWhen: () => isLiveTournament.value })
 
 onMounted(async () => {
   try {
@@ -141,6 +178,7 @@ onMounted(async () => {
           :tournament-id="tournament.id"
           :token="authStore.token"
           :is-player="authStore.isAuthenticated"
+          :live="isLiveTournament"
           view="matches"
         />
         <PlayoffBracket
@@ -148,6 +186,7 @@ onMounted(async () => {
           :tournament-id="tournament.id"
           :token="authStore.token"
           :is-player="authStore.isAuthenticated"
+          :live="isLiveTournament"
           view="matches"
         />
         <section v-if="activeTab === 'matches' && ['DRAFT', 'REGISTRATION'].includes(tournament.status)" class="tournament-stage-empty">
@@ -165,6 +204,7 @@ onMounted(async () => {
               :tournament-id="tournament.id"
               :token="authStore.token"
               :is-player="authStore.isAuthenticated"
+              :live="isLiveTournament"
               view="results"
               embedded
             />
@@ -173,6 +213,7 @@ onMounted(async () => {
               :tournament-id="tournament.id"
               :token="authStore.token"
               :is-player="authStore.isAuthenticated"
+              :live="isLiveTournament"
               view="results"
               embedded
             />

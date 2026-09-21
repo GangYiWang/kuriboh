@@ -4,6 +4,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { ApiError, apiGet, apiPost, apiPostForm } from '@/api/client'
 import ConfirmFormDialog from '@/components/ConfirmFormDialog.vue'
 import FormMessage from '@/components/FormMessage.vue'
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import type {
   AccountImportResponse,
   AccountInventorySummary,
@@ -97,6 +98,14 @@ async function loadReplacements(): Promise<void> {
     undefined,
     props.token,
   )
+}
+
+async function refreshAccounts(): Promise<void> {
+  try {
+    await Promise.all([loadInventory(), loadReplacements()])
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '账号分发数据刷新失败'
+  }
 }
 
 function chooseFile(event: Event): void {
@@ -199,6 +208,10 @@ onMounted(async () => {
     loading.value = false
   }
 })
+watch(() => props.tournamentId, () => {
+  void refreshAccounts()
+})
+useLiveRefresh(refreshAccounts)
 </script>
 
 <template>

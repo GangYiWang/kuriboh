@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import { apiGet, apiPost } from '@/api/client'
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import FormMessage from '@/components/FormMessage.vue'
 import MatchHistoryList from '@/components/MatchHistoryList.vue'
 import PlayoffResultsTree from '@/components/PlayoffResultsTree.vue'
@@ -11,11 +12,13 @@ const props = withDefaults(defineProps<{
   tournamentId: string
   token: string | null
   isPlayer: boolean
+  live?: boolean
   view?: 'matches' | 'results'
   embedded?: boolean
 }>(), {
   view: 'matches',
   embedded: false,
+  live: false,
 })
 const overview = ref<PlayoffOverview | null>(null)
 const myMatches = ref<MyPlayoffMatch[]>([])
@@ -79,6 +82,14 @@ async function load() {
   }
 }
 
+async function refresh(): Promise<void> {
+  try {
+    await load()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '淘汰赛签表加载失败'
+  }
+}
+
 async function submit(matchId: string, result: SubmittedResult) {
   busy.value = true
   message.value = ''
@@ -92,7 +103,11 @@ async function submit(matchId: string, result: SubmittedResult) {
   } finally { busy.value = false }
 }
 
-onMounted(() => load().catch((caught) => { error.value = caught instanceof Error ? caught.message : '淘汰赛签表加载失败' }))
+watch(() => [props.tournamentId, props.view], () => {
+  void refresh()
+})
+useLiveRefresh(refresh, { pollWhen: () => props.live })
+onMounted(refresh)
 </script>
 
 <template>

@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
 import BrandMark from './BrandMark.vue'
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import { MESSAGING_ENABLED } from '@/config/features'
 import { useAuthStore } from '@/stores/auth'
 import { useMessageStore } from '@/stores/messages'
@@ -20,11 +21,15 @@ const navigation = computed(() => authStore.isPlatformAdmin
   ? [...baseNavigation, { label: '管理后台', to: '/admin', hasDot: false }]
   : baseNavigation)
 
+async function refreshUnreadCount(): Promise<void> {
+  if (MESSAGING_ENABLED) await messageStore.refresh(authStore.token).catch(() => undefined)
+}
+
+useLiveRefresh(refreshUnreadCount)
+
 onMounted(async () => {
   await authStore.ensureProfile()
-  if (MESSAGING_ENABLED) {
-    await messageStore.refresh(authStore.token).catch(() => undefined)
-  }
+  await refreshUnreadCount()
 })
 
 async function logout() {

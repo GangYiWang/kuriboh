@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { apiDelete, apiPost } from '../src/api/client'
+import { apiDelete, apiGet, apiPost } from '../src/api/client'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -37,6 +37,18 @@ describe('API client error handling', () => {
     await expect(apiDelete('/admin/tournaments/example', 'token')).resolves.toBeUndefined()
     expect(fetchMock).toHaveBeenCalledWith('/api/admin/tournaments/example', expect.objectContaining({
       method: 'DELETE',
+    }))
+  })
+
+  it('bypasses browser caches for dynamic GET requests', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await apiGet('/health')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/health', expect.objectContaining({
+      cache: 'no-store',
+      method: 'GET',
     }))
   })
 })

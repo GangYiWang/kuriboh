@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 
 import { apiGet } from '@/api/client'
 import TournamentAreaNav from '@/components/TournamentAreaNav.vue'
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import { useAuthStore } from '@/stores/auth'
 import type { Tournament, TournamentListResponse } from '@/types/tournament'
 import { tournamentStatusText } from '@/types/tournament'
@@ -23,11 +24,11 @@ const searchMode = ref<'code' | 'name' | null>(null)
 const searchBusy = ref(false)
 const searchError = ref('')
 
-async function loadTournaments(search = '', append = false) {
+async function loadTournaments(search = '', append = false, limit = 20) {
   if (!append) loadMoreError.value = ''
   const offset = append ? tournaments.value.length : 0
   const query = search ? `&search=${encodeURIComponent(search)}` : ''
-  const response = await apiGet<TournamentListResponse>(`/tournaments?offset=${offset}&limit=20${query}`)
+  const response = await apiGet<TournamentListResponse>(`/tournaments?offset=${offset}&limit=${limit}${query}`)
   tournaments.value = append ? [...tournaments.value, ...response.items] : response.items
   total.value = response.total
 }
@@ -109,6 +110,15 @@ async function publish() {
     : { path: '/login', query: { redirect: '/tournaments/new' } })
 }
 
+async function refreshTournaments(): Promise<void> {
+  try {
+    await loadTournaments(activeNameQuery.value, false, Math.min(100, Math.max(20, tournaments.value.length)))
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '赛事列表刷新失败'
+  }
+}
+
+useLiveRefresh(refreshTournaments)
 onMounted(async () => {
   try {
     await loadTournaments()

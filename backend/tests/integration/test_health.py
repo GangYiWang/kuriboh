@@ -12,6 +12,7 @@ def test_health_checks_application_and_database(client: TestClient) -> None:
         "version": "0.1.0",
     }
     assert response.headers["X-Request-ID"]
+    assert response.headers["Cache-Control"] == "no-store"
 
 
 def test_unknown_route_uses_the_shared_error_shape(client: TestClient) -> None:
@@ -24,4 +25,3 @@ def test_unknown_route_uses_the_shared_error_shape(client: TestClient) -> None:
         "details": None,
         "request_id": "test-request",
     }
-

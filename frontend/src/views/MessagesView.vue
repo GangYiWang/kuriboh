@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 
 import { apiGet } from '@/api/client'
 import FormMessage from '@/components/FormMessage.vue'
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import { useAuthStore } from '@/stores/auth'
 import { useMessageStore } from '@/stores/messages'
 import type { MessageItem, MessageListResponse } from '@/types/message'
@@ -20,6 +21,14 @@ const formatTime = (value: string) => new Intl.DateTimeFormat('zh-CN', { dateSty
 async function load() {
   data.value = await apiGet<MessageListResponse>('/messages', undefined, authStore.token)
   messageStore.unreadCount = data.value.unread_count
+}
+
+async function refreshMessages(): Promise<void> {
+  try {
+    await load()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '消息刷新失败'
+  }
 }
 
 async function openMessage(item: MessageItem) {
@@ -39,7 +48,8 @@ async function markAllRead() {
   } finally { busy.value = false }
 }
 
-onMounted(() => load().catch((caught) => { error.value = caught instanceof Error ? caught.message : '消息加载失败' }))
+useLiveRefresh(refreshMessages)
+onMounted(refreshMessages)
 </script>
 
 <template>

@@ -8,6 +8,7 @@ import ConfirmFormDialog from '@/components/ConfirmFormDialog.vue'
 import FormMessage from '@/components/FormMessage.vue'
 import MatchHistoryList from '@/components/MatchHistoryList.vue'
 import PlayoffResultsTree from '@/components/PlayoffResultsTree.vue'
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import { TOURNAMENT_AUDIT_VIEW_ENABLED, TOURNAMENT_NOTIFICATIONS_ENABLED } from '@/config/features'
 import { useAuthStore } from '@/stores/auth'
 import type { BanlistVersion, ListResponse } from '@/types/content'
@@ -91,6 +92,7 @@ const draftParticipantIds = computed<string[]>(() => {
   )
 })
 const tournamentStarted = computed(() => tournament.value ? ['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.value.status) : false)
+const isLiveTournament = computed(() => ['SWISS', 'ELIMINATION'].includes(tournament.value?.status ?? ''))
 const registrationActionsOpen = computed(() => tournament.value?.status === 'REGISTRATION')
 const activeParticipantCount = computed(() => participants.value.filter((item) => item.status === 'ACTIVE').length)
 const withdrawnParticipantCount = computed(() => participants.value.filter((item) => item.status === 'WITHDRAWN').length)
@@ -265,6 +267,29 @@ async function loadPlayoffs() {
 
 async function loadCompetitionData() {
   await Promise.all([loadSwiss(), loadPlayoffs()])
+}
+
+async function refreshCurrentSection(): Promise<void> {
+  await loadTournamentSummary()
+  const item = tournament.value
+  if (!item) return
+  if (section.value === 'players') {
+    playerTab.value = ['DRAFT', 'REGISTRATION', 'CANCELED'].includes(item.status) ? 'registrations' : 'participants'
+    await loadPlayerManagement(item)
+  }
+  if (['matches', 'results'].includes(section.value) && ['SWISS', 'ELIMINATION', 'ENDED'].includes(item.status)) {
+    await loadCompetitionData()
+  }
+  if (section.value === 'decks-report' && item.status === 'ENDED') await loadPhase5()
+  if (section.value === 'audit') await loadAuditLogs()
+}
+
+async function refreshCurrentSectionSafely(): Promise<void> {
+  try {
+    await refreshCurrentSection()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '赛事数据刷新失败'
+  }
 }
 
 async function loadPhase5() {
@@ -664,14 +689,29 @@ async function confirmPlayoffResolution() {
   } finally { busy.value = false }
 }
 
-watch(section, async (value) => {
-  if (value === 'players' && tournament.value) {
-    playerTab.value = ['DRAFT', 'REGISTRATION', 'CANCELED'].includes(tournament.value.status) ? 'registrations' : 'participants'
-    await loadPlayerManagement(tournament.value)
+watch(section, () => {
+  void refreshCurrentSectionSafely()
+})
+watch(competitionStage, async (value) => {
+  if (!['matches', 'results'].includes(section.value)) return
+  try {
+    if (value === 'swiss') await loadSwiss()
+    else await loadPlayoffs()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '赛事阶段数据刷新失败'
   }
-  if (['matches', 'results'].includes(value) && tournament.value && ['SWISS', 'ELIMINATION', 'ENDED'].includes(tournament.value.status)) await loadCompetitionData()
-  if (value === 'decks-report' && tournament.value?.status === 'ENDED') await loadPhase5()
-  if (value === 'audit') await loadAuditLogs()
+})
+watch(() => route.query.stage, (value) => {
+  if (value === 'swiss' || value === 'playoff') competitionStage.value = value
+})
+watch(tournamentId, () => {
+  tournament.value = null
+  swissRounds.value = []
+  swissOverview.value = null
+  playoff.value = null
+  void load().catch((caught) => {
+    error.value = caught instanceof Error ? caught.message : '赛事加载失败'
+  })
 })
 watch(previewDeck, async (item) => {
   if (!item) return
@@ -679,6 +719,7 @@ watch(previewDeck, async (item) => {
   deckPreviewCloseButton.value?.focus()
 })
 onMounted(() => load().catch((caught) => { error.value = caught instanceof Error ? caught.message : '赛事加载失败' }))
+useLiveRefresh(refreshCurrentSectionSafely, { pollWhen: () => isLiveTournament.value })
 </script>
 
 <template>

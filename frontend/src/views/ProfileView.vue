@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { apiGet } from '@/api/client'
 import FormMessage from '@/components/FormMessage.vue'
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import { useAuthStore } from '@/stores/auth'
 import type { QqOAuthStatus } from '@/types/auth'
 import type { PlayerStatistics } from '@/types/statistics'
@@ -22,11 +23,11 @@ const statisticsError = ref('')
 const loadingMoreResults = ref(false)
 const loadMoreResultsError = ref('')
 
-async function loadStatistics(append = false) {
+async function loadStatistics(append = false, limit = 10) {
   if (!authStore.token) return
   const offset = append ? statistics.value?.results.length ?? 0 : 0
   const response = await apiGet<PlayerStatistics>(
-    `/me/tournament-statistics?offset=${offset}&limit=10`, undefined, authStore.token,
+    `/me/tournament-statistics?offset=${offset}&limit=${limit}`, undefined, authStore.token,
   )
   statistics.value = append && statistics.value
     ? { ...response, results: [...statistics.value.results, ...response.results] }
@@ -44,6 +45,20 @@ async function loadMoreResults() {
     loadingMoreResults.value = false
   }
 }
+
+async function refreshProfileData(): Promise<void> {
+  if (authStore.token && activeSection.value === 'records') {
+    await loadStatistics(false, Math.min(100, Math.max(10, statistics.value?.results.length ?? 0))).catch((caught: unknown) => {
+      statisticsError.value = caught instanceof Error ? caught.message : '赛事档案刷新失败'
+    })
+  }
+  qqStatus.value = await apiGet<QqOAuthStatus>('/auth/qq/status').catch(() => null)
+}
+
+watch(activeSection, () => {
+  void refreshProfileData()
+})
+useLiveRefresh(refreshProfileData)
 
 onMounted(async () => {
   if (authStore.token) {

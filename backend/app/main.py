@@ -9,7 +9,7 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.errors import install_error_handlers
 from app.core.logging import configure_logging, get_logger
-from app.core.middleware import RequestContextMiddleware
+from app.core.middleware import NoStoreApiMiddleware, RequestContextMiddleware
 
 
 @asynccontextmanager
@@ -32,6 +32,7 @@ def create_app() -> FastAPI:
         openapi_url="/api/openapi.json" if settings.environment != "production" else None,
         lifespan=lifespan,
     )
+    app.add_middleware(NoStoreApiMiddleware, api_prefix=settings.api_prefix)
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         CORSMiddleware,

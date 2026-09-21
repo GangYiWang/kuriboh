@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import { apiGet } from '@/api/client'
 import FormMessage from '@/components/FormMessage.vue'
 import TournamentAreaNav from '@/components/TournamentAreaNav.vue'
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import { useAuthStore } from '@/stores/auth'
 import type { MyTournament, MyTournamentListResponse, Tournament, TournamentListResponse } from '@/types/tournament'
 import { registrationStatusText, tournamentStatusText } from '@/types/tournament'
@@ -26,10 +27,24 @@ async function loadCurrent() {
   error.value = ''
   loadMoreError.value = ''
   try {
-    if (tab.value === 'created' && !created.value) created.value = await apiGet<TournamentListResponse>('/me/created-tournaments?offset=0&limit=20', undefined, authStore.token)
-    if (tab.value === 'joined' && !joined.value) joined.value = await apiGet<MyTournamentListResponse>('/me/tournaments?offset=0&limit=20', undefined, authStore.token)
+    if (tab.value === 'created') created.value = await apiGet<TournamentListResponse>('/me/created-tournaments?offset=0&limit=20', undefined, authStore.token)
+    if (tab.value === 'joined') joined.value = await apiGet<MyTournamentListResponse>('/me/tournaments?offset=0&limit=20', undefined, authStore.token)
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '赛事记录加载失败'
+  }
+}
+
+async function refreshCurrent(): Promise<void> {
+  try {
+    if (tab.value === 'created') {
+      const limit = Math.min(100, Math.max(20, created.value?.items.length ?? 0))
+      created.value = await apiGet<TournamentListResponse>(`/me/created-tournaments?offset=0&limit=${limit}`, undefined, authStore.token)
+    } else {
+      const limit = Math.min(100, Math.max(20, joined.value?.items.length ?? 0))
+      joined.value = await apiGet<MyTournamentListResponse>(`/me/tournaments?offset=0&limit=${limit}`, undefined, authStore.token)
+    }
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '赛事记录刷新失败'
   }
 }
 
@@ -52,6 +67,7 @@ async function loadMore() {
 }
 
 watch(tab, loadCurrent)
+useLiveRefresh(refreshCurrent)
 onMounted(loadCurrent)
 </script>
 

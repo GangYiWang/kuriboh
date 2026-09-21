@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import { apiGet, apiPost } from '@/api/client'
 import ConfirmFormDialog from '@/components/ConfirmFormDialog.vue'
 import FormMessage from '@/components/FormMessage.vue'
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import type {
   AccountCredential,
   AccountReplacementRequest,
@@ -60,6 +61,14 @@ async function loadAccounts(): Promise<void> {
   )
   accounts.value = response.items
   replacementRequests.value = response.replacement_requests
+}
+
+async function refreshAccounts(): Promise<void> {
+  try {
+    await loadAccounts()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '赛事账号刷新失败'
+  }
 }
 
 function requestClaim(accountType: AccountType): void {
@@ -147,6 +156,10 @@ onMounted(async () => {
     loading.value = false
   }
 })
+watch(() => props.tournamentId, () => {
+  void refreshAccounts()
+})
+useLiveRefresh(refreshAccounts)
 </script>
 
 <template>

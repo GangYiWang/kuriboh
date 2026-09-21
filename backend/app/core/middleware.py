@@ -4,6 +4,7 @@ from uuid import uuid4
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.types import ASGIApp
 
 from app.core.logging import get_logger
 
@@ -25,3 +26,14 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         )
         return response
 
+
+class NoStoreApiMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app: ASGIApp, *, api_prefix: str) -> None:
+        super().__init__(app)
+        self.api_prefix = api_prefix.rstrip('/')
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        response = await call_next(request)
+        if request.url.path == self.api_prefix or request.url.path.startswith(f"{self.api_prefix}/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response

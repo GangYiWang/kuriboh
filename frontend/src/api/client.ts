@@ -87,7 +87,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 }
 
 export function apiGet<T>(path: string, signal?: AbortSignal, token?: string | null): Promise<T> {
-  return apiRequest<T>(path, { signal, token })
+  return apiRequest<T>(path, { method: 'GET', cache: 'no-store', signal, token })
 }
 
 export function apiPost<T>(path: string, body: unknown, token?: string | null): Promise<T> {

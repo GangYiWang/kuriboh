@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 
 import { ApiError, apiGet, apiPostForm } from '@/api/client'
 import FormMessage from '@/components/FormMessage.vue'
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import type { DeckSubmission } from '@/types/report'
 import { deckPlacementText, deckStatusText } from '@/types/report'
 
@@ -52,6 +53,10 @@ async function upload() {
   } finally { busy.value = false }
 }
 
+watch(() => props.tournamentId, () => {
+  void load()
+})
+useLiveRefresh(load)
 onMounted(load)
 </script>
 
