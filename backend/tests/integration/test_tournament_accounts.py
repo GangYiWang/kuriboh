@@ -24,17 +24,19 @@ def auth(token: str) -> dict[str, str]:
 
 def create_published_tournament(client, session_factory, owner_id, owner_token: str) -> str:
     with session_factory() as db:
-        banlist = BanlistVersion(
-            major_version=9,
-            minor_version=1,
-            title="赛事账号测试禁卡表",
-            content_html="<p>测试</p>",
-            published_at=datetime.now(UTC),
-            created_by_id=owner_id,
-        )
-        db.add(banlist)
-        db.commit()
-        db.refresh(banlist)
+        banlist = db.scalar(select(BanlistVersion).order_by(BanlistVersion.created_at).limit(1))
+        if banlist is None:
+            banlist = BanlistVersion(
+                major_version=9,
+                minor_version=1,
+                title="赛事账号测试禁卡表",
+                content_html="<p>测试</p>",
+                published_at=datetime.now(UTC),
+                created_by_id=owner_id,
+            )
+            db.add(banlist)
+            db.commit()
+            db.refresh(banlist)
         banlist_id = banlist.id
     created = client.post(
         "/api/admin/tournaments",
@@ -234,6 +236,7 @@ def test_approved_player_claims_each_type_once_and_can_view_it(client, make_user
         "reserved": 0,
         "claimed": 1,
         "invalid": 0,
+        "transferred": 0,
     }
     assert admin_list["items"][0]["claimed_by_user_id"] == str(player.id)
     assert admin_list["items"][0]["claimed_by_nickname"] == "领取账号选手"
@@ -418,6 +421,7 @@ def test_approved_replacement_reserves_account_until_player_claims(
         "reserved": 1,
         "claimed": 0,
         "invalid": 1,
+        "transferred": 0,
     }
 
     reclaimed = client.post(
@@ -495,3 +499,123 @@ def test_replacement_approval_requires_available_inventory(client, make_user, se
         ))
     assert request.status == AccountReplacementStatus.PENDING.value
     assert account.status == TournamentAccountStatus.CLAIMED.value
+
+
+def test_available_accounts_carry_over_from_all_ended_owner_tournaments(
+    client, make_user, session_factory
+) -> None:
+    owner, owner_token = make_user(qq_number="83000016", nickname="余号结转管理员")
+    other_owner, other_token = make_user(qq_number="83000017", nickname="其他余号管理员")
+    _, player_token = make_user(qq_number="83000018", nickname="已领取选手")
+    first_source_id = create_published_tournament(client, session_factory, owner.id, owner_token)
+    second_source_id = create_published_tournament(client, session_factory, owner.id, owner_token)
+    target_id = create_published_tournament(client, session_factory, owner.id, owner_token)
+    other_source_id = create_published_tournament(client, session_factory, other_owner.id, other_token)
+
+    register_and_approve(client, first_source_id, player_token, owner_token)
+    assert import_file(
+        client,
+        first_source_id,
+        owner_token,
+        AccountType.KONAMI.value,
+        b"claimed-konami----claimed-password\ncarry-konami-one----carry-password-one",
+    ).status_code == 200
+    assert import_file(
+        client,
+        first_source_id,
+        owner_token,
+        AccountType.STEAM.value,
+        b"carry-steam----carry-steam-password",
+    ).status_code == 200
+    assert client.post(
+        f"/api/tournaments/{first_source_id}/accounts/KONAMI/claim",
+        headers=auth(player_token),
+    ).status_code == 200
+    assert import_file(
+        client,
+        second_source_id,
+        owner_token,
+        AccountType.KONAMI.value,
+        b"carry-konami-two----carry-password-two",
+    ).status_code == 200
+    assert import_file(
+        client,
+        other_source_id,
+        other_token,
+        AccountType.STEAM.value,
+        b"other-owner-steam----other-password",
+    ).status_code == 200
+
+    with session_factory() as db:
+        for source_id in (first_source_id, second_source_id, other_source_id):
+            tournament = db.get(Tournament, UUID(source_id))
+            tournament.status = TournamentStatus.ENDED.value
+            tournament.ended_at = datetime.now(UTC)
+        db.commit()
+
+    forbidden = client.get(
+        f"/api/admin/tournaments/{target_id}/accounts/carryover-preview",
+        headers=auth(other_token),
+    )
+    preview = client.get(
+        f"/api/admin/tournaments/{target_id}/accounts/carryover-preview",
+        headers=auth(owner_token),
+    )
+    carried = client.post(
+        f"/api/admin/tournaments/{target_id}/accounts/carryover",
+        headers=auth(owner_token),
+        json={},
+    )
+
+    assert forbidden.status_code == 403
+    assert preview.status_code == 200, preview.json()
+    assert preview.json() == {
+        "konami_count": 2,
+        "steam_count": 1,
+        "total_count": 3,
+        "source_tournament_count": 2,
+    }
+    assert carried.status_code == 200, carried.json()
+    assert carried.json() == preview.json()
+
+    target_inventory = client.get(
+        f"/api/admin/tournaments/{target_id}/accounts?type=KONAMI",
+        headers=auth(owner_token),
+    ).json()
+    summaries = {item["account_type"]: item for item in target_inventory["summaries"]}
+    assert summaries["KONAMI"]["available"] == 2
+    assert summaries["STEAM"]["available"] == 1
+
+    repeated = client.post(
+        f"/api/admin/tournaments/{target_id}/accounts/carryover",
+        headers=auth(owner_token),
+        json={},
+    )
+    assert repeated.status_code == 200
+    assert repeated.json()["total_count"] == 0
+
+    with session_factory() as db:
+        transferred = list(db.scalars(select(TournamentAccount).where(
+            TournamentAccount.status == TournamentAccountStatus.TRANSFERRED.value,
+        )))
+        target_accounts = list(db.scalars(select(TournamentAccount).where(
+            TournamentAccount.tournament_id == UUID(target_id),
+        )))
+        other_available = db.scalar(select(func.count()).select_from(TournamentAccount).where(
+            TournamentAccount.tournament_id == UUID(other_source_id),
+            TournamentAccount.status == TournamentAccountStatus.AVAILABLE.value,
+        ))
+        audit_actions = set(db.scalars(select(AuditLog.action_type).where(
+            AuditLog.action_type.in_([
+                "TOURNAMENT_ACCOUNTS_CARRIED_OVER_IN",
+                "TOURNAMENT_ACCOUNTS_CARRIED_OVER_OUT",
+            ])
+        )))
+    assert len(transferred) == 3
+    assert len(target_accounts) == 3
+    assert all(item.transferred_from_account_id is not None for item in target_accounts)
+    assert other_available == 1
+    assert audit_actions == {
+        "TOURNAMENT_ACCOUNTS_CARRIED_OVER_IN",
+        "TOURNAMENT_ACCOUNTS_CARRIED_OVER_OUT",
+    }

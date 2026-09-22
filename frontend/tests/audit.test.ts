@@ -10,6 +10,8 @@ describe('audit action labels', () => {
     expect(auditActionText('DECK_SUBMISSION_UPLOADED_BY_ADMIN')).toBe('代选手上传卡组')
     expect(auditActionText('TOURNAMENT_ENDED')).toBe('结束赛事并锁定结果')
     expect(auditActionText('TOURNAMENT_ACCOUNTS_IMPORTED')).toBe('导入赛事账号')
+    expect(auditActionText('TOURNAMENT_ACCOUNTS_CARRIED_OVER_IN')).toBe('结转往届余号')
+    expect(auditActionText('TOURNAMENT_ACCOUNTS_CARRIED_OVER_OUT')).toBe('结转余号至新赛事')
     expect(auditActionText('TOURNAMENT_ACCOUNT_CLAIMED')).toBe('领取赛事账号')
     expect(auditActionText('TOURNAMENT_ACCOUNT_REPLACEMENT_APPROVED')).toBe('通过换号申请')
   })

@@ -1142,6 +1142,9 @@ input {
 .account-admin { margin-top: 34px; padding-bottom: 70px; }
 .account-admin > .form-message { margin-top: 18px; }
 .account-import-bar { min-height: 96px; display: flex; align-items: center; justify-content: space-between; gap: 28px; padding: 18px 0; border-bottom: 1px solid var(--color-line); }
+.account-carryover-bar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 18px; padding: 14px 0; border-bottom: 1px solid var(--color-line); }
+.account-carryover-bar strong { font-size: 13px; }
+.account-carryover-bar p { margin: 5px 0 0; color: var(--color-muted); font-size: 11px; }
 .account-import-bar strong { font-size: 14px; }
 .account-import-bar p { margin: 6px 0 0; color: var(--color-muted); font-size: 11px; line-height: 1.7; }
 .account-import-bar code, .account-inventory-table code { font-family: var(--font-number); }
@@ -1151,6 +1154,7 @@ input {
 .account-reserved { color: var(--color-brand); }
 .account-claimed { color: #44774c; }
 .account-invalid { color: #8f3a2d; }
+.account-transferred { color: var(--color-muted); }
 .account-type-tabs { display: flex; gap: 26px; margin-top: 18px; border-bottom: 1px solid var(--color-line); }
 .account-type-tabs button { position: relative; padding: 10px 2px 12px; border: 0; color: var(--color-muted); background: transparent; font-size: 13px; font-weight: 600; cursor: pointer; }
 .account-type-tabs button.active { color: var(--color-ink); }
@@ -1721,7 +1725,8 @@ input {
   .playoff-bracket-tree { --bracket-tree-gap: 36px; grid-template-columns: repeat(var(--round-count), 220px); }
   .player-summary > div { min-width: 50%; padding-right: 12px; }
   .player-section-heading { align-items: flex-start; flex-direction: column; gap: 8px; padding: 14px 0; }
-  .account-import-bar, .account-import-actions, .account-claim-heading { align-items: stretch; flex-direction: column; }
+  .account-import-bar, .account-import-actions, .account-carryover-bar, .account-claim-heading { align-items: stretch; flex-direction: column; }
+  .account-carryover-bar .button { width: 100%; }
   .account-import-actions .button { width: 100%; }
   .account-type-tabs { overflow-x: auto; white-space: nowrap; }
   .account-credential-list { grid-template-columns: 1fr; }

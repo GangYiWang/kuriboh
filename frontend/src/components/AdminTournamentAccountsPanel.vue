@@ -7,6 +7,7 @@ import FormMessage from '@/components/FormMessage.vue'
 import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import type {
   AccountImportResponse,
+  AccountCarryoverSummary,
   AccountInventorySummary,
   AccountReplacementStatus,
   AccountType,
@@ -36,6 +37,8 @@ const activeView = ref<AccountAdminView>('inventory')
 const activeType = ref<AccountType>('KONAMI')
 const inventory = ref<AdminTournamentAccountListResponse | null>(null)
 const replacements = ref<AdminAccountReplacementRequestListResponse | null>(null)
+const carryoverPreview = ref<AccountCarryoverSummary | null>(null)
+const carryoverOpen = ref(false)
 const selectedFile = ref<File | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const reviewRequest = ref<AdminAccountReplacementRequest | null>(null)
@@ -47,9 +50,27 @@ const error = ref('')
 const message = ref('')
 const importErrors = ref<ImportErrorDetail[]>([])
 const importOpen = computed(() => !['ENDED', 'CANCELED'].includes(props.tournamentStatus))
+const carryoverAllowed = computed(() => ['DRAFT', 'REGISTRATION'].includes(props.tournamentStatus))
 const summary = computed<AccountInventorySummary>(() => inventory.value?.summaries.find(
   (item) => item.account_type === activeType.value,
-) ?? { account_type: activeType.value, total: 0, available: 0, reserved: 0, claimed: 0, invalid: 0 })
+) ?? {
+  account_type: activeType.value,
+  total: 0,
+  available: 0,
+  reserved: 0,
+  claimed: 0,
+  invalid: 0,
+  transferred: 0,
+})
+const carryoverDescription = computed(() => {
+  const preview = carryoverPreview.value
+  if (!preview) return ''
+  const counts = [
+    preview.konami_count ? `科乐美账号 ${preview.konami_count} 个` : '',
+    preview.steam_count ? `Steam 账号 ${preview.steam_count} 个` : '',
+  ].filter(Boolean).join('，')
+  return `确认将 ${preview.source_tournament_count} 届往届赛事的未使用账号结转到当前赛事？共 ${preview.total_count} 个：${counts}。已领取、已预留和已作废账号不会结转。`
+})
 
 const typeText: Record<AccountType, string> = {
   KONAMI: '科乐美账号',
@@ -61,6 +82,7 @@ const accountStatusText: Record<TournamentAccountStatus, string> = {
   RESERVED: '待重新获取',
   CLAIMED: '已领取',
   INVALID: '已作废',
+  TRANSFERRED: '已结转',
 }
 
 const replacementStatusText: Record<AccountReplacementStatus, string> = {
@@ -100,11 +122,53 @@ async function loadReplacements(): Promise<void> {
   )
 }
 
+async function loadCarryoverPreview(): Promise<void> {
+  if (!carryoverAllowed.value) {
+    carryoverPreview.value = null
+    return
+  }
+  carryoverPreview.value = await apiGet<AccountCarryoverSummary>(
+    `/admin/tournaments/${props.tournamentId}/accounts/carryover-preview`,
+    undefined,
+    props.token,
+  )
+}
+
 async function refreshAccounts(): Promise<void> {
   try {
-    await Promise.all([loadInventory(), loadReplacements()])
+    await Promise.all([loadInventory(), loadReplacements(), loadCarryoverPreview()])
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '账号分发数据刷新失败'
+  }
+}
+
+function openCarryover(): void {
+  error.value = ''
+  message.value = ''
+  carryoverOpen.value = true
+}
+
+function closeCarryover(): void {
+  carryoverOpen.value = false
+  error.value = ''
+}
+
+async function carryoverAccounts(): Promise<void> {
+  busy.value = true
+  error.value = ''
+  try {
+    const result = await apiPost<AccountCarryoverSummary>(
+      `/admin/tournaments/${props.tournamentId}/accounts/carryover`,
+      {},
+      props.token,
+    )
+    message.value = `已结转 ${result.total_count} 个往届余号：科乐美 ${result.konami_count} 个，Steam ${result.steam_count} 个。`
+    carryoverOpen.value = false
+    await Promise.all([loadInventory(), loadCarryoverPreview()])
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '余号结转失败'
+  } finally {
+    busy.value = false
   }
 }
 
@@ -201,14 +265,14 @@ watch(activeType, async () => {
 
 onMounted(async () => {
   try {
-    await Promise.all([loadInventory(), loadReplacements()])
+    await Promise.all([loadInventory(), loadReplacements(), loadCarryoverPreview()])
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '账号分发数据加载失败'
   } finally {
     loading.value = false
   }
 })
-watch(() => props.tournamentId, () => {
+watch(() => [props.tournamentId, props.tournamentStatus], () => {
   void refreshAccounts()
 })
 useLiveRefresh(refreshAccounts)
@@ -227,6 +291,13 @@ useLiveRefresh(refreshAccounts)
     <FormMessage v-if="error" :message="error" />
 
     <div v-if="activeView === 'inventory'" role="tabpanel">
+      <div v-if="(carryoverPreview?.total_count ?? 0) > 0" class="account-carryover-bar">
+        <div>
+          <strong>往届可结转</strong>
+          <p>科乐美 {{ carryoverPreview?.konami_count ?? 0 }} 个 · Steam {{ carryoverPreview?.steam_count ?? 0 }} 个</p>
+        </div>
+        <button class="button secondary small" type="button" :disabled="busy" @click="openCarryover">结转余号</button>
+      </div>
       <nav class="account-type-tabs" role="tablist" aria-label="账号类型">
         <button v-for="accountType in accountTypes" :key="accountType" type="button" role="tab" :class="{ active: activeType === accountType }" :aria-selected="activeType === accountType" @click="activeType = accountType">{{ typeText[accountType] }}</button>
       </nav>
@@ -250,6 +321,7 @@ useLiveRefresh(refreshAccounts)
         <div><dt>待重新获取</dt><dd>{{ summary.reserved }}</dd></div>
         <div><dt>已领取</dt><dd>{{ summary.claimed }}</dd></div>
         <div><dt>已作废</dt><dd>{{ summary.invalid }}</dd></div>
+        <div><dt>已结转</dt><dd>{{ summary.transferred }}</dd></div>
       </dl>
       <p v-if="loading" class="empty-state">正在加载账号库存…</p>
       <p v-else-if="!inventory?.items.length" class="empty-state">尚未导入{{ typeText[activeType] }}。</p>
@@ -293,6 +365,16 @@ useLiveRefresh(refreshAccounts)
       </div>
     </div>
 
+    <ConfirmFormDialog
+      v-if="carryoverOpen"
+      title="结转余号"
+      :description="carryoverDescription"
+      confirm-text="确认结转"
+      :busy="busy"
+      :error="error"
+      @cancel="closeCarryover"
+      @confirm="carryoverAccounts"
+    />
     <ConfirmFormDialog
       v-if="reviewRequest && reviewAction"
       v-model:reason="reviewReason"

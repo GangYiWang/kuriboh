@@ -22,6 +22,7 @@ from app.tournament_accounts.models import (
 )
 from app.tournament_accounts.repository import TournamentAccountRepository
 from app.tournament_accounts.schemas import (
+    AccountCarryoverSummary,
     AccountCredentialResponse,
     AccountImportResponse,
     AccountInventorySummary,
@@ -56,11 +57,16 @@ class TournamentAccountService:
         TournamentStatus.SWISS.value,
         TournamentStatus.ELIMINATION.value,
     }
+    CARRYOVER_TARGET_STATUSES = {
+        TournamentStatus.DRAFT.value,
+        TournamentStatus.REGISTRATION.value,
+    }
 
     def __init__(self, db: Session) -> None:
         self.db = db
         self.repository = TournamentAccountRepository(db)
         self.registrations = RegistrationRepository(db)
+        self.tournaments = TournamentService(db)
         self.cipher = CredentialCipher()
 
     def import_accounts(
@@ -140,6 +146,123 @@ class TournamentAccountService:
             imported_count=len(parsed),
             available_count=self.repository.available_count(tournament_id, account_type),
         )
+
+    def carryover_preview(self, tournament_id: UUID, operator_id: UUID) -> AccountCarryoverSummary:
+        target = self.tournaments.require_owner(tournament_id, operator_id)
+        self._require_carryover_target(target.status)
+        candidates = self.repository.carryover_candidates(
+            target.id,
+            target.created_by_id,
+        )
+        return self._carryover_summary(candidates)
+
+    def carryover_available_accounts(
+        self,
+        tournament_id: UUID,
+        operator_id: UUID,
+    ) -> AccountCarryoverSummary:
+        target = self.tournaments.require_owner(tournament_id, operator_id, for_update=True)
+        self._require_carryover_target(target.status)
+        candidates = self.repository.carryover_candidates(
+            target.id,
+            target.created_by_id,
+            for_update=True,
+        )
+        summary = self._carryover_summary(candidates)
+        if not candidates:
+            return summary
+
+        candidate_keys = [(item.account_type, item.account_digest) for item in candidates]
+        if len(candidate_keys) != len(set(candidate_keys)):
+            raise AppError(
+                "ACCOUNT_CARRYOVER_SOURCE_DUPLICATE",
+                "往届余号中存在重复账号，请联系平台管理员清理后重试",
+                status_code=409,
+            )
+        for account_type in AccountType:
+            typed = [item for item in candidates if item.account_type == account_type.value]
+            existing = self.repository.existing_digests(
+                target.id,
+                account_type,
+                [item.account_digest for item in typed],
+            )
+            if existing:
+                raise AppError(
+                    "ACCOUNT_CARRYOVER_TARGET_DUPLICATE",
+                    "目标赛事已经存在部分待结转账号，本次未结转任何数据",
+                    status_code=409,
+                    details={"account_type": account_type.value, "duplicate_count": len(existing)},
+                )
+
+        source_counts: dict[UUID, dict[str, int]] = {}
+        for account_type in AccountType:
+            typed = [item for item in candidates if item.account_type == account_type.value]
+            if not typed:
+                continue
+            batch = AccountImportBatch(
+                tournament_id=target.id,
+                account_type=account_type.value,
+                original_filename="系统结转余号",
+                imported_count=len(typed),
+                imported_by_id=operator_id,
+            )
+            self.db.add(batch)
+            self.db.flush()
+            for source in typed:
+                self.db.add(TournamentAccount(
+                    tournament_id=target.id,
+                    import_batch_id=batch.id,
+                    account_type=source.account_type,
+                    account_digest=source.account_digest,
+                    account_ciphertext=source.account_ciphertext,
+                    password_ciphertext=source.password_ciphertext,
+                    status=TournamentAccountStatus.AVAILABLE.value,
+                    transferred_from_account_id=source.id,
+                ))
+                source.status = TournamentAccountStatus.TRANSFERRED.value
+                counts = source_counts.setdefault(
+                    source.tournament_id,
+                    {AccountType.KONAMI.value: 0, AccountType.STEAM.value: 0},
+                )
+                counts[source.account_type] += 1
+
+        add_audit_log(
+            self.db,
+            operator_id=operator_id,
+            tournament_id=target.id,
+            action_type="TOURNAMENT_ACCOUNTS_CARRIED_OVER_IN",
+            target_type="tournament",
+            target_id=target.id,
+            after={
+                "konami_count": summary.konami_count,
+                "steam_count": summary.steam_count,
+                "source_tournament_count": summary.source_tournament_count,
+            },
+        )
+        for source_tournament_id, counts in source_counts.items():
+            add_audit_log(
+                self.db,
+                operator_id=operator_id,
+                tournament_id=source_tournament_id,
+                action_type="TOURNAMENT_ACCOUNTS_CARRIED_OVER_OUT",
+                target_type="tournament",
+                target_id=target.id,
+                after={
+                    "target_tournament_id": str(target.id),
+                    "konami_count": counts[AccountType.KONAMI.value],
+                    "steam_count": counts[AccountType.STEAM.value],
+                },
+            )
+        try:
+            self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise AppError(
+                "ACCOUNT_CARRYOVER_CONFLICT",
+                "余号状态已经发生变化，请刷新后重试",
+                status_code=409,
+            ) from exc
+        return summary
 
     def claim(
         self,
@@ -493,6 +616,26 @@ class TournamentAccountService:
                 details={"errors": errors, "error_count": len(errors)},
             )
         return parsed
+
+    @classmethod
+    def _require_carryover_target(cls, status: str) -> None:
+        if status not in cls.CARRYOVER_TARGET_STATUSES:
+            raise AppError(
+                "ACCOUNT_CARRYOVER_CLOSED",
+                "只有草稿或报名阶段的赛事可以结转往届余号",
+                status_code=409,
+            )
+
+    @staticmethod
+    def _carryover_summary(accounts: list[TournamentAccount]) -> AccountCarryoverSummary:
+        konami_count = sum(item.account_type == AccountType.KONAMI.value for item in accounts)
+        steam_count = sum(item.account_type == AccountType.STEAM.value for item in accounts)
+        return AccountCarryoverSummary(
+            konami_count=konami_count,
+            steam_count=steam_count,
+            total_count=konami_count + steam_count,
+            source_tournament_count=len({item.tournament_id for item in accounts}),
+        )
 
     def _credential_response(self, item: TournamentAccount) -> AccountCredentialResponse:
         if item.claimed_at is None:

@@ -61,6 +61,14 @@ class AccountInventorySummary(BaseModel):
     reserved: int
     claimed: int
     invalid: int
+    transferred: int
+
+
+class AccountCarryoverSummary(BaseModel):
+    konami_count: int
+    steam_count: int
+    total_count: int
+    source_tournament_count: int
 
 
 class AdminTournamentAccountResponse(BaseModel):

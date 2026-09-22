@@ -5,7 +5,7 @@ export type MatchStatus = 'WAITING' | 'CONFLICT' | 'COMPLETED'
 export type SubmittedResult = 'WIN' | 'LOSS'
 export type PlayoffRoundStatus = 'DRAFT' | 'PUBLISHED' | 'COMPLETED'
 export type AccountType = 'KONAMI' | 'STEAM'
-export type TournamentAccountStatus = 'AVAILABLE' | 'RESERVED' | 'CLAIMED' | 'INVALID'
+export type TournamentAccountStatus = 'AVAILABLE' | 'RESERVED' | 'CLAIMED' | 'INVALID' | 'TRANSFERRED'
 export type AccountReplacementStatus = 'PENDING' | 'APPROVED' | 'COMPLETED' | 'REJECTED'
 
 export interface Tournament {
@@ -133,6 +133,14 @@ export interface AccountInventorySummary {
   reserved: number
   claimed: number
   invalid: number
+  transferred: number
+}
+
+export interface AccountCarryoverSummary {
+  konami_count: number
+  steam_count: number
+  total_count: number
+  source_tournament_count: number
 }
 
 export interface AdminTournamentAccount {

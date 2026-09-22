@@ -10,6 +10,7 @@ from app.core.errors import AppError
 from app.db.session import get_db
 from app.tournament_accounts.models import AccountType
 from app.tournament_accounts.schemas import (
+    AccountCarryoverSummary,
     AccountCredentialResponse,
     AccountImportResponse,
     AccountReplacementReasonRequest,
@@ -87,6 +88,32 @@ def admin_tournament_accounts(
     require_tournament_owner(db, tournament_id, principal.user_id)
     response.headers["Cache-Control"] = "no-store"
     return TournamentAccountService(db).list_for_admin(tournament_id, account_type)
+
+
+@admin_router.get(
+    "/tournaments/{tournament_id}/accounts/carryover-preview",
+    response_model=AccountCarryoverSummary,
+)
+def account_carryover_preview(
+    tournament_id: UUID,
+    principal: Authenticated,
+    db: Annotated[Session, Depends(get_db)],
+) -> AccountCarryoverSummary:
+    require_tournament_owner(db, tournament_id, principal.user_id)
+    return TournamentAccountService(db).carryover_preview(tournament_id, principal.user_id)
+
+
+@admin_router.post(
+    "/tournaments/{tournament_id}/accounts/carryover",
+    response_model=AccountCarryoverSummary,
+)
+def carryover_available_accounts(
+    tournament_id: UUID,
+    principal: Authenticated,
+    db: Annotated[Session, Depends(get_db)],
+) -> AccountCarryoverSummary:
+    require_tournament_owner(db, tournament_id, principal.user_id)
+    return TournamentAccountService(db).carryover_available_accounts(tournament_id, principal.user_id)
 
 
 @admin_router.get(

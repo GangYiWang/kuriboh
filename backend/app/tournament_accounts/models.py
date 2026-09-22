@@ -27,6 +27,7 @@ class TournamentAccountStatus(StrEnum):
     RESERVED = "RESERVED"
     CLAIMED = "CLAIMED"
     INVALID = "INVALID"
+    TRANSFERRED = "TRANSFERRED"
 
 
 class AccountReplacementStatus(StrEnum):
@@ -61,7 +62,7 @@ class TournamentAccount(TimestampMixin, Base):
     __table_args__ = (
         CheckConstraint("account_type in ('KONAMI', 'STEAM')", name="ck_tournament_accounts_type"),
         CheckConstraint(
-            "status in ('AVAILABLE', 'RESERVED', 'CLAIMED', 'INVALID')",
+            "status in ('AVAILABLE', 'RESERVED', 'CLAIMED', 'INVALID', 'TRANSFERRED')",
             name="ck_tournament_accounts_status",
         ),
         UniqueConstraint(
@@ -69,6 +70,10 @@ class TournamentAccount(TimestampMixin, Base):
             "account_type",
             "account_digest",
             name="uq_tournament_accounts_identifier",
+        ),
+        UniqueConstraint(
+            "transferred_from_account_id",
+            name="uq_tournament_accounts_transferred_from",
         ),
         Index(
             "uq_tournament_accounts_active_registration_type",
@@ -105,6 +110,9 @@ class TournamentAccount(TimestampMixin, Base):
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
     )
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    transferred_from_account_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("tournament_accounts.id", ondelete="RESTRICT"), nullable=True
+    )
 
     tournament: Mapped[Tournament] = relationship()
     import_batch: Mapped[AccountImportBatch] = relationship(back_populates="accounts")

@@ -11,6 +11,7 @@ from app.tournament_accounts.models import (
     TournamentAccount,
     TournamentAccountStatus,
 )
+from app.tournaments.models import Tournament, TournamentStatus
 
 
 class TournamentAccountRepository:
@@ -104,6 +105,35 @@ class TournamentAccountRepository:
             )
         ) or 0)
 
+    def carryover_candidates(
+        self,
+        target_tournament_id: UUID,
+        owner_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> list[TournamentAccount]:
+        statement = (
+            select(TournamentAccount)
+            .join(Tournament, Tournament.id == TournamentAccount.tournament_id)
+            .where(
+                TournamentAccount.tournament_id != target_tournament_id,
+                TournamentAccount.status == TournamentAccountStatus.AVAILABLE.value,
+                Tournament.created_by_id == owner_id,
+                Tournament.status.in_([
+                    TournamentStatus.ENDED.value,
+                    TournamentStatus.CANCELED.value,
+                ]),
+            )
+            .order_by(
+                TournamentAccount.account_type,
+                TournamentAccount.created_at,
+                TournamentAccount.id,
+            )
+        )
+        if for_update:
+            statement = statement.with_for_update(of=TournamentAccount)
+        return list(self.db.scalars(statement))
+
     def list_for_admin(
         self,
         tournament_id: UUID,
@@ -116,7 +146,8 @@ class TournamentAccountRepository:
             (TournamentAccount.status == TournamentAccountStatus.CLAIMED.value, 0),
             (TournamentAccount.status == TournamentAccountStatus.RESERVED.value, 1),
             (TournamentAccount.status == TournamentAccountStatus.AVAILABLE.value, 2),
-            else_=2,
+            (TournamentAccount.status == TournamentAccountStatus.INVALID.value, 3),
+            else_=4,
         )
         return list(self.db.scalars(
             select(TournamentAccount)
@@ -132,7 +163,14 @@ class TournamentAccountRepository:
             .group_by(TournamentAccount.account_type, TournamentAccount.status)
         ).all()
         result = {
-            item.value: {"total": 0, "available": 0, "reserved": 0, "claimed": 0, "invalid": 0}
+            item.value: {
+                "total": 0,
+                "available": 0,
+                "reserved": 0,
+                "claimed": 0,
+                "invalid": 0,
+                "transferred": 0,
+            }
             for item in AccountType
         }
         for account_type, status, count in rows:
