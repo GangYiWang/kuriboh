@@ -31,6 +31,7 @@ type PendingPlayoffResolution = {
 type PendingSwissResolution = {
   match: SwissMatch
   winnerId: string | null
+  doubleLoss: boolean
   reason: string
   reasonOpen: boolean
 }
@@ -138,6 +139,7 @@ const selectedRankingHistory = computed<MatchHistoryItem[]>(() => {
         player_b_id: match.player_b_id,
         player_b_nickname: match.player_b_nickname,
         winner_id: match.winner_id,
+        double_loss: match.double_loss,
         status: match.status,
         my_participant_id: participantId,
       })))
@@ -492,7 +494,7 @@ async function swapPlayers() {
 
 function requestMatchResolution(match: SwissMatch) {
   error.value = ''
-  pendingSwissResolution.value = { match, winnerId: null, reason: '', reasonOpen: false }
+  pendingSwissResolution.value = { match, winnerId: null, doubleLoss: false, reason: '', reasonOpen: false }
 }
 
 function cancelMatchResolution() {
@@ -509,6 +511,7 @@ function matchResolutionActionText(match: SwissMatch | PlayoffMatch) {
 function displayedMatchResult(match: SwissMatch | PlayoffMatch, participantId: string | null): SubmittedResult | null {
   if (!participantId) return null
   if (match.status === 'COMPLETED') {
+    if ('double_loss' in match && match.double_loss) return 'LOSS'
     if (!match.winner_id) return null
     return match.winner_id === participantId ? 'WIN' : 'LOSS'
   }
@@ -528,7 +531,8 @@ function matchResolutionTitle(match: SwissMatch | PlayoffMatch) {
   return `处理第 ${match.table_no} 桌未提交`
 }
 
-function resolutionSummary(match: SwissMatch | PlayoffMatch, winnerId: string | null) {
+function resolutionSummary(match: SwissMatch | PlayoffMatch, winnerId: string | null, doubleLoss = false) {
+  if (doubleLoss) return `将记录：${match.player_a_nickname} 负 / ${match.player_b_nickname} 负`
   if (!winnerId) return ''
   const winnerNickname = winnerId === match.player_a_id ? match.player_a_nickname : match.player_b_nickname
   const loserNickname = winnerId === match.player_a_id ? match.player_b_nickname : match.player_a_nickname
@@ -536,20 +540,21 @@ function resolutionSummary(match: SwissMatch | PlayoffMatch, winnerId: string | 
 }
 
 function canConfirmResolution(pending: PendingSwissResolution | PendingPlayoffResolution) {
-  return Boolean(pending.winnerId)
+  return Boolean(pending.winnerId || ('doubleLoss' in pending && pending.doubleLoss))
 }
 
 async function confirmSwissResolution() {
   const pending = pendingSwissResolution.value
-  if (!pending?.winnerId || !canConfirmResolution(pending)) return
+  if (!pending || !canConfirmResolution(pending)) return
   busy.value = true
   error.value = ''
   try {
     await apiPost(`/admin/matches/${pending.match.id}/resolve`, {
-      winner_id: pending.winnerId,
+      winner_id: pending.doubleLoss ? null : pending.winnerId,
+      double_loss: pending.doubleLoss,
       reason: pending.reason.trim() || null,
     }, authStore.token)
-    message.value = '赛果已由赛事主办方确认。'
+    message.value = pending.doubleLoss ? '已将本场裁定为双方判负。' : '赛果已由赛事主办方确认。'
     pendingSwissResolution.value = null
     await loadSwiss()
   } catch (caught) {
@@ -955,7 +960,7 @@ useLiveRefresh(refreshCurrentSectionSafely, { pollWhen: () => isLiveTournament.v
                 </div>
                 <small v-if="selectedSwissRound.status === 'DRAFT' && match.warnings.length" class="admin-match-warning">{{ match.warnings.join(' · ') }}</small>
                 <div v-if="selectedSwissRound.status !== 'DRAFT'" class="admin-match-outcome">
-                  <span :class="['status-badge', `match-${match.status.toLowerCase()}`]">{{ matchStatusText[match.status] }}</span>
+                  <span :class="['status-badge', `match-${match.status.toLowerCase()}`]">{{ match.double_loss ? '双败' : matchStatusText[match.status] }}</span>
                   <div v-if="tournament.status === 'SWISS' && match.player_b_id && !match.result_locked" class="row-actions"><button type="button" :aria-label="matchResolutionActionText(match)" :title="matchResolutionActionText(match)" :disabled="busy" @click="requestMatchResolution(match)">处理</button></div>
                 </div>
               </article>
@@ -963,8 +968,9 @@ useLiveRefresh(refreshCurrentSectionSafely, { pollWhen: () => isLiveTournament.v
                 <div class="match-resolution-toolbar">
                   <strong :id="`swiss-resolution-title-${match.id}`">{{ matchResolutionTitle(match) }}</strong>
                   <div class="match-resolution-winners">
-                    <button :class="['button', 'small', pendingSwissResolution.winnerId === match.player_a_id ? 'primary' : 'secondary']" type="button" :disabled="busy" @click="pendingSwissResolution.winnerId = match.player_a_id">判 {{ match.player_a_nickname }} 胜</button>
-                    <button :class="['button', 'small', pendingSwissResolution.winnerId === match.player_b_id ? 'primary' : 'secondary']" type="button" :disabled="busy" @click="pendingSwissResolution.winnerId = match.player_b_id">判 {{ match.player_b_nickname }} 胜</button>
+                    <button :class="['button', 'small', pendingSwissResolution.winnerId === match.player_a_id && !pendingSwissResolution.doubleLoss ? 'primary' : 'secondary']" type="button" :disabled="busy" @click="pendingSwissResolution.winnerId = match.player_a_id; pendingSwissResolution.doubleLoss = false">判 {{ match.player_a_nickname }} 胜</button>
+                    <button :class="['button', 'small', pendingSwissResolution.winnerId === match.player_b_id && !pendingSwissResolution.doubleLoss ? 'primary' : 'secondary']" type="button" :disabled="busy" @click="pendingSwissResolution.winnerId = match.player_b_id; pendingSwissResolution.doubleLoss = false">判 {{ match.player_b_nickname }} 胜</button>
+                    <button :class="['button', 'small', pendingSwissResolution.doubleLoss ? 'primary' : 'secondary']" type="button" :disabled="busy" @click="pendingSwissResolution.winnerId = null; pendingSwissResolution.doubleLoss = true">双方判负</button>
                   </div>
                   <div class="form-actions swiss-resolution-actions">
                     <button class="button secondary small" type="button" :disabled="busy" @click="cancelMatchResolution">取消</button>
@@ -972,7 +978,8 @@ useLiveRefresh(refreshCurrentSectionSafely, { pollWhen: () => isLiveTournament.v
                   </div>
                 </div>
                 <div class="match-resolution-meta">
-                  <small class="match-resolution-summary">{{ pendingSwissResolution.winnerId ? resolutionSummary(match, pendingSwissResolution.winnerId) : '请选择获胜者' }}</small>
+                  <small v-if="canConfirmResolution(pendingSwissResolution)" class="match-resolution-summary">{{ resolutionSummary(match, pendingSwissResolution.winnerId, pendingSwissResolution.doubleLoss) }}</small>
+                  <small v-else class="match-resolution-summary match-resolution-placeholder">请选择获胜者或双方判负</small>
                   <button class="match-resolution-reason-toggle" type="button" :aria-expanded="pendingSwissResolution.reasonOpen" :aria-controls="`swiss-resolution-reason-${match.id}`" @click="pendingSwissResolution.reasonOpen = !pendingSwissResolution.reasonOpen">{{ pendingSwissResolution.reasonOpen ? '收起裁定原因' : '＋填写裁定原因（选填）' }}</button>
                 </div>
                 <label v-if="pendingSwissResolution.reasonOpen" :id="`swiss-resolution-reason-${match.id}`" class="match-resolution-reason"><span>裁定原因（选填）</span><input v-model.trim="pendingSwissResolution.reason" maxlength="500" placeholder="可不填" /></label>
@@ -1032,7 +1039,8 @@ useLiveRefresh(refreshCurrentSectionSafely, { pollWhen: () => isLiveTournament.v
                     <div class="form-actions swiss-resolution-actions"><button class="button secondary small" type="button" :disabled="busy" @click="cancelPlayoffResolution">取消</button><button class="button primary small" type="button" :disabled="busy || !canConfirmResolution(pendingPlayoffResolution)" @click="confirmPlayoffResolution">确认裁定</button></div>
                   </div>
                   <div class="match-resolution-meta">
-                    <small class="match-resolution-summary">{{ pendingPlayoffResolution.winnerId ? resolutionSummary(match, pendingPlayoffResolution.winnerId) : '请选择获胜者' }}</small>
+                    <small v-if="pendingPlayoffResolution.winnerId" class="match-resolution-summary">{{ resolutionSummary(match, pendingPlayoffResolution.winnerId) }}</small>
+                    <small v-else class="match-resolution-summary match-resolution-placeholder">请选择获胜者</small>
                     <button class="match-resolution-reason-toggle" type="button" :aria-expanded="pendingPlayoffResolution.reasonOpen" :aria-controls="`playoff-resolution-reason-${match.id}`" @click="pendingPlayoffResolution.reasonOpen = !pendingPlayoffResolution.reasonOpen">{{ pendingPlayoffResolution.reasonOpen ? '收起裁定原因' : '＋填写裁定原因（选填）' }}</button>
                   </div>
                   <label v-if="pendingPlayoffResolution.reasonOpen" :id="`playoff-resolution-reason-${match.id}`" class="match-resolution-reason"><span>裁定原因（选填）</span><input v-model.trim="pendingPlayoffResolution.reason" maxlength="500" placeholder="可不填" /></label>

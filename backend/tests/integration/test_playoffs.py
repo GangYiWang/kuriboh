@@ -138,6 +138,13 @@ def test_top_four_fixed_seeds_are_published_immediately(client, make_user, sessi
     assert generated.status_code == 200
     assert generated.json()["status"] == "PUBLISHED"
     assert [(item["seed_a"], item["seed_b"]) for item in generated.json()["matches"]] == [(1, 4), (2, 3)]
+    double_loss = client.post(
+        f"/api/admin/matches/{generated.json()['matches'][0]['id']}/resolve",
+        headers=auth(admin_token),
+        json={"double_loss": True},
+    )
+    assert double_loss.status_code == 404
+    assert double_loss.json()["code"] == "MATCH_NOT_FOUND"
     resolved = client.post(
         f"/api/admin/playoffs/matches/{generated.json()['matches'][0]['id']}/forfeit",
         headers=auth(admin_token),

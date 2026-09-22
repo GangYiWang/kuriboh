@@ -82,6 +82,7 @@ Use subtle hover states.
 
 - Swiss and playoff administration must use the same winner-first interaction. Expose one row action (`处理未提交`, `处理冲突`, or `纠正赛果`), then let the administrator select the winning player in an inline form.
 - Always summarize the complete outcome as `winner 胜 / loser 负` before confirmation. Do not mix winner-selection controls in one stage with loser-selection controls in another.
+- Swiss administration may additionally expose `双方判负` in the same outcome selector and must summarize it as `player A 负 / player B 负`. Never expose double loss for playoff matches because every playoff match must produce one advancing winner.
 - The resolution reason is optional for unsubmitted matches, conflicts, and corrections. Keep the field available for audit context, but do not block confirmation when it is blank unless later product feedback explicitly changes this rule.
 - Keep the inline editor compact instead of stretching it across the full match row. Show winner choices and confirmation actions together, and keep the optional reason collapsed behind an explicit toggle until the administrator requests it.
 

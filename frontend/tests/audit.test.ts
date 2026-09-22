@@ -14,6 +14,7 @@ describe('audit action labels', () => {
     expect(auditActionText('TOURNAMENT_ACCOUNTS_CARRIED_OVER_OUT')).toBe('结转余号至新赛事')
     expect(auditActionText('TOURNAMENT_ACCOUNT_CLAIMED')).toBe('领取赛事账号')
     expect(auditActionText('TOURNAMENT_ACCOUNT_REPLACEMENT_APPROVED')).toBe('通过换号申请')
+    expect(auditActionText('SWISS_MATCH_DOUBLE_LOSS')).toBe('裁定瑞士轮双败')
   })
 
   it('does not expose unknown English codes as page titles', () => {

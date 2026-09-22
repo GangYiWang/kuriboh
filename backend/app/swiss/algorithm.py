@@ -29,7 +29,7 @@ class MatchRecord:
     round_no: int
     player_a_id: UUID
     player_b_id: UUID | None
-    winner_id: UUID
+    winner_id: UUID | None
 
 
 @dataclass(frozen=True)
@@ -197,16 +197,24 @@ def calculate_rankings(
     head_to_head: dict[tuple[UUID, UUID], UUID] = {}
 
     for match in matches:
-        wins[match.winner_id] += 1
         completed[match.player_a_id] += 1
         if match.player_b_id is None:
+            if match.winner_id is not None:
+                wins[match.winner_id] += 1
             continue
         completed[match.player_b_id] += 1
+        opponents[match.player_a_id].append(match.player_b_id)
+        opponents[match.player_b_id].append(match.player_a_id)
+        if match.winner_id is None:
+            losses[match.player_a_id] += 1
+            losses[match.player_b_id] += 1
+            loss_score[match.player_a_id] += match.round_no**2
+            loss_score[match.player_b_id] += match.round_no**2
+            continue
+        wins[match.winner_id] += 1
         loser_id = match.player_b_id if match.winner_id == match.player_a_id else match.player_a_id
         losses[loser_id] += 1
         loss_score[loser_id] += match.round_no**2
-        opponents[match.player_a_id].append(match.player_b_id)
-        opponents[match.player_b_id].append(match.player_a_id)
         head_to_head[(match.player_a_id, match.player_b_id)] = match.winner_id
         head_to_head[(match.player_b_id, match.player_a_id)] = match.winner_id
 

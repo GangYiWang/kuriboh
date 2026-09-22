@@ -2,11 +2,14 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
+from sqlalchemy import select
 
+from app.audit.models import AuditLog
 from app.auth.roles import Role
 from app.content.models import BanlistVersion
 from app.matches.models import Match
 from app.registrations.models import Registration, RegistrationStatus, TournamentParticipant
+from app.statistics.service import TournamentStatisticsService
 from app.tournaments.models import Tournament, TournamentStatus
 
 
@@ -199,6 +202,78 @@ def test_waiting_match_can_be_resolved_by_admin(client, make_user, session_facto
     resolution_log = next(item for item in audit.json()["items"] if item["target_id"] == match["id"])
     assert resolution_log["after_json"]["winner_id"] == match["player_a_id"]
     assert resolution_log["after_json"]["reason"] is None
+
+
+def test_admin_can_record_and_correct_swiss_double_loss(client, make_user, session_factory) -> None:
+    tournament_id, admin_token, participant_tokens = seed_swiss_tournament(
+        session_factory, make_user, player_count=2, swiss_rounds=1
+    )
+    match = generate_and_publish(client, tournament_id, admin_token)["matches"][0]
+
+    invalid = client.post(
+        f"/api/admin/matches/{match['id']}/resolve",
+        headers=auth(admin_token),
+        json={"winner_id": match["player_a_id"], "double_loss": True},
+    )
+    resolved = client.post(
+        f"/api/admin/matches/{match['id']}/resolve",
+        headers=auth(admin_token),
+        json={"double_loss": True, "reason": "双方均未参赛"},
+    )
+
+    assert invalid.status_code == 422
+    assert resolved.status_code == 200, resolved.json()
+    assert resolved.json()["status"] == "COMPLETED"
+    assert resolved.json()["winner_id"] is None
+    assert resolved.json()["double_loss"] is True
+    assert resolved.json()["result_source"] == "ADMIN"
+
+    overview = client.get(f"/api/tournaments/{tournament_id}/swiss").json()
+    rankings = {item["participant_id"]: item for item in overview["rankings"]}
+    for participant_id in (match["player_a_id"], match["player_b_id"]):
+        assert rankings[participant_id]["wins"] == 0
+        assert rankings[participant_id]["losses"] == 1
+        assert rankings[participant_id]["loss_round_score"] == 1
+        assert rankings[participant_id]["omw"] == 0
+
+    with session_factory() as db:
+        participants = list(db.scalars(select(TournamentParticipant).where(
+            TournamentParticipant.tournament_id == tournament_id
+        )))
+        settled_records = TournamentStatisticsService(db)._match_records(tournament_id, participants)
+    assert settled_records[UUID(match["player_a_id"])] == (0, 1)
+    assert settled_records[UUID(match["player_b_id"])] == (0, 1)
+
+    my_matches = client.get(
+        f"/api/tournaments/{tournament_id}/matches/me",
+        headers=auth(participant_tokens[UUID(match["player_a_id"])]),
+    ).json()
+    assert my_matches[0]["double_loss"] is True
+
+    corrected = client.post(
+        f"/api/admin/matches/{match['id']}/resolve",
+        headers=auth(admin_token),
+        json={"winner_id": match["player_a_id"]},
+    )
+    assert corrected.status_code == 200, corrected.json()
+    assert corrected.json()["winner_id"] == match["player_a_id"]
+    assert corrected.json()["double_loss"] is False
+
+    corrected_rankings = {
+        item["participant_id"]: item
+        for item in client.get(f"/api/tournaments/{tournament_id}/swiss").json()["rankings"]
+    }
+    assert corrected_rankings[match["player_a_id"]]["wins"] == 1
+    assert corrected_rankings[match["player_a_id"]]["losses"] == 0
+    assert corrected_rankings[match["player_b_id"]]["wins"] == 0
+    assert corrected_rankings[match["player_b_id"]]["losses"] == 1
+
+    with session_factory() as db:
+        action_types = set(db.scalars(select(AuditLog.action_type).where(
+            AuditLog.target_id == match["id"]
+        )))
+    assert "SWISS_MATCH_DOUBLE_LOSS" in action_types
+    assert "SWISS_MATCH_RESOLVED" in action_types
 
 
 def test_independent_submissions_conflict_resolution_and_ranking_snapshot(client, make_user, session_factory) -> None:

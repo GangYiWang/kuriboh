@@ -38,6 +38,7 @@ const playerMatches = computed<MatchHistoryItem[]>(() => myMatches.value
     player_b_id: item.player_b_id,
     player_b_nickname: item.player_b_nickname,
     winner_id: item.winner_id,
+    double_loss: item.double_loss,
     status: item.status,
     my_participant_id: item.my_participant_id,
     my_submission: item.my_submission,

@@ -83,6 +83,7 @@ const auditActionTypeText: Record<string, string> = {
   SWISS_PAIRING_SWAPPED: '调整瑞士轮对阵',
   SWISS_ROUND_PUBLISHED: '发布瑞士轮对阵',
   SWISS_MATCH_RESOLVED: '裁定瑞士轮赛果',
+  SWISS_MATCH_DOUBLE_LOSS: '裁定瑞士轮双败',
   SWISS_MATCH_FORFEIT: '裁定瑞士轮赛果',
   SWISS_PARTICIPANT_WITHDRAWN: '强制选手退赛',
   PARTICIPANT_WITHDRAWN: '强制选手退赛',

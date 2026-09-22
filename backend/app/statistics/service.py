@@ -150,12 +150,15 @@ class TournamentStatisticsService:
                 Match.tournament_id == tournament_id,
                 Match.status == MatchStatus.COMPLETED.value,
                 Match.player_b_id.is_not(None),
-                Match.winner_id.is_not(None),
             )
         )
         for match in matches:
             winner_id = match.winner_id
-            if winner_id is None or match.player_b_id is None:
+            if match.player_b_id is None:
+                continue
+            if winner_id is None:
+                losses[match.player_a_id] += 1
+                losses[match.player_b_id] += 1
                 continue
             loser_id = match.player_b_id if winner_id == match.player_a_id else match.player_a_id
             wins[winner_id] += 1

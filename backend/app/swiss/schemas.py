@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.matches.models import MatchStatus, SubmittedResult
 from app.swiss.models import SwissRoundStatus
@@ -21,8 +21,17 @@ class SubmitResultRequest(BaseModel):
 
 
 class ResolveMatchRequest(BaseModel):
-    winner_id: UUID
+    winner_id: UUID | None = None
+    double_loss: bool = False
     reason: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_outcome(self) -> "ResolveMatchRequest":
+        if self.double_loss and self.winner_id is not None:
+            raise ValueError("双败裁定不能同时指定胜者")
+        if not self.double_loss and self.winner_id is None:
+            raise ValueError("请指定胜者或选择双方判负")
+        return self
 
 
 class MatchResponse(BaseModel):
@@ -34,6 +43,7 @@ class MatchResponse(BaseModel):
     player_b_id: UUID | None
     player_b_nickname: str | None
     winner_id: UUID | None
+    double_loss: bool
     status: MatchStatus
     result_source: str | None
     result_locked: bool

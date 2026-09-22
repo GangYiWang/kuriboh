@@ -145,7 +145,13 @@ def resolve_match(
     db: Annotated[Session, Depends(get_db)],
 ) -> MatchResponse:
     require_match_owner(db, match_id, principal.user_id)
-    return SwissService(db).resolve_match(match_id, request.winner_id, request.reason, principal.user_id)
+    return SwissService(db).resolve_match(
+        match_id,
+        request.winner_id,
+        request.double_loss,
+        request.reason,
+        principal.user_id,
+    )
 
 
 @admin_router.post(

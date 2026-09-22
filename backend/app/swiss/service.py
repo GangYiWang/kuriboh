@@ -281,7 +281,8 @@ class SwissService:
     def resolve_match(
         self,
         match_id: UUID,
-        winner_id: UUID,
+        winner_id: UUID | None,
+        double_loss: bool,
         reason: str | None,
         operator_id: UUID,
     ) -> MatchResponse:
@@ -293,11 +294,17 @@ class SwissService:
             raise AppError("MATCH_NOT_PUBLISHED", "对局尚未发布，不能裁定赛果", status_code=409)
         if match.result_locked:
             raise AppError("MATCH_RESULT_LOCKED", "下一轮已发布，本轮赛果已锁定", status_code=409)
-        if winner_id not in {match.player_a_id, match.player_b_id} or match.player_b_id is None:
+        if match.player_b_id is None:
+            raise AppError("INVALID_MATCH_RESOLUTION", "BYE 对局不能人工裁定", status_code=400)
+        if not double_loss and winner_id not in {match.player_a_id, match.player_b_id}:
             raise AppError("INVALID_MATCH_WINNER", "裁定胜者必须是本场选手", status_code=400)
         normalized_reason = reason.strip() if reason and reason.strip() else None
-        before = {"winner_id": str(match.winner_id) if match.winner_id else None, "status": match.status}
-        match.winner_id = winner_id
+        before = {
+            "winner_id": str(match.winner_id) if match.winner_id else None,
+            "double_loss": self._is_double_loss(match),
+            "status": match.status,
+        }
+        match.winner_id = None if double_loss else winner_id
         match.status = MatchStatus.COMPLETED.value
         match.result_source = ResultSource.ADMIN.value
         self.db.flush()
@@ -307,11 +314,16 @@ class SwissService:
             self.db,
             operator_id=operator_id,
             tournament_id=match.tournament_id,
-            action_type="SWISS_MATCH_RESOLVED",
+            action_type="SWISS_MATCH_DOUBLE_LOSS" if double_loss else "SWISS_MATCH_RESOLVED",
             target_type="match",
             target_id=match.id,
             before=before,
-            after={"winner_id": str(winner_id), "status": match.status, "reason": normalized_reason},
+            after={
+                "winner_id": str(winner_id) if winner_id else None,
+                "double_loss": double_loss,
+                "status": match.status,
+                "reason": normalized_reason,
+            },
         )
         self.db.commit()
         return self.match_response(match, admin=True)
@@ -425,6 +437,7 @@ class SwissService:
             player_b_id=match.player_b_id,
             player_b_nickname=match.player_b.nickname_snapshot if match.player_b else None,
             winner_id=match.winner_id,
+            double_loss=self._is_double_loss(match),
             status=MatchStatus(match.status),
             result_source=match.result_source,
             result_locked=match.result_locked,
@@ -501,7 +514,6 @@ class SwissService:
                 winner_id=match.winner_id,
             )
             for match in self.repository.completed_matches(round_item.tournament_id, through_round=round_item.round_no)
-            if match.winner_id is not None
         ]
         for ranking in calculate_rankings(players, records):
             self.db.add(RankingSnapshot(
@@ -515,6 +527,16 @@ class SwissService:
                 loss_round_score=ranking.loss_round_score,
             ))
         self.db.flush()
+
+    @staticmethod
+    def _is_double_loss(match: Match) -> bool:
+        return (
+            match.stage == MatchStage.SWISS.value
+            and match.status == MatchStatus.COMPLETED.value
+            and match.player_b_id is not None
+            and match.winner_id is None
+            and match.result_source == ResultSource.ADMIN.value
+        )
 
     def _discard_later_draft(self, tournament_id: UUID, after_round_no: int) -> None:
         latest = self.repository.latest_round(tournament_id)

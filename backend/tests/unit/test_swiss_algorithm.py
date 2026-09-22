@@ -194,6 +194,24 @@ def test_bye_is_a_win_but_not_an_omw_opponent() -> None:
     assert ranking[UUID(int=3)].omw == 1
 
 
+def test_double_loss_counts_for_both_players_and_omw() -> None:
+    players = [player(index) for index in range(1, 5)]
+    matches = [
+        MatchRecord(1, UUID(int=1), UUID(int=3), UUID(int=1)),
+        MatchRecord(1, UUID(int=2), UUID(int=4), UUID(int=2)),
+        MatchRecord(2, UUID(int=1), UUID(int=2), None),
+    ]
+
+    ranking = {item.participant_id: item for item in calculate_rankings(players, matches)}
+
+    assert (ranking[UUID(int=1)].wins, ranking[UUID(int=1)].losses) == (1, 1)
+    assert (ranking[UUID(int=2)].wins, ranking[UUID(int=2)].losses) == (1, 1)
+    assert ranking[UUID(int=1)].loss_round_score == 4
+    assert ranking[UUID(int=2)].loss_round_score == 4
+    assert ranking[UUID(int=1)].omw == pytest.approx(0.25)
+    assert ranking[UUID(int=2)].omw == pytest.approx(0.25)
+
+
 def test_ranking_chain_uses_loss_round_score_head_to_head_and_nickname_stably() -> None:
     players = [
         StandingInput(UUID(int=1), "Alpha"),

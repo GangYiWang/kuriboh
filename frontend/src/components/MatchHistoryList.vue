@@ -61,7 +61,7 @@ function submissionResultText(result: SubmittedResult) {
         <header>
           <strong>{{ match.round_name }}</strong>
           <span>{{ match.player_b_id ? `第 ${match.table_no} 桌` : '轮空' }}</span>
-          <i :class="`match-status-${match.status.toLowerCase()}`">{{ matchStatusText[match.status] }}</i>
+          <i :class="`match-status-${match.status.toLowerCase()}`">{{ match.double_loss ? '双败' : matchStatusText[match.status] }}</i>
         </header>
         <div class="history-match-versus">
           <div class="history-match-side history-match-self" :class="{ winner: match.winner_id === selfParticipantId(match) }">

@@ -176,6 +176,7 @@ export interface SwissMatch {
   player_b_id: string | null
   player_b_nickname: string | null
   winner_id: string | null
+  double_loss: boolean
   status: MatchStatus
   result_source: 'PLAYERS' | 'ADMIN' | 'BYE' | null
   result_locked: boolean
@@ -257,6 +258,7 @@ export interface MatchHistoryItem {
   player_b_id: string | null
   player_b_nickname: string | null
   winner_id: string | null
+  double_loss: boolean
   status: MatchStatus
   my_participant_id: string
   my_submission?: SubmittedResult | null
