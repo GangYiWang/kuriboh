@@ -964,7 +964,7 @@ useLiveRefresh(refreshCurrentSectionSafely, { pollWhen: () => isLiveTournament.v
                   <div v-if="tournament.status === 'SWISS' && match.player_b_id && !match.result_locked" class="row-actions"><button type="button" :aria-label="matchResolutionActionText(match)" :title="matchResolutionActionText(match)" :disabled="busy" @click="requestMatchResolution(match)">处理</button></div>
                 </div>
               </article>
-              <section v-if="pendingSwissResolution?.match.id === match.id" class="forfeit-confirmation swiss-resolution-confirmation" role="dialog" :aria-labelledby="`swiss-resolution-title-${match.id}`">
+              <section v-if="pendingSwissResolution?.match.id === match.id" class="forfeit-confirmation swiss-resolution-confirmation swiss-double-loss-resolution" role="dialog" :aria-labelledby="`swiss-resolution-title-${match.id}`">
                 <div class="match-resolution-toolbar">
                   <strong :id="`swiss-resolution-title-${match.id}`">{{ matchResolutionTitle(match) }}</strong>
                   <div class="match-resolution-winners">
@@ -1039,8 +1039,7 @@ useLiveRefresh(refreshCurrentSectionSafely, { pollWhen: () => isLiveTournament.v
                     <div class="form-actions swiss-resolution-actions"><button class="button secondary small" type="button" :disabled="busy" @click="cancelPlayoffResolution">取消</button><button class="button primary small" type="button" :disabled="busy || !canConfirmResolution(pendingPlayoffResolution)" @click="confirmPlayoffResolution">确认裁定</button></div>
                   </div>
                   <div class="match-resolution-meta">
-                    <small v-if="pendingPlayoffResolution.winnerId" class="match-resolution-summary">{{ resolutionSummary(match, pendingPlayoffResolution.winnerId) }}</small>
-                    <small v-else class="match-resolution-summary match-resolution-placeholder">请选择获胜者</small>
+                    <small class="match-resolution-summary">{{ pendingPlayoffResolution.winnerId ? resolutionSummary(match, pendingPlayoffResolution.winnerId) : '请选择获胜者' }}</small>
                     <button class="match-resolution-reason-toggle" type="button" :aria-expanded="pendingPlayoffResolution.reasonOpen" :aria-controls="`playoff-resolution-reason-${match.id}`" @click="pendingPlayoffResolution.reasonOpen = !pendingPlayoffResolution.reasonOpen">{{ pendingPlayoffResolution.reasonOpen ? '收起裁定原因' : '＋填写裁定原因（选填）' }}</button>
                   </div>
                   <label v-if="pendingPlayoffResolution.reasonOpen" :id="`playoff-resolution-reason-${match.id}`" class="match-resolution-reason"><span>裁定原因（选填）</span><input v-model.trim="pendingPlayoffResolution.reason" maxlength="500" placeholder="可不填" /></label>
