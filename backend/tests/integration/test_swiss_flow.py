@@ -119,11 +119,18 @@ def test_odd_first_round_has_completed_bye_and_can_regenerate_preview(client, ma
     regenerated = client.post(
         f"/api/admin/tournaments/{tournament_id}/swiss/rounds/regenerate",
         headers=auth(admin_token),
-        json={"seed": 12},
+        json={"seed": 13},
     )
     assert first.status_code == regenerated.status_code == 200
     assert first.json()["status"] == regenerated.json()["status"] == "DRAFT"
     assert sum(item["player_b_id"] is None for item in regenerated.json()["matches"]) == 1
+    first_bye = next(item["player_a_id"] for item in first.json()["matches"] if item["player_b_id"] is None)
+    regenerated_bye = next(
+        item["player_a_id"]
+        for item in regenerated.json()["matches"]
+        if item["player_b_id"] is None
+    )
+    assert first_bye != regenerated_bye
 
     draft_match = next(item for item in regenerated.json()["matches"] if item["player_b_id"])
     draft_resolution = client.post(

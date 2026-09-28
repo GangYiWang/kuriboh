@@ -47,10 +47,17 @@ class PairingUnavailableError(RuntimeError):
     """Raised when the active field has no complete non-repeating pairing."""
 
 
-def choose_bye_player(players: list[StandingInput], rng: Random) -> StandingInput:
-    """Prefer no prior BYE, then the lowest score group and lowest current rank."""
+def choose_bye_player(
+    players: list[StandingInput],
+    rng: Random,
+    *,
+    randomize: bool = False,
+) -> StandingInput:
+    """Choose uniformly when requested; otherwise prefer no prior BYE, low score, then low rank."""
     if not players:
         raise ValueError("cannot choose a BYE from an empty field")
+    if randomize:
+        return rng.choice(players)
     tie_breaks = {player.participant_id: rng.random() for player in players}
     return min(
         players,
@@ -67,6 +74,8 @@ def generate_swiss_pairings(
     players: list[StandingInput],
     prior_pairs: set[frozenset[UUID]],
     rng: Random,
+    *,
+    randomize_bye: bool = False,
 ) -> list[Pairing]:
     if len({player.participant_id for player in players}) != len(players):
         raise ValueError("participants must be unique")
@@ -76,7 +85,7 @@ def generate_swiss_pairings(
     field = list(players)
     bye: StandingInput | None = None
     if len(field) % 2:
-        bye = choose_bye_player(field, rng)
+        bye = choose_bye_player(field, rng, randomize=randomize_bye)
         field.remove(bye)
 
     random_noise: dict[frozenset[UUID], int] = {}

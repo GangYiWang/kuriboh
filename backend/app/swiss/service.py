@@ -105,7 +105,12 @@ class SwissService:
 
         rng = Random(seed) if seed is not None else Random(SystemRandom().randrange(2**63))
         try:
-            pairings = generate_swiss_pairings(players, self._prior_pairs(tournament_id), rng)
+            pairings = generate_swiss_pairings(
+                players,
+                self._prior_pairs(tournament_id),
+                rng,
+                randomize_bye=round_no == 1,
+            )
         except PairingUnavailableError as exc:
             raise AppError(
                 "SWISS_PAIRING_UNAVAILABLE",

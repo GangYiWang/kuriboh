@@ -34,9 +34,15 @@ def test_first_round_even_and_odd_fields_are_complete_and_repeatable() -> None:
         UUID(int=i) for i in range(1, 7)
     }
 
-    odd = generate_swiss_pairings([player(i) for i in range(1, 6)], set(), Random(17))
+    odd_players = [player(i) for i in range(1, 6)]
+    odd = generate_swiss_pairings(odd_players, set(), Random(18), randomize_bye=True)
+    odd_repeated = generate_swiss_pairings(odd_players, set(), Random(18), randomize_bye=True)
+    different_seed = generate_swiss_pairings(odd_players, set(), Random(17), randomize_bye=True)
     assert len(odd) == 3
     assert sum(item.player_b_id is None for item in odd) == 1
+    assert odd == odd_repeated
+    assert next(item.player_a_id for item in odd if item.player_b_id is None) == UUID(int=2)
+    assert next(item.player_a_id for item in different_seed if item.player_b_id is None) == UUID(int=5)
 
 
 def test_bye_prefers_a_player_without_a_previous_bye() -> None:
