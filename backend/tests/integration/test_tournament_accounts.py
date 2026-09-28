@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 
 from app.audit.models import AuditLog
+from app.auth.roles import Role
 from app.content.models import BanlistVersion
 from app.messages.models import Message
 from app.registrations.models import Registration
@@ -88,6 +89,11 @@ def import_file(client, tournament_id: str, owner_token: str, account_type: str,
 def test_import_is_atomic_case_sensitive_and_encrypted(client, make_user, session_factory) -> None:
     owner, owner_token = make_user(qq_number="83000001", nickname="账号导入管理员")
     _, other_token = make_user(qq_number="83000002", nickname="其他赛事管理员")
+    _, platform_admin_token = make_user(
+        qq_number="83000021",
+        nickname="账号平台管理员",
+        role=Role.PLATFORM_ADMIN,
+    )
     tournament_id = create_published_tournament(client, session_factory, owner.id, owner_token)
 
     forbidden = import_file(
@@ -113,10 +119,28 @@ def test_import_is_atomic_case_sensitive_and_encrypted(client, make_user, sessio
         f"/api/admin/tournaments/{tournament_id}/accounts?type=KONAMI",
         headers=auth(owner_token),
     )
+    platform_admin_list = client.get(
+        f"/api/admin/tournaments/{tournament_id}/accounts?type=KONAMI",
+        headers=auth(platform_admin_token),
+    )
     assert admin_list.status_code == 200
     assert admin_list.headers["cache-control"] == "no-store"
     assert {item["account"] for item in admin_list.json()["items"]} == {"CaseUser", "caseuser"}
-    assert all("password" not in item for item in admin_list.json()["items"])
+    assert {
+        item["account"]: item["password"]
+        for item in admin_list.json()["items"]
+    } == {
+        "CaseUser": "password-1",
+        "caseuser": "password-2",
+    }
+    assert platform_admin_list.status_code == 200
+    assert {
+        item["account"]: item["password"]
+        for item in platform_admin_list.json()["items"]
+    } == {
+        "CaseUser": "password-1",
+        "caseuser": "password-2",
+    }
 
     with session_factory() as db:
         stored = list(db.scalars(select(TournamentAccount)))
@@ -501,7 +525,105 @@ def test_replacement_approval_requires_available_inventory(client, make_user, se
     assert account.status == TournamentAccountStatus.CLAIMED.value
 
 
-def test_available_accounts_carry_over_from_all_ended_owner_tournaments(
+def test_start_requires_replacements_completed_and_closes_account_actions(
+    client, make_user, session_factory
+) -> None:
+    owner, owner_token = make_user(qq_number="83000019", nickname="账号截止管理员")
+    _, player_token = make_user(qq_number="83000020", nickname="账号截止选手")
+    tournament_id = create_published_tournament(client, session_factory, owner.id, owner_token)
+    register_and_approve(client, tournament_id, player_token, owner_token)
+    assert import_file(
+        client,
+        tournament_id,
+        owner_token,
+        AccountType.KONAMI.value,
+        b"closing-konami-old----closing-password-old\nclosing-konami-new----closing-password-new",
+    ).status_code == 200
+    assert import_file(
+        client,
+        tournament_id,
+        owner_token,
+        AccountType.STEAM.value,
+        b"closing-steam----closing-steam-password",
+    ).status_code == 200
+    assert client.post(
+        f"/api/tournaments/{tournament_id}/accounts/KONAMI/claim",
+        headers=auth(player_token),
+    ).status_code == 200
+    requested = client.post(
+        f"/api/tournaments/{tournament_id}/accounts/KONAMI/replacement-requests",
+        headers=auth(player_token),
+        json={"reason": "开赛前更换测试"},
+    )
+    request_id = requested.json()["id"]
+
+    pending_start = client.post(
+        f"/api/admin/tournaments/{tournament_id}/start",
+        headers=auth(owner_token),
+    )
+    approved = client.post(
+        f"/api/admin/tournaments/{tournament_id}/account-replacement-requests/{request_id}/approve",
+        headers=auth(owner_token),
+    )
+    approved_start = client.post(
+        f"/api/admin/tournaments/{tournament_id}/start",
+        headers=auth(owner_token),
+    )
+    replacement_claimed = client.post(
+        f"/api/tournaments/{tournament_id}/accounts/KONAMI/claim",
+        headers=auth(player_token),
+    )
+    started = client.post(
+        f"/api/admin/tournaments/{tournament_id}/start",
+        headers=auth(owner_token),
+    )
+
+    closed_claim = client.post(
+        f"/api/tournaments/{tournament_id}/accounts/STEAM/claim",
+        headers=auth(player_token),
+    )
+    closed_request = client.post(
+        f"/api/tournaments/{tournament_id}/accounts/KONAMI/replacement-requests",
+        headers=auth(player_token),
+        json={"reason": "开赛后不应允许换号"},
+    )
+    closed_approval = client.post(
+        f"/api/admin/tournaments/{tournament_id}/account-replacement-requests/{request_id}/approve",
+        headers=auth(owner_token),
+    )
+    closed_rejection = client.post(
+        f"/api/admin/tournaments/{tournament_id}/account-replacement-requests/{request_id}/reject",
+        headers=auth(owner_token),
+        json={"reason": "开赛后不应允许处理"},
+    )
+    mine = client.get(
+        f"/api/tournaments/{tournament_id}/accounts/me",
+        headers=auth(player_token),
+    )
+
+    assert pending_start.status_code == 409
+    assert pending_start.json()["code"] == "OPEN_ACCOUNT_REPLACEMENTS"
+    assert pending_start.json()["details"] == {"pending_count": 1, "approved_count": 0}
+    assert approved.status_code == 200
+    assert approved_start.status_code == 409
+    assert approved_start.json()["code"] == "OPEN_ACCOUNT_REPLACEMENTS"
+    assert approved_start.json()["details"] == {"pending_count": 0, "approved_count": 1}
+    assert replacement_claimed.status_code == 200
+    assert started.status_code == 200
+    assert started.json()["status"] == TournamentStatus.SWISS.value
+    assert closed_claim.status_code == 409
+    assert closed_claim.json()["code"] == "ACCOUNT_CLAIM_CLOSED"
+    assert closed_request.status_code == 409
+    assert closed_request.json()["code"] == "ACCOUNT_REPLACEMENT_CLOSED"
+    assert closed_approval.status_code == 409
+    assert closed_approval.json()["code"] == "ACCOUNT_REPLACEMENT_CLOSED"
+    assert closed_rejection.status_code == 409
+    assert closed_rejection.json()["code"] == "ACCOUNT_REPLACEMENT_CLOSED"
+    assert mine.status_code == 200
+    assert mine.json()["items"][0]["account_type"] == AccountType.KONAMI.value
+
+
+def test_available_accounts_carry_over_from_owner_tournaments_with_distribution_closed(
     client, make_user, session_factory
 ) -> None:
     owner, owner_token = make_user(qq_number="83000016", nickname="余号结转管理员")
@@ -509,6 +631,9 @@ def test_available_accounts_carry_over_from_all_ended_owner_tournaments(
     _, player_token = make_user(qq_number="83000018", nickname="已领取选手")
     first_source_id = create_published_tournament(client, session_factory, owner.id, owner_token)
     second_source_id = create_published_tournament(client, session_factory, owner.id, owner_token)
+    ended_source_id = create_published_tournament(client, session_factory, owner.id, owner_token)
+    canceled_source_id = create_published_tournament(client, session_factory, owner.id, owner_token)
+    registration_source_id = create_published_tournament(client, session_factory, owner.id, owner_token)
     target_id = create_published_tournament(client, session_factory, owner.id, owner_token)
     other_source_id = create_published_tournament(client, session_factory, other_owner.id, other_token)
 
@@ -540,6 +665,27 @@ def test_available_accounts_carry_over_from_all_ended_owner_tournaments(
     ).status_code == 200
     assert import_file(
         client,
+        ended_source_id,
+        owner_token,
+        AccountType.KONAMI.value,
+        b"carry-konami-ended----carry-password-ended",
+    ).status_code == 200
+    assert import_file(
+        client,
+        canceled_source_id,
+        owner_token,
+        AccountType.STEAM.value,
+        b"carry-steam-canceled----carry-password-canceled",
+    ).status_code == 200
+    assert import_file(
+        client,
+        registration_source_id,
+        owner_token,
+        AccountType.STEAM.value,
+        b"registration-steam----registration-password",
+    ).status_code == 200
+    assert import_file(
+        client,
         other_source_id,
         other_token,
         AccountType.STEAM.value,
@@ -547,10 +693,23 @@ def test_available_accounts_carry_over_from_all_ended_owner_tournaments(
     ).status_code == 200
 
     with session_factory() as db:
-        for source_id in (first_source_id, second_source_id, other_source_id):
-            tournament = db.get(Tournament, UUID(source_id))
-            tournament.status = TournamentStatus.ENDED.value
-            tournament.ended_at = datetime.now(UTC)
+        now = datetime.now(UTC)
+        first_source = db.get(Tournament, UUID(first_source_id))
+        first_source.status = TournamentStatus.SWISS.value
+        first_source.started_at = now
+        second_source = db.get(Tournament, UUID(second_source_id))
+        second_source.status = TournamentStatus.ELIMINATION.value
+        second_source.started_at = now
+        ended_source = db.get(Tournament, UUID(ended_source_id))
+        ended_source.status = TournamentStatus.ENDED.value
+        ended_source.ended_at = now
+        canceled_source = db.get(Tournament, UUID(canceled_source_id))
+        canceled_source.status = TournamentStatus.CANCELED.value
+        canceled_source.canceled_at = now
+        canceled_source.cancellation_reason = "测试取消赛事余号结转"
+        other_source = db.get(Tournament, UUID(other_source_id))
+        other_source.status = TournamentStatus.ENDED.value
+        other_source.ended_at = now
         db.commit()
 
     forbidden = client.get(
@@ -570,10 +729,10 @@ def test_available_accounts_carry_over_from_all_ended_owner_tournaments(
     assert forbidden.status_code == 403
     assert preview.status_code == 200, preview.json()
     assert preview.json() == {
-        "konami_count": 2,
-        "steam_count": 1,
-        "total_count": 3,
-        "source_tournament_count": 2,
+        "konami_count": 3,
+        "steam_count": 2,
+        "total_count": 5,
+        "source_tournament_count": 4,
     }
     assert carried.status_code == 200, carried.json()
     assert carried.json() == preview.json()
@@ -583,8 +742,15 @@ def test_available_accounts_carry_over_from_all_ended_owner_tournaments(
         headers=auth(owner_token),
     ).json()
     summaries = {item["account_type"]: item for item in target_inventory["summaries"]}
-    assert summaries["KONAMI"]["available"] == 2
-    assert summaries["STEAM"]["available"] == 1
+    assert summaries["KONAMI"]["available"] == 3
+    assert summaries["STEAM"]["available"] == 2
+
+    with session_factory() as db:
+        for source_id in (first_source_id, second_source_id):
+            source = db.get(Tournament, UUID(source_id))
+            source.status = TournamentStatus.ENDED.value
+            source.ended_at = datetime.now(UTC)
+        db.commit()
 
     repeated = client.post(
         f"/api/admin/tournaments/{target_id}/accounts/carryover",
@@ -602,7 +768,10 @@ def test_available_accounts_carry_over_from_all_ended_owner_tournaments(
             TournamentAccount.tournament_id == UUID(target_id),
         )))
         other_available = db.scalar(select(func.count()).select_from(TournamentAccount).where(
-            TournamentAccount.tournament_id == UUID(other_source_id),
+            TournamentAccount.tournament_id.in_([
+                UUID(other_source_id),
+                UUID(registration_source_id),
+            ]),
             TournamentAccount.status == TournamentAccountStatus.AVAILABLE.value,
         ))
         audit_actions = set(db.scalars(select(AuditLog.action_type).where(
@@ -611,10 +780,10 @@ def test_available_accounts_carry_over_from_all_ended_owner_tournaments(
                 "TOURNAMENT_ACCOUNTS_CARRIED_OVER_OUT",
             ])
         )))
-    assert len(transferred) == 3
-    assert len(target_accounts) == 3
+    assert len(transferred) == 5
+    assert len(target_accounts) == 5
     assert all(item.transferred_from_account_id is not None for item in target_accounts)
-    assert other_available == 1
+    assert other_available == 2
     assert audit_actions == {
         "TOURNAMENT_ACCOUNTS_CARRIED_OVER_IN",
         "TOURNAMENT_ACCOUNTS_CARRIED_OVER_OUT",

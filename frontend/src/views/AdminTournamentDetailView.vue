@@ -769,7 +769,7 @@ useLiveRefresh(refreshCurrentSectionSafely, { pollWhen: () => isLiveTournament.v
     <ConfirmFormDialog
       v-if="startTournamentOpen && tournament"
       title="开始赛事"
-      description="开始后将立即关闭报名、锁定核心配置，并根据已通过报名生成正式参赛名单。"
+      description="开始后将立即关闭报名、账号领取和换号，锁定核心配置，并根据已通过报名生成正式参赛名单。请先处理完所有换号申请。"
       confirm-text="确认开始赛事"
       :busy="busy"
       :error="error"

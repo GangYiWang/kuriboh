@@ -54,8 +54,6 @@ class TournamentAccountService:
     }
     CLAIMABLE_STATUSES = {
         TournamentStatus.REGISTRATION.value,
-        TournamentStatus.SWISS.value,
-        TournamentStatus.ELIMINATION.value,
     }
     CARRYOVER_TARGET_STATUSES = {
         TournamentStatus.DRAFT.value,
@@ -270,11 +268,11 @@ class TournamentAccountService:
         account_type: AccountType,
         user_id: UUID,
     ) -> AccountCredentialResponse:
-        tournament = TournamentService(self.db).require(tournament_id)
+        tournament = TournamentService(self.db).require(tournament_id, for_update=True)
         if tournament.status not in self.CLAIMABLE_STATUSES:
             raise AppError(
                 "ACCOUNT_CLAIM_CLOSED",
-                "赛事账号当前不在可领取时间内",
+                "只有报名阶段可以领取赛事账号",
                 status_code=409,
             )
         registration = self.registrations.for_user(tournament_id, user_id, for_update=True)
@@ -370,11 +368,11 @@ class TournamentAccountService:
         reason: str,
         user_id: UUID,
     ) -> AccountReplacementRequestResponse:
-        tournament = TournamentService(self.db).require(tournament_id)
+        tournament = TournamentService(self.db).require(tournament_id, for_update=True)
         if tournament.status not in self.CLAIMABLE_STATUSES:
             raise AppError(
                 "ACCOUNT_REPLACEMENT_CLOSED",
-                "赛事账号当前不在可申请换号时间内",
+                "只有报名阶段可以申请换号",
                 status_code=409,
             )
         registration = self.registrations.for_user(tournament_id, user_id, for_update=True)
@@ -445,9 +443,9 @@ class TournamentAccountService:
         request_id: UUID,
         operator_id: UUID,
     ) -> AdminAccountReplacementRequestResponse:
-        tournament = TournamentService(self.db).require(tournament_id)
+        tournament = TournamentService(self.db).require(tournament_id, for_update=True)
         if tournament.status not in self.CLAIMABLE_STATUSES:
-            raise AppError("ACCOUNT_REPLACEMENT_CLOSED", "赛事当前不能处理换号申请", status_code=409)
+            raise AppError("ACCOUNT_REPLACEMENT_CLOSED", "只有报名阶段可以处理换号申请", status_code=409)
         request = self.repository.replacement_request(request_id, for_update=True)
         if request is None or request.tournament_id != tournament_id:
             raise AppError("ACCOUNT_REPLACEMENT_NOT_FOUND", "换号申请不存在", status_code=404)
@@ -510,9 +508,9 @@ class TournamentAccountService:
         rejection_reason: str,
         operator_id: UUID,
     ) -> AdminAccountReplacementRequestResponse:
-        tournament = TournamentService(self.db).require(tournament_id)
+        tournament = TournamentService(self.db).require(tournament_id, for_update=True)
         if tournament.status not in self.CLAIMABLE_STATUSES:
-            raise AppError("ACCOUNT_REPLACEMENT_CLOSED", "赛事当前不能处理换号申请", status_code=409)
+            raise AppError("ACCOUNT_REPLACEMENT_CLOSED", "只有报名阶段可以处理换号申请", status_code=409)
         request = self.repository.replacement_request(request_id, for_update=True)
         if request is None or request.tournament_id != tournament_id:
             raise AppError("ACCOUNT_REPLACEMENT_NOT_FOUND", "换号申请不存在", status_code=404)
@@ -652,6 +650,7 @@ class TournamentAccountService:
             id=item.id,
             account_type=AccountType(item.account_type),
             account=self.cipher.decrypt(item.account_ciphertext),
+            password=self.cipher.decrypt(item.password_ciphertext),
             status=TournamentAccountStatus(item.status),
             claimed_by_user_id=item.claimed_by_user_id,
             claimed_by_nickname=item.claimed_by.nickname if item.claimed_by else None,

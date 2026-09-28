@@ -14,6 +14,14 @@ from app.tournament_accounts.models import (
 from app.tournaments.models import Tournament, TournamentStatus
 
 
+ACCOUNT_DISTRIBUTION_CLOSED_TOURNAMENT_STATUSES = (
+    TournamentStatus.SWISS.value,
+    TournamentStatus.ELIMINATION.value,
+    TournamentStatus.ENDED.value,
+    TournamentStatus.CANCELED.value,
+)
+
+
 class TournamentAccountRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -119,10 +127,7 @@ class TournamentAccountRepository:
                 TournamentAccount.tournament_id != target_tournament_id,
                 TournamentAccount.status == TournamentAccountStatus.AVAILABLE.value,
                 Tournament.created_by_id == owner_id,
-                Tournament.status.in_([
-                    TournamentStatus.ENDED.value,
-                    TournamentStatus.CANCELED.value,
-                ]),
+                Tournament.status.in_(ACCOUNT_DISTRIBUTION_CLOSED_TOURNAMENT_STATUSES),
             )
             .order_by(
                 TournamentAccount.account_type,

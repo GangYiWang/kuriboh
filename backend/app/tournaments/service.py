@@ -30,6 +30,7 @@ from app.tournaments.schemas import (
 from app.users.models import User
 from app.swiss.models import RankingSnapshot, SwissRound, SwissRoundStatus
 from app.statistics.service import TournamentStatisticsService
+from app.tournament_accounts.models import AccountReplacementRequest, AccountReplacementStatus
 
 
 CORE_FIELDS = {"max_players", "swiss_rounds", "playoff_size", "banlist_version_id"}
@@ -308,6 +309,33 @@ class TournamentService:
                 "仍有待审核报名，处理完成后才能开始赛事",
                 status_code=409,
                 details={"pending_count": pending_count},
+            )
+        open_replacement_counts = dict(self.db.execute(
+            select(AccountReplacementRequest.status, func.count())
+            .where(
+                AccountReplacementRequest.tournament_id == tournament.id,
+                AccountReplacementRequest.status.in_([
+                    AccountReplacementStatus.PENDING.value,
+                    AccountReplacementStatus.APPROVED.value,
+                ]),
+            )
+            .group_by(AccountReplacementRequest.status)
+        ).all())
+        pending_replacement_count = int(
+            open_replacement_counts.get(AccountReplacementStatus.PENDING.value, 0)
+        )
+        approved_replacement_count = int(
+            open_replacement_counts.get(AccountReplacementStatus.APPROVED.value, 0)
+        )
+        if pending_replacement_count or approved_replacement_count:
+            raise AppError(
+                "OPEN_ACCOUNT_REPLACEMENTS",
+                "仍有未完成的换号流程，全部处理完成后才能开始赛事",
+                status_code=409,
+                details={
+                    "pending_count": pending_replacement_count,
+                    "approved_count": approved_replacement_count,
+                },
             )
         registrations, _ = self.registrations.list_for_tournament(tournament.id)
         participant_count = 0

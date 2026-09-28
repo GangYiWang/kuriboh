@@ -51,6 +51,7 @@ const message = ref('')
 const importErrors = ref<ImportErrorDetail[]>([])
 const importOpen = computed(() => !['ENDED', 'CANCELED'].includes(props.tournamentStatus))
 const carryoverAllowed = computed(() => ['DRAFT', 'REGISTRATION'].includes(props.tournamentStatus))
+const replacementReviewOpen = computed(() => props.tournamentStatus === 'REGISTRATION')
 const summary = computed<AccountInventorySummary>(() => inventory.value?.summaries.find(
   (item) => item.account_type === activeType.value,
 ) ?? {
@@ -273,6 +274,7 @@ onMounted(async () => {
   }
 })
 watch(() => [props.tournamentId, props.tournamentStatus], () => {
+  if (!replacementReviewOpen.value) closeReview()
   void refreshAccounts()
 })
 useLiveRefresh(refreshAccounts)
@@ -281,7 +283,7 @@ useLiveRefresh(refreshAccounts)
 <template>
   <section class="account-admin" aria-labelledby="account-admin-title">
     <header class="settings-heading">
-      <div><h2 id="account-admin-title">账号分发</h2><p>导入本场赛事的账号库存，并处理选手的换号申请。密码不会显示在管理列表中。</p></div>
+      <div><h2 id="account-admin-title">账号分发</h2><p>导入本场赛事的账号库存，并处理选手的换号申请。账号和密码仅对赛事管理员及平台管理员显示。</p></div>
     </header>
     <nav class="player-tabs" role="tablist" aria-label="账号分发内容">
       <button type="button" role="tab" :class="{ active: activeView === 'inventory' }" :aria-selected="activeView === 'inventory'" @click="activeView = 'inventory'">账号库存</button>
@@ -327,10 +329,11 @@ useLiveRefresh(refreshAccounts)
       <p v-else-if="!inventory?.items.length" class="empty-state">尚未导入{{ typeText[activeType] }}。</p>
       <div v-else class="player-table-wrap account-inventory-table">
         <table class="player-table">
-          <thead><tr><th>账号</th><th>状态</th><th>领取选手</th><th>领取时间</th></tr></thead>
+          <thead><tr><th>账号</th><th>密码</th><th>状态</th><th>领取选手</th><th>领取时间</th></tr></thead>
           <tbody>
             <tr v-for="item in inventory.items" :key="item.id">
               <td><code>{{ item.account }}</code></td>
+              <td><code>{{ item.password }}</code></td>
               <td><span :class="['status-badge', `account-${item.status.toLowerCase()}`]">{{ accountStatusText[item.status] }}</span></td>
               <td>{{ item.claimed_by_nickname ?? '—' }}</td>
               <td><time>{{ formatTime(item.claimed_at) }}</time></td>
@@ -353,10 +356,11 @@ useLiveRefresh(refreshAccounts)
               <td><p>{{ item.reason }}</p><small v-if="item.rejection_reason">拒绝原因：{{ item.rejection_reason }}</small></td>
               <td><span :class="['status-badge', `replacement-${item.status.toLowerCase()}`]">{{ replacementStatusText[item.status] }}</span><small v-if="item.replacement_account">新账号：{{ item.replacement_account }}</small></td>
               <td>
-                <div v-if="item.status === 'PENDING'" class="row-actions">
+                <div v-if="item.status === 'PENDING' && replacementReviewOpen" class="row-actions">
                   <button type="button" :disabled="busy" @click="openReview(item, 'approve')">通过</button>
                   <button type="button" :disabled="busy" @click="openReview(item, 'reject')">拒绝</button>
                 </div>
+                <small v-else-if="item.status === 'PENDING'">赛事开始后不能再处理换号申请</small>
                 <span v-else class="table-placeholder">—</span>
               </td>
             </tr>

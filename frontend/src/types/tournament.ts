@@ -147,6 +147,7 @@ export interface AdminTournamentAccount {
   id: string
   account_type: AccountType
   account: string
+  password: string
   status: TournamentAccountStatus
   claimed_by_user_id: string | null
   claimed_by_nickname: string | null

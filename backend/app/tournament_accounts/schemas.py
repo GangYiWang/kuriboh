@@ -75,6 +75,7 @@ class AdminTournamentAccountResponse(BaseModel):
     id: UUID
     account_type: AccountType
     account: str
+    password: str
     status: TournamentAccountStatus
     claimed_by_user_id: UUID | None
     claimed_by_nickname: str | None

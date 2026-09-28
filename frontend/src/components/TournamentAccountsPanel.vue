@@ -33,7 +33,7 @@ const busy = ref(false)
 const error = ref('')
 const message = ref('')
 const claimOpen = computed(() => props.registrationStatus === 'APPROVED'
-  && ['REGISTRATION', 'SWISS', 'ELIMINATION'].includes(props.tournamentStatus))
+  && props.tournamentStatus === 'REGISTRATION')
 const byType = computed(() => new Map(accounts.value.map((item) => [item.account_type, item])))
 const requestByType = computed(() => new Map(
   replacementRequests.value.map((item) => [item.account_type, item]),
@@ -156,7 +156,12 @@ onMounted(async () => {
     loading.value = false
   }
 })
-watch(() => props.tournamentId, () => {
+watch(() => [props.tournamentId, props.tournamentStatus], () => {
+  if (props.tournamentStatus !== 'REGISTRATION') {
+    pendingType.value = null
+    replacementType.value = null
+    replacementReason.value = ''
+  }
   void refreshAccounts()
 })
 useLiveRefresh(refreshAccounts)
@@ -167,7 +172,7 @@ useLiveRefresh(refreshAccounts)
     <header class="section-title-row">
       <div>
         <h2 id="tournament-accounts-title">赛事账号</h2>
-        <p>每种账号只能领取一次，领取后可在本页继续查看。</p>
+        <p>每种账号只能在报名阶段领取一次，赛事开始后仍可在本页查看已领取账号。</p>
       </div>
     </header>
     <FormMessage v-if="message" type="success" :message="message" />
@@ -212,7 +217,7 @@ useLiveRefresh(refreshAccounts)
           >{{ requestByType.get(accountType)?.status === 'REJECTED' ? '重新申请换号' : '申请换号' }}</button>
         </div>
         <div v-else class="account-claim-action">
-          <p v-if="!claimOpen">当前报名或赛事状态不可领取账号。</p>
+          <p v-if="!claimOpen">只有报名审核通过且赛事尚未开始时可以领取账号。</p>
           <button
             v-else-if="requestByType.get(accountType)?.status === 'APPROVED'"
             class="button primary"
