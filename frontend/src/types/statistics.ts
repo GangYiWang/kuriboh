@@ -33,6 +33,27 @@ export interface PlayerStatistics {
   results: TournamentResultHistoryItem[]
 }
 
+export interface AdminPlayerRanking {
+  rank: number
+  user_id: string
+  nickname: string
+  tournament_count: number
+  total_points: number
+  champion_count: number
+  runner_up_count: number
+  top_4_count: number
+  top_8_count: number
+  total_wins: number
+  total_losses: number
+  total_byes: number
+  win_rate: number
+}
+
+export interface AdminPlayerRankingListResponse {
+  items: AdminPlayerRanking[]
+  total: number
+}
+
 export const finishLevelText: Record<TournamentFinishLevel, string> = {
   PARTICIPATED: '参赛',
   TOP_8: '八强',

@@ -25,6 +25,7 @@ import MyTournamentsView from '@/views/MyTournamentsView.vue'
 import AdminMessagesView from '@/views/AdminMessagesView.vue'
 import AdminAuditView from '@/views/AdminAuditView.vue'
 import AdminTournamentsView from '@/views/AdminTournamentsView.vue'
+import AdminPlayerRankingsView from '@/views/AdminPlayerRankingsView.vue'
 
 interface PlaceholderRoute {
   path: string
@@ -64,6 +65,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/admin', name: 'admin', component: AdminDashboardView, meta: { title: '管理后台', requiresPlatformAdmin: true } },
   { path: '/admin/banlists', name: 'admin-banlists', component: AdminBanlistsView, meta: { title: '禁卡表管理', requiresPlatformAdmin: true } },
   { path: '/admin/announcements', name: 'admin-announcements', component: AdminAnnouncementsView, meta: { title: '公告管理', requiresPlatformAdmin: true } },
+  { path: '/admin/player-rankings', name: 'admin-player-rankings', component: AdminPlayerRankingsView, meta: { title: '积分排名', requiresPlatformAdmin: true } },
   { path: '/admin/messages', name: 'admin-messages', component: AdminMessagesView, meta: { title: '平台通知', requiresPlatformAdmin: true } },
   { path: '/admin/audit', name: 'admin-audit', component: AdminAuditView, meta: { title: '操作审计', requiresPlatformAdmin: true } },
   { path: '/admin/tournaments', name: 'admin-tournaments', component: AdminTournamentsView, meta: { title: '赛事管理', requiresPlatformAdmin: true } },

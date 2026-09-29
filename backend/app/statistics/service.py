@@ -11,9 +11,15 @@ from app.matches.models import Match, MatchStatus
 from app.playoffs.models import PlayoffRound, PlayoffRoundStatus
 from app.registrations.models import TournamentParticipant
 from app.statistics.models import PlayerStatistics, TournamentFinishLevel, TournamentPlayerResult
-from app.statistics.schemas import PlayerStatisticsResponse, TournamentResultHistoryItem
+from app.statistics.schemas import (
+    AdminPlayerRankingItem,
+    AdminPlayerRankingListResponse,
+    PlayerStatisticsResponse,
+    TournamentResultHistoryItem,
+)
 from app.swiss.models import RankingSnapshot, SwissRound, SwissRoundStatus
 from app.tournaments.models import Tournament
+from app.users.models import User
 
 
 POINTS_RULE_VERSION = 1
@@ -120,6 +126,90 @@ class TournamentStatisticsService:
                 for result, tournament in rows
             ],
         )
+
+    def player_rankings(
+        self,
+        *,
+        offset: int,
+        limit: int,
+        search: str | None,
+    ) -> AdminPlayerRankingListResponse:
+        zero = 0
+        tournament_count = func.coalesce(PlayerStatistics.tournament_count, zero)
+        total_points = func.coalesce(PlayerStatistics.total_points, zero)
+        champion_count = func.coalesce(PlayerStatistics.champion_count, zero)
+        runner_up_count = func.coalesce(PlayerStatistics.runner_up_count, zero)
+        top_4_count = func.coalesce(PlayerStatistics.top_4_count, zero)
+        top_8_count = func.coalesce(PlayerStatistics.top_8_count, zero)
+        total_wins = func.coalesce(PlayerStatistics.total_wins, zero)
+        total_losses = func.coalesce(PlayerStatistics.total_losses, zero)
+        total_byes = func.coalesce(PlayerStatistics.total_byes, zero)
+        ranking_order = (
+            total_points.desc(),
+            champion_count.desc(),
+            runner_up_count.desc(),
+            top_4_count.desc(),
+            top_8_count.desc(),
+            total_wins.desc(),
+            User.nickname.asc(),
+            User.id.asc(),
+        )
+        ranked_players = (
+            select(
+                func.row_number().over(order_by=ranking_order).label("rank"),
+                User.id.label("user_id"),
+                User.nickname.label("nickname"),
+                tournament_count.label("tournament_count"),
+                total_points.label("total_points"),
+                champion_count.label("champion_count"),
+                runner_up_count.label("runner_up_count"),
+                top_4_count.label("top_4_count"),
+                top_8_count.label("top_8_count"),
+                total_wins.label("total_wins"),
+                total_losses.label("total_losses"),
+                total_byes.label("total_byes"),
+            )
+            .select_from(User)
+            .outerjoin(PlayerStatistics, PlayerStatistics.user_id == User.id)
+            .subquery()
+        )
+        filters = []
+        normalized_search = search.strip() if search else ""
+        if normalized_search:
+            filters.append(ranked_players.c.nickname.ilike(f"%{normalized_search}%"))
+
+        statement = (
+            select(ranked_players)
+            .where(*filters)
+            .order_by(ranked_players.c.rank)
+            .offset(offset)
+            .limit(limit)
+        )
+        rows = self.db.execute(statement).mappings().all()
+        total = self.db.scalar(
+            select(func.count()).select_from(ranked_players).where(*filters)
+        ) or 0
+        items: list[AdminPlayerRankingItem] = []
+        for row in rows:
+            wins = int(row["total_wins"])
+            losses = int(row["total_losses"])
+            decided_matches = wins + losses
+            items.append(AdminPlayerRankingItem(
+                rank=int(row["rank"]),
+                user_id=row["user_id"],
+                nickname=str(row["nickname"]),
+                tournament_count=int(row["tournament_count"]),
+                total_points=int(row["total_points"]),
+                champion_count=int(row["champion_count"]),
+                runner_up_count=int(row["runner_up_count"]),
+                top_4_count=int(row["top_4_count"]),
+                top_8_count=int(row["top_8_count"]),
+                total_wins=wins,
+                total_losses=losses,
+                total_byes=int(row["total_byes"]),
+                win_rate=round(wins / decided_matches, 4) if decided_matches else 0,
+            ))
+        return AdminPlayerRankingListResponse(items=items, total=total)
 
     def _final_swiss_rankings(self, tournament_id: UUID) -> dict[UUID, int]:
         final_round = self.db.scalar(

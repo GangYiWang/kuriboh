@@ -33,3 +33,24 @@ class PlayerStatisticsResponse(BaseModel):
     total_byes: int
     win_rate: float
     results: list[TournamentResultHistoryItem]
+
+
+class AdminPlayerRankingItem(BaseModel):
+    rank: int
+    user_id: UUID
+    nickname: str
+    tournament_count: int
+    total_points: int
+    champion_count: int
+    runner_up_count: int
+    top_4_count: int
+    top_8_count: int
+    total_wins: int
+    total_losses: int
+    total_byes: int
+    win_rate: float
+
+
+class AdminPlayerRankingListResponse(BaseModel):
+    items: list[AdminPlayerRankingItem]
+    total: int

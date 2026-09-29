@@ -14,6 +14,7 @@ from app.reports.router import admin_router as admin_report_router
 from app.reports.router import router as report_router
 from app.swiss.router import admin_router as admin_swiss_router
 from app.swiss.router import router as swiss_router
+from app.statistics.router import router as admin_statistics_router
 from app.tournament_accounts.router import admin_router as admin_tournament_account_router
 from app.tournament_accounts.router import router as tournament_account_router
 from app.tournaments.router import admin_router as admin_tournament_router
@@ -33,6 +34,7 @@ api_router.include_router(deck_router)
 api_router.include_router(admin_deck_router)
 api_router.include_router(swiss_router)
 api_router.include_router(admin_swiss_router)
+api_router.include_router(admin_statistics_router)
 api_router.include_router(playoff_router)
 api_router.include_router(admin_playoff_router)
 api_router.include_router(report_router)

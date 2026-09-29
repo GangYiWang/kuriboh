@@ -32,6 +32,7 @@ describe('formal route skeleton', () => {
       '/admin',
       '/admin/messages',
       '/admin/audit',
+      '/admin/player-rankings',
       '/banlists/:id',
       '/login/qq/callback',
     ]))
@@ -46,6 +47,7 @@ describe('formal route skeleton', () => {
     expect(byPath.get('/admin')?.meta?.requiresPlatformAdmin).toBe(true)
     expect(byPath.get('/admin/banlists')?.meta?.requiresPlatformAdmin).toBe(true)
     expect(byPath.get('/admin/tournaments')?.meta?.requiresPlatformAdmin).toBe(true)
+    expect(byPath.get('/admin/player-rankings')?.meta?.requiresPlatformAdmin).toBe(true)
     expect(byPath.get('/admin/tournaments/:id/playoffs')?.meta?.requiresAuth).toBe(true)
     expect(byPath.get('/admin/tournaments/:id/:section(settings|players|accounts|matches|results|decks-report|notifications|audit)')?.meta?.requiresAuth).toBe(true)
     expect(byPath.get('/admin/messages')?.meta?.requiresPlatformAdmin).toBe(true)
