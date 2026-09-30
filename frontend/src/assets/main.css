@@ -1531,16 +1531,16 @@ input {
 .player-ranking-col-rank { width: 90px; }
 .player-ranking-col-champions { width: 130px; }
 .player-ranking-col-points { width: 120px; }
-.player-ranking-col-action { width: 100px; }
 .player-ranking-table th, .player-ranking-table td { padding: 14px 16px; border-bottom: 1px solid var(--color-line); text-align: center; }
 .player-ranking-table th { color: var(--color-muted); font-size: 10px; font-weight: 500; }
-.player-ranking-table th:nth-child(2), .player-ranking-name { text-align: left; }
+.player-ranking-table th:nth-child(2), .player-ranking-table td.player-ranking-name { text-align: left; }
 .player-ranking-rank { color: var(--color-muted); font: 700 15px/1 var(--font-number); }
-.player-ranking-name { overflow-wrap: anywhere; font-weight: 600; }
+.player-ranking-name { overflow-wrap: anywhere; }
+.player-ranking-name-button { max-width: 100%; padding: 3px 0; border: 0; color: var(--color-ink); background: transparent; cursor: pointer; font: inherit; font-weight: 600; overflow-wrap: anywhere; text-align: left; text-decoration: underline; text-decoration-color: var(--color-line-strong); text-decoration-thickness: 1px; text-underline-offset: 3px; white-space: normal; }
+.player-ranking-name-button:hover { color: var(--color-brand); text-decoration-color: var(--color-brand); }
+.player-ranking-name-button:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 3px; }
 .player-ranking-points { color: var(--color-brand); font: 700 18px/1 var(--font-number); }
 .player-ranking-row-expanded { background: var(--color-brand-pale); }
-.player-ranking-detail-button { padding: 4px 0; border: 0; border-bottom: 1px solid transparent; color: var(--color-brand); background: transparent; cursor: pointer; font: inherit; font-size: 12px; }
-.player-ranking-detail-button:hover, .player-ranking-detail-button:focus-visible { border-bottom-color: var(--color-brand); }
 .player-ranking-detail-row > td { padding: 0; background: #f3f1ed; text-align: left; }
 .player-ranking-details { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin: 0; padding: 18px 24px 20px; border-left: 3px solid var(--color-brand); }
 .player-ranking-details div { padding: 0 16px; border-left: 1px solid var(--color-line); }
@@ -1755,13 +1755,11 @@ input {
   .player-ranking-col-name { width: auto; }
   .player-ranking-col-champions { width: 58px; }
   .player-ranking-col-points { width: 48px; }
-  .player-ranking-col-action { width: 48px; }
   .player-ranking-table th, .player-ranking-table td { padding: 12px 4px; }
   .player-ranking-table th:first-child, .player-ranking-table td:first-child { padding-left: 0; }
   .player-ranking-table th:last-child, .player-ranking-table td:last-child { padding-right: 0; }
   .player-ranking-rank { font-size: 13px; }
   .player-ranking-points { font-size: 15px; }
-  .player-ranking-detail-button { font-size: 11px; }
   .player-ranking-details { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 0; padding: 16px 12px; }
   .player-ranking-details div, .player-ranking-details div:nth-child(5) { padding: 0 12px; border-left: 1px solid var(--color-line); }
   .player-ranking-details div:nth-child(odd) { padding-left: 0; border-left: 0; }

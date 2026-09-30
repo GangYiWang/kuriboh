@@ -142,3 +142,45 @@ def test_player_rankings_use_achievement_tiebreakers(
 
     assert response.status_code == 200
     assert [item["nickname"] for item in response.json()["items"][:2]] == ["冠军玩家", "亚军玩家"]
+
+
+def test_player_rankings_use_win_rate_instead_of_total_wins(
+    client: TestClient,
+    make_user,
+    session_factory: sessionmaker[Session],
+) -> None:
+    _, admin_token = make_user(
+        qq_number="ranking-rate-admin",
+        nickname="胜率排名管理员",
+        role=Role.PLATFORM_ADMIN,
+    )
+    high_rate, _ = make_user(qq_number="ranking-rate-a", nickname="Zulu高胜率")
+    more_wins, _ = make_user(qq_number="ranking-rate-b", nickname="Alpha多胜场")
+    add_statistics(
+        session_factory,
+        high_rate.id,
+        points=2,
+        champions=0,
+        top_4=1,
+        top_8=1,
+        wins=4,
+        losses=1,
+    )
+    add_statistics(
+        session_factory,
+        more_wins.id,
+        points=2,
+        champions=0,
+        top_4=1,
+        top_8=1,
+        wins=10,
+        losses=5,
+    )
+
+    response = client.get("/api/admin/player-rankings", headers=auth(admin_token))
+
+    assert response.status_code == 200
+    assert [item["nickname"] for item in response.json()["items"][:2]] == [
+        "Zulu高胜率",
+        "Alpha多胜场",
+    ]

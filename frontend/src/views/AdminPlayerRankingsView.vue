@@ -86,7 +86,6 @@ onMounted(() => {
 <template>
   <div class="page-shell admin-page player-rankings-page">
     <header class="page-heading">
-      <p class="section-kicker">PLAYER RANKINGS</p>
       <h1>积分排名</h1>
       <p>查看所有注册人员在已结束赛事中的累计积分与成绩。</p>
     </header>
@@ -120,30 +119,29 @@ onMounted(() => {
             <col class="player-ranking-col-name" />
             <col class="player-ranking-col-champions" />
             <col class="player-ranking-col-points" />
-            <col class="player-ranking-col-action" />
           </colgroup>
           <thead>
-            <tr><th>排名</th><th>玩家昵称</th><th>冠军数</th><th>积分</th><th>操作</th></tr>
+            <tr><th>排名</th><th>玩家昵称</th><th>冠军数</th><th>积分</th></tr>
           </thead>
           <tbody>
             <template v-for="item in rankings.items" :key="item.user_id">
               <tr :class="{ 'player-ranking-row-expanded': expandedPlayerId === item.user_id }">
                 <td class="player-ranking-rank">{{ item.rank }}</td>
-                <td class="player-ranking-name">{{ item.nickname }}</td>
-                <td>{{ item.champion_count }}</td>
-                <td class="player-ranking-points">{{ item.total_points }}</td>
-                <td>
+                <td class="player-ranking-name">
                   <button
-                    class="player-ranking-detail-button"
+                    class="player-ranking-name-button"
                     type="button"
+                    :aria-label="`${item.nickname}，${expandedPlayerId === item.user_id ? '收起' : '查看'}详细数据`"
                     :aria-expanded="expandedPlayerId === item.user_id"
                     :aria-controls="`player-ranking-details-${item.user_id}`"
                     @click="toggleDetails(item.user_id)"
-                  >{{ expandedPlayerId === item.user_id ? '收起' : '详情' }}</button>
+                  >{{ item.nickname }}</button>
                 </td>
+                <td>{{ item.champion_count }}</td>
+                <td class="player-ranking-points">{{ item.total_points }}</td>
               </tr>
               <tr v-if="expandedPlayerId === item.user_id" :id="`player-ranking-details-${item.user_id}`" class="player-ranking-detail-row">
-                <td colspan="5">
+                <td colspan="4">
                   <dl class="player-ranking-details">
                     <div><dt>参赛次数</dt><dd>{{ item.tournament_count }}</dd></div>
                     <div><dt>亚军</dt><dd>{{ item.runner_up_count }}</dd></div>

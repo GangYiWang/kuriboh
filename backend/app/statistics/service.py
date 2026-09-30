@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import Float, cast, func, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
@@ -144,19 +144,12 @@ class TournamentStatisticsService:
         total_wins = func.coalesce(PlayerStatistics.total_wins, zero)
         total_losses = func.coalesce(PlayerStatistics.total_losses, zero)
         total_byes = func.coalesce(PlayerStatistics.total_byes, zero)
-        ranking_order = (
-            total_points.desc(),
-            champion_count.desc(),
-            runner_up_count.desc(),
-            top_4_count.desc(),
-            top_8_count.desc(),
-            total_wins.desc(),
-            User.nickname.asc(),
-            User.id.asc(),
+        win_rate = func.coalesce(
+            cast(total_wins, Float) / func.nullif(total_wins + total_losses, zero),
+            0.0,
         )
-        ranked_players = (
+        player_statistics = (
             select(
-                func.row_number().over(order_by=ranking_order).label("rank"),
                 User.id.label("user_id"),
                 User.nickname.label("nickname"),
                 tournament_count.label("tournament_count"),
@@ -168,9 +161,27 @@ class TournamentStatisticsService:
                 total_wins.label("total_wins"),
                 total_losses.label("total_losses"),
                 total_byes.label("total_byes"),
+                win_rate.label("win_rate"),
             )
             .select_from(User)
             .outerjoin(PlayerStatistics, PlayerStatistics.user_id == User.id)
+            .subquery()
+        )
+        ranking_order = (
+            player_statistics.c.total_points.desc(),
+            player_statistics.c.champion_count.desc(),
+            player_statistics.c.runner_up_count.desc(),
+            player_statistics.c.top_4_count.desc(),
+            player_statistics.c.top_8_count.desc(),
+            player_statistics.c.win_rate.desc(),
+            player_statistics.c.nickname.asc(),
+            player_statistics.c.user_id.asc(),
+        )
+        ranked_players = (
+            select(
+                func.row_number().over(order_by=ranking_order).label("rank"),
+                player_statistics,
+            )
             .subquery()
         )
         filters = []
@@ -193,7 +204,6 @@ class TournamentStatisticsService:
         for row in rows:
             wins = int(row["total_wins"])
             losses = int(row["total_losses"])
-            decided_matches = wins + losses
             items.append(AdminPlayerRankingItem(
                 rank=int(row["rank"]),
                 user_id=row["user_id"],
@@ -207,7 +217,7 @@ class TournamentStatisticsService:
                 total_wins=wins,
                 total_losses=losses,
                 total_byes=int(row["total_byes"]),
-                win_rate=round(wins / decided_matches, 4) if decided_matches else 0,
+                win_rate=round(float(row["win_rate"]), 4),
             ))
         return AdminPlayerRankingListResponse(items=items, total=total)
 
