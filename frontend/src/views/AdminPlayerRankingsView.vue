@@ -88,6 +88,7 @@ onMounted(() => {
     <header class="page-heading">
       <h1>积分排名</h1>
       <p>查看所有注册人员在已结束赛事中的累计积分与成绩。</p>
+      <p class="player-ranking-rule"><strong>排名规则：</strong>优先按积分排序；积分相同时，依次比较冠军、亚军、四强、八强和胜率，仍相同则按昵称排序。</p>
     </header>
 
     <form class="player-ranking-search" role="search" @submit.prevent="searchRankings">

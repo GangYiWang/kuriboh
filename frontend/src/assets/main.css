@@ -1522,6 +1522,14 @@ input {
   background: var(--color-surface);
 }
 
+.player-rankings-page .page-heading > .player-ranking-rule {
+  margin-top: 9px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.player-ranking-rule strong { color: var(--color-ink); font-weight: 600; }
+
 .player-ranking-section { margin-top: 34px; padding-bottom: 70px; }
 .player-ranking-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; margin-bottom: 14px; }
 .player-ranking-heading h2 { margin: 0; font-size: 20px; }
