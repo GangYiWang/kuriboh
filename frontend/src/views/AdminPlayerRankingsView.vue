@@ -143,13 +143,12 @@ onMounted(() => {
               <tr v-if="expandedPlayerId === item.user_id" :id="`player-ranking-details-${item.user_id}`" class="player-ranking-detail-row">
                 <td colspan="4">
                   <dl class="player-ranking-details">
-                    <div><dt>参赛次数</dt><dd>{{ item.tournament_count }}</dd></div>
                     <div><dt>亚军</dt><dd>{{ item.runner_up_count }}</dd></div>
                     <div><dt>晋级四强</dt><dd>{{ item.top_4_count }}</dd></div>
                     <div><dt>晋级八强</dt><dd>{{ item.top_8_count }}</dd></div>
-                    <div><dt>总战绩</dt><dd>{{ item.total_wins }} 胜 {{ item.total_losses }} 负</dd></div>
                     <div><dt>胜率</dt><dd>{{ formatWinRate(item.win_rate) }}</dd></div>
-                    <div><dt>轮空次数</dt><dd>{{ item.total_byes }}</dd></div>
+                    <div><dt>总战绩</dt><dd>{{ item.total_wins }} 胜 {{ item.total_losses }} 负</dd></div>
+                    <div><dt>参赛次数</dt><dd>{{ item.tournament_count }}</dd></div>
                   </dl>
                 </td>
               </tr>
