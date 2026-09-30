@@ -11,14 +11,22 @@ import { useMessageStore } from '@/stores/messages'
 const authStore = useAuthStore()
 const messageStore = useMessageStore()
 const router = useRouter()
-const baseNavigation = [
-  { label: '首页', to: '/' },
-  { label: '赛事中心', to: '/tournaments' },
-  { label: '平台公告', to: '/announcements' },
-  ...(MESSAGING_ENABLED ? [{ label: '消息', to: '/messages', hasDot: true }] : []),
+interface NavigationItem {
+  label: string
+  mobileLabel: string
+  to: string
+  hasDot?: boolean
+}
+
+const baseNavigation: NavigationItem[] = [
+  { label: '首页', mobileLabel: '首页', to: '/' },
+  { label: '赛事中心', mobileLabel: '赛事', to: '/tournaments' },
+  { label: '平台公告', mobileLabel: '公告', to: '/announcements' },
+  { label: '工具', mobileLabel: '工具', to: '/tools' },
+  ...(MESSAGING_ENABLED ? [{ label: '消息', mobileLabel: '消息', to: '/messages', hasDot: true }] : []),
 ]
 const navigation = computed(() => authStore.isPlatformAdmin
-  ? [...baseNavigation, { label: '管理后台', to: '/admin', hasDot: false }]
+  ? [...baseNavigation, { label: '管理后台', mobileLabel: '管理', to: '/admin', hasDot: false }]
   : baseNavigation)
 
 async function refreshUnreadCount(): Promise<void> {
@@ -56,7 +64,8 @@ async function logout() {
           :class="['nav-link', { 'has-dot': item.hasDot && messageStore.unreadCount > 0 }]"
           :to="item.to"
         >
-          {{ item.label }}
+          <span class="nav-label-full">{{ item.label }}</span>
+          <span class="nav-label-mobile">{{ item.mobileLabel }}</span>
           <span v-if="item.to === '/messages' && messageStore.unreadCount" class="unread-badge">{{ Math.min(messageStore.unreadCount, 99) }}</span>
         </RouterLink>
       </nav>

@@ -26,6 +26,8 @@ describe('formal route skeleton', () => {
       '/reports',
       '/reports/:id',
       '/announcements',
+      '/tools',
+      '/tools/swiss-calculator',
       '/messages',
       '/profile',
       '/my-tournaments',
@@ -53,6 +55,8 @@ describe('formal route skeleton', () => {
     expect(byPath.get('/admin/messages')?.meta?.requiresPlatformAdmin).toBe(true)
     expect(byPath.get('/admin/audit')?.meta?.requiresPlatformAdmin).toBe(true)
     expect(byPath.get('/announcements')?.meta?.requiresAuth).not.toBe(true)
+    expect(byPath.get('/tools')?.meta?.requiresAuth).not.toBe(true)
+    expect(byPath.get('/tools/swiss-calculator')?.meta?.requiresAuth).not.toBe(true)
     expect(byPath.get('/reports')?.meta?.requiresAuth).not.toBe(true)
     expect(byPath.get('/reports/:id')?.meta?.requiresAuth).not.toBe(true)
   })

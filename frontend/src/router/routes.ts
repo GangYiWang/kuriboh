@@ -26,6 +26,8 @@ import AdminMessagesView from '@/views/AdminMessagesView.vue'
 import AdminAuditView from '@/views/AdminAuditView.vue'
 import AdminTournamentsView from '@/views/AdminTournamentsView.vue'
 import AdminPlayerRankingsView from '@/views/AdminPlayerRankingsView.vue'
+import ToolsView from '@/views/ToolsView.vue'
+import SwissCalculatorView from '@/views/SwissCalculatorView.vue'
 
 interface PlaceholderRoute {
   path: string
@@ -52,6 +54,8 @@ export const routes: RouteRecordRaw[] = [
   { path: '/banlists/:id', name: 'banlist-detail', component: BanlistDetailView, meta: { title: '禁卡表详情' } },
   { path: '/announcements', name: 'announcements', component: AnnouncementListView, meta: { title: '平台公告' } },
   { path: '/announcements/:id', name: 'announcement-detail', component: AnnouncementDetailView, meta: { title: '公告详情' } },
+  { path: '/tools', name: 'tools', component: ToolsView, meta: { title: '实用工具' } },
+  { path: '/tools/swiss-calculator', name: 'swiss-calculator', component: SwissCalculatorView, meta: { title: '瑞士轮计算器' } },
   { path: '/tournaments', name: 'tournaments', component: TournamentListView, meta: { title: '赛事中心' } },
   { path: '/tournaments/new', name: 'tournament-create', component: TournamentCreateView, meta: { title: '发布比赛', requiresAuth: true } },
   { path: '/tournaments/:id/manage/registrations', redirect: (to) => `/tournaments/${String(to.params.id)}/manage/players` },

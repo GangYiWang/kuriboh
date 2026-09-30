@@ -158,6 +158,8 @@ input {
   transform: scaleX(1);
 }
 
+.nav-label-mobile { display: none; }
+
 .has-dot::before {
   content: '';
   width: 6px;
@@ -1557,6 +1559,36 @@ input {
 .player-ranking-details dt { color: var(--color-muted); font-size: 10px; }
 .player-ranking-details dd { margin: 7px 0 0; font: 700 14px/1.2 var(--font-number); }
 
+.tool-list { padding: 34px 0 70px; }
+.tool-list > a { min-height: 108px; display: grid; grid-template-columns: 52px minmax(0, 1fr) 24px; align-items: center; gap: 18px; padding: 20px 8px 20px 0; border-top: 1px solid var(--color-line-strong); border-bottom: 1px solid var(--color-line); }
+.tool-list > a > span { color: var(--color-brand); font: 700 13px/1 var(--font-number); }
+.tool-list h2 { margin: 0 0 8px; font-size: 19px; }
+.tool-list p { margin: 0; color: var(--color-muted); font-size: 12px; }
+.tool-list i { color: var(--color-muted); font-style: normal; }
+.tool-list > a:hover h2, .tool-list > a:hover i { color: var(--color-brand); }
+
+.swiss-calculator-page .back-link { display: block; width: fit-content; margin-bottom: 17px; color: var(--color-muted); font-size: 11px; }
+.swiss-calculator-page .back-link:hover { color: var(--color-brand); }
+.swiss-calculator-layout { display: grid; grid-template-columns: minmax(280px, .72fr) minmax(0, 1.28fr); gap: 54px; padding: 36px 0 70px; }
+.calculator-panel { min-width: 0; padding-top: 20px; border-top: 1px solid var(--color-line-strong); }
+.calculator-panel-heading { margin-bottom: 22px; }
+.calculator-panel-heading h2 { margin: 0 0 8px; font-size: 20px; }
+.calculator-panel-heading p { margin: 0; color: var(--color-muted); font-size: 11px; line-height: 1.6; }
+.calculator-form { max-width: 420px; }
+.calculator-result-summary { display: grid; grid-template-columns: max-content max-content; align-items: baseline; justify-content: start; gap: 8px 12px; padding: 0 0 20px; border-bottom: 1px solid var(--color-line); }
+.calculator-result-summary span { color: var(--color-muted); font-size: 12px; }
+.calculator-result-summary strong { color: var(--color-brand); font: 700 28px/1 var(--font-number); }
+.calculator-result-summary p { grid-column: 1 / -1; margin: 3px 0 0; font-size: 13px; }
+.calculator-case-group { margin-top: 26px; }
+.calculator-case-group h3 { margin: 0 0 11px; font-size: 15px; }
+.calculator-result-table-wrap { overflow-x: auto; }
+.calculator-result-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
+.calculator-result-table th, .calculator-result-table td { padding: 11px 9px; border-bottom: 1px solid var(--color-line); text-align: center; }
+.calculator-result-table th { color: var(--color-muted); background: #f3f1ed; font-size: 10px; font-weight: 500; line-height: 1.45; }
+.calculator-result-table td { font-family: var(--font-number); font-weight: 700; }
+.calculator-result-table th:first-child, .calculator-result-table td:first-child { width: 58px; text-align: left; }
+.calculator-note { margin: 24px 0 0; color: var(--color-muted); font-size: 11px; line-height: 1.7; }
+
 @media (min-width: 681px) {
   .player-ranking-table th:first-child, .player-ranking-table td.player-ranking-rank { text-align: left; }
 }
@@ -1585,6 +1617,7 @@ input {
   .record-statistics div:nth-child(4) { border-left: 0; }
   .record-statistics div:nth-child(n+4) { border-top: 1px solid var(--color-line); }
   .admin-modules { grid-template-columns: 1fr 1fr; }
+  .swiss-calculator-layout { gap: 32px; }
   .player-ranking-details { grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 18px; }
   .player-ranking-details div:nth-child(5) { padding-left: 0; border-left: 0; }
   .tournament-row { grid-template-columns: 82px minmax(180px, 1fr) 24px; }
@@ -1638,6 +1671,8 @@ input {
     font-size: 13px;
     white-space: nowrap;
   }
+  .nav-label-full { display: none; }
+  .nav-label-mobile { display: inline; }
   .nav-link::after { top: -1px; bottom: auto; }
   .has-dot::before { top: 13px; right: calc(50% - 22px); }
   .unread-badge { top: 7px; right: calc(50% - 29px); }
@@ -1758,6 +1793,18 @@ input {
   .my-tournament-row dl { grid-template-columns: 1fr; }
   .my-tournament-row dl div { padding-bottom: 10px; border-bottom: 1px solid var(--color-line); }
   .audit-row { grid-template-columns: 1fr; gap: 8px; }
+  .tool-list { padding-top: 28px; }
+  .tool-list > a { min-height: 96px; grid-template-columns: 34px minmax(0, 1fr) 18px; gap: 10px; padding-right: 2px; }
+  .tool-list h2 { font-size: 16px; }
+  .swiss-calculator-layout { grid-template-columns: 1fr; gap: 42px; padding-top: 28px; }
+  .calculator-form { max-width: none; }
+  .calculator-form .form-actions, .calculator-form .button { width: 100%; }
+  .calculator-result-summary strong { font-size: 24px; }
+  .calculator-result-table-wrap { overflow-x: visible; }
+  .calculator-result-table { font-size: 11px; }
+  .calculator-result-table th, .calculator-result-table td { padding: 10px 4px; }
+  .calculator-result-table th:first-child, .calculator-result-table td:first-child { width: 42px; padding-left: 0; }
+  .calculator-result-table th:last-child, .calculator-result-table td:last-child { padding-right: 0; }
   .player-ranking-search { align-items: stretch; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; }
   .player-ranking-search input { width: 100%; min-width: 0; }
   .player-ranking-search .button { padding-right: 12px; padding-left: 12px; }
