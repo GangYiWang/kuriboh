@@ -1557,6 +1557,10 @@ input {
 .player-ranking-details dt { color: var(--color-muted); font-size: 10px; }
 .player-ranking-details dd { margin: 7px 0 0; font: 700 14px/1.2 var(--font-number); }
 
+@media (min-width: 681px) {
+  .player-ranking-table th:first-child, .player-ranking-table td.player-ranking-rank { text-align: left; }
+}
+
 .footer-inner {
   min-height: 58px;
   display: flex;
