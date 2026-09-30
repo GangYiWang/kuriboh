@@ -140,7 +140,7 @@ onMounted(() => load().catch((caught) => { error.value = caught instanceof Error
 <template>
   <div class="page-shell admin-page">
     <header class="page-heading split-heading">
-      <div><p class="section-kicker">TOURNAMENT MANAGEMENT</p><h1>赛事管理</h1><p>创建并发布赛事，进入报名审核与赛事运营。</p></div>
+      <div><h1>赛事管理</h1><p>创建并发布赛事，进入报名审核与赛事运营。</p></div>
       <button class="button primary" type="button" aria-controls="create-tournament-form" :aria-expanded="isCreateOpen" :disabled="isCreateOpen" @click="openCreatePanel">创建赛事</button>
     </header>
     <FormMessage v-if="message" type="success" :message="message" />
