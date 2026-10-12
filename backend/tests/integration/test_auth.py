@@ -243,6 +243,38 @@ def test_legacy_qq_account_can_still_login(client, make_user) -> None:
     assert response.json()["user"]["qq_number"] == "12345678"
 
 
+def test_inactive_user_cannot_login_reset_password_or_use_existing_token(
+    client,
+    make_user,
+) -> None:
+    _, access_token = make_user(
+        qq_number="12345679",
+        nickname="停用账号",
+        active=False,
+    )
+
+    login = client.post(
+        "/api/auth/login",
+        json={"identifier": "12345679", "password": "password123"},
+    )
+    profile = client.get(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    reset = client.post(
+        "/api/auth/reset-password",
+        json={
+            "identifier": "12345679",
+            "new_password": "reset456",
+            "confirm_password": "reset456",
+        },
+    )
+
+    for response in (login, profile, reset):
+        assert response.status_code == 403
+        assert response.json()["code"] == "ACCOUNT_INACTIVE"
+
+
 def test_unbound_qq_flow_never_creates_a_second_account(client, make_user, session_factory: sessionmaker[Session]) -> None:
     user, access_token = make_user()
     binding_token = create_token("openid-not-yet-bound", token_type="qq_binding", expires_minutes=10)

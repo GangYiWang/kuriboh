@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, Index, String, text
+from sqlalchemy import Boolean, CheckConstraint, Index, String, text, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.auth.roles import Role
@@ -42,6 +42,12 @@ class User(TimestampMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     qq_openid: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True)
     role: Mapped[str] = mapped_column(String(32), nullable=False, default=Role.USER.value)
+    active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=true(),
+    )
 
     banlist_versions: Mapped[list[BanlistVersion]] = relationship(back_populates="created_by")
     announcements: Mapped[list[Announcement]] = relationship(back_populates="author")

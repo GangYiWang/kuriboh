@@ -37,6 +37,8 @@ def get_current_user(
     user = db.get(User, user_id)
     if user is None:
         raise AppError("INVALID_TOKEN", "登录账号不存在", status_code=401)
+    if not user.active:
+        raise AppError("ACCOUNT_INACTIVE", "账号已停用", status_code=403)
     return user
 
 

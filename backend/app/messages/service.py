@@ -49,9 +49,15 @@ class MessageService:
         self, tournament_id: UUID, *, title: str, body: str, request_id: UUID, operator_id: UUID,
     ) -> MessageSendResponse:
         tournament = TournamentService(self.db).require(tournament_id, for_update=True)
-        recipient_ids = list(self.db.scalars(select(TournamentParticipant.user_id).where(
-            TournamentParticipant.tournament_id == tournament_id,
-        ).order_by(TournamentParticipant.user_id)))
+        recipient_ids = list(self.db.scalars(
+            select(TournamentParticipant.user_id)
+            .join(User, User.id == TournamentParticipant.user_id)
+            .where(
+                TournamentParticipant.tournament_id == tournament_id,
+                User.active.is_(True),
+            )
+            .order_by(TournamentParticipant.user_id)
+        ))
         if not recipient_ids:
             raise AppError("NO_TOURNAMENT_PARTICIPANTS", "赛事尚无正式参赛玩家", status_code=409)
         return self._send_batch(
@@ -72,7 +78,9 @@ class MessageService:
     def send_platform_notice(
         self, *, title: str, body: str, request_id: UUID, operator_id: UUID,
     ) -> MessageSendResponse:
-        recipient_ids = list(self.db.scalars(select(User.id).order_by(User.id)))
+        recipient_ids = list(self.db.scalars(
+            select(User.id).where(User.active.is_(True)).order_by(User.id)
+        ))
         return self._send_batch(
             recipient_ids=recipient_ids,
             message_type=MessageType.PLATFORM_NOTICE,
@@ -155,6 +163,8 @@ def add_automatic_message(
     related_id: UUID,
     dedupe_key: str,
 ) -> None:
+    if db.scalar(select(User.active).where(User.id == recipient_id)) is not True:
+        return
     if MessageRepository(db).has_dedupe_key(dedupe_key):
         return
     db.add(Message(

@@ -64,6 +64,11 @@ def test_player_rankings_include_all_users_and_keep_global_rank_when_searching(
     leader, _ = make_user(qq_number="ranking-leader", nickname="积分领先者")
     champion, _ = make_user(qq_number="ranking-champion", nickname="Flask")
     make_user(qq_number="ranking-zero", nickname="零积分玩家")
+    inactive, _ = make_user(
+        qq_number="ranking-inactive",
+        nickname="停用高分玩家",
+        active=False,
+    )
     add_statistics(
         session_factory,
         leader.id,
@@ -87,6 +92,14 @@ def test_player_rankings_include_all_users_and_keep_global_rank_when_searching(
         byes=1,
         tournaments=1,
     )
+    add_statistics(
+        session_factory,
+        inactive.id,
+        points=100,
+        champions=10,
+        wins=20,
+        tournaments=10,
+    )
 
     response = client.get(
         "/api/admin/player-rankings?offset=0&limit=20",
@@ -98,6 +111,7 @@ def test_player_rankings_include_all_users_and_keep_global_rank_when_searching(
     assert body["total"] == 4
     assert [item["nickname"] for item in body["items"][:2]] == ["积分领先者", "Flask"]
     assert [item["rank"] for item in body["items"]] == [1, 2, 3, 4]
+    assert "停用高分玩家" not in {item["nickname"] for item in body["items"]}
     flask = body["items"][1]
     assert flask["champion_count"] == 1
     assert flask["total_points"] == 3

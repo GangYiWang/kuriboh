@@ -165,6 +165,7 @@ class TournamentStatisticsService:
             )
             .select_from(User)
             .outerjoin(PlayerStatistics, PlayerStatistics.user_id == User.id)
+            .where(User.active.is_(True))
             .subquery()
         )
         ranking_order = (

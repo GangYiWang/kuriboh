@@ -66,6 +66,7 @@ class AuthService:
         user = self.users.get_by_identifier(request.identifier)
         if user is None:
             raise AppError("ACCOUNT_NOT_FOUND", "账号不存在", status_code=404)
+        self._require_active(user)
         user.password_hash = hash_password(request.new_password)
         self.db.commit()
 
@@ -93,7 +94,13 @@ class AuthService:
         return user
 
     def _token_response(self, user: User) -> TokenResponse:
+        self._require_active(user)
         return TokenResponse(access_token=create_token(str(user.id)), user=user_response(user))
+
+    @staticmethod
+    def _require_active(user: User) -> None:
+        if not user.active:
+            raise AppError("ACCOUNT_INACTIVE", "账号已停用", status_code=403)
 
 
 class QqOAuthService:

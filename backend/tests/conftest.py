@@ -64,6 +64,7 @@ def make_user(session_factory: sessionmaker[Session]):
         password: str = "password123",
         role: Role = Role.USER,
         qq_openid: str | None = None,
+        active: bool = True,
     ) -> tuple[User, str]:
         with session_factory() as db:
             user = User(
@@ -73,6 +74,7 @@ def make_user(session_factory: sessionmaker[Session]):
                 password_hash=hash_password(password),
                 role=role.value,
                 qq_openid=qq_openid,
+                active=active,
             )
             db.add(user)
             db.commit()

@@ -1,8 +1,11 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from sqlalchemy import func, select
+
 from app.auth.roles import Role
 from app.content.models import BanlistVersion
+from app.messages.models import Message
 
 
 def auth(token: str) -> dict[str, str]:
@@ -127,11 +130,16 @@ def test_phase6_messages_my_tournaments_audit_and_deduplication(client, make_use
     ).status_code == 403
 
 
-def test_platform_notice_targets_registered_accounts(client, make_user) -> None:
+def test_platform_notice_targets_registered_accounts(client, make_user, session_factory) -> None:
     _, admin_token = make_user(
         qq_number="96000100", nickname="平台通知管理员", role=Role.PLATFORM_ADMIN
     )
     _, player_token = make_user(qq_number="96000101", nickname="平台通知选手")
+    inactive, _ = make_user(
+        qq_number="96000102",
+        nickname="停用通知账号",
+        active=False,
+    )
     response = client.post("/api/admin/messages/platform", headers=auth(admin_token), json={
         "title": "平台维护通知",
         "body": "今晚进行短时维护。",
@@ -141,3 +149,11 @@ def test_platform_notice_targets_registered_accounts(client, make_user) -> None:
     assert response.json()["sent_count"] == 2
     player_messages = client.get("/api/messages", headers=auth(player_token)).json()
     assert player_messages["items"][0]["type"] == "PLATFORM_NOTICE"
+
+    with session_factory() as db:
+        inactive_message_count = db.scalar(
+            select(func.count())
+            .select_from(Message)
+            .where(Message.recipient_id == inactive.id)
+        )
+    assert inactive_message_count == 0
